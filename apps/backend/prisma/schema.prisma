@@ -1,0 +1,191 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  WARDEN
+  STUDENT
+  STAFF
+}
+
+enum StaffType {
+  SECURITY
+  LAUNDRY
+  MAINTENANCE
+  ELECTRICIAN
+  PLUMBER
+  CLEANING
+  MESS
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ComplaintPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ComplaintStatus {
+  PENDING
+  ASSIGNED
+  RESOLVED
+}
+
+model Hostel {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  collegeName String
+  address     String
+  capacity    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  rooms       Room[]
+  complaints  Complaint[]
+  laundrySlots LaundrySlot[]
+  messMenus    MessMenu[]
+  visitors    Visitor[]
+}
+
+model User {
+  id              String         @id @default(uuid())
+  email           String         @unique
+  passwordHash    String
+  fullName        String
+  mobileNumber    String
+  role            Role
+  status          ApprovalStatus @default(PENDING)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Student specific fields
+  collegeName    String?
+  department     String?
+  year           String?
+  registerNumber String?
+  gender         String?
+  parentName     String?
+  parentMobile   String?
+  emergencyContact String?
+  address        String?
+
+  // Warden / Staff fields
+  qualification  String?
+  experience     String?
+  staffType      StaffType?
+
+  hostelId        String?
+  hostel          Hostel?        @relation(fields: [hostelId], references: [id])
+
+  roomId          String?
+  room            Room?          @relation(fields: [roomId], references: [id])
+
+  // Relations
+  attendances     Attendance[]
+  leaves          Leave[]
+  complaintsRaised Complaint[]   @relation("StudentComplaints")
+  complaintsAssigned Complaint[]  @relation("StaffComplaints")
+  laundryBookings LaundrySlot[]
+  visitors        Visitor[]
+}
+
+model Room {
+  id         String   @id @default(uuid())
+  block      String
+  floor      Int
+  roomNumber String
+  capacity   Int
+  hostelId   String
+  hostel     Hostel   @relation(fields: [hostelId], references: [id])
+
+  users      User[]
+
+  @@unique([hostelId, block, floor, roomNumber])
+}
+
+model Attendance {
+  id        String   @id @default(uuid())
+  date      DateTime @default(now())
+  isPresent Boolean
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Leave {
+  id         String         @id @default(uuid())
+  startDate  DateTime
+  endDate    DateTime
+  reason     String
+  status     ApprovalStatus @default(PENDING)
+  userId     String
+  user       User           @relation(fields: [userId], references: [id])
+  createdAt  DateTime       @default(now())
+}
+
+model Complaint {
+  id          String            @id @default(uuid())
+  title       String
+  description String
+  category    String
+  priority    ComplaintPriority @default(MEDIUM)
+  status      ComplaintStatus   @default(PENDING)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  hostelId    String
+  hostel      Hostel            @relation(fields: [hostelId], references: [id])
+
+  studentId   String
+  student     User              @relation("StudentComplaints", fields: [studentId], references: [id])
+
+  staffId     String?
+  staff       User?             @relation("StaffComplaints", fields: [staffId], references: [id])
+}
+
+model LaundrySlot {
+  id        String   @id @default(uuid())
+  date      DateTime
+  timeSlot  String
+  status    String   @default("BOOKED") // BOOKED, COMPLETED, CANCELLED
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  hostelId  String
+  hostel    Hostel   @relation(fields: [hostelId], references: [id])
+}
+
+model MessMenu {
+  id        String   @id @default(uuid())
+  dayOfWeek String   // Monday, Tuesday, etc.
+  breakfast String
+  lunch     String
+  dinner    String
+  hostelId  String
+  hostel    Hostel   @relation(fields: [hostelId], references: [id])
+}
+
+model Visitor {
+  id           String         @id @default(uuid())
+  name         String
+  purpose      String
+  visitDate    DateTime
+  status       ApprovalStatus @default(PENDING)
+  hostelId     String
+  hostel       Hostel         @relation(fields: [hostelId], references: [id])
+  studentId    String
+  student      User           @relation(fields: [studentId], references: [id])
+  checkInTime  DateTime?
+  checkOutTime DateTime?
+}
