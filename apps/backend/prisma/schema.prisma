@@ -1,5 +1,5 @@
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
@@ -43,7 +43,7 @@ enum ComplaintStatus {
 }
 
 model Hostel {
-  id          String   @id @default(uuid())
+  id          String   @id @default(uuid()) @map("_id")
   name        String
   code        String   @unique
   collegeName String
@@ -61,7 +61,7 @@ model Hostel {
 }
 
 model User {
-  id              String         @id @default(uuid())
+  id              String         @id @default(uuid()) @map("_id")
   email           String         @unique
   passwordHash    String
   fullName        String
@@ -70,6 +70,7 @@ model User {
   status          ApprovalStatus @default(PENDING)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+  qrToken         String?        @unique
 
   // Student specific fields
   collegeName    String?
@@ -103,7 +104,7 @@ model User {
 }
 
 model Room {
-  id         String   @id @default(uuid())
+  id         String   @id @default(uuid()) @map("_id")
   block      String
   floor      Int
   roomNumber String
@@ -117,46 +118,58 @@ model Room {
 }
 
 model Attendance {
-  id        String   @id @default(uuid())
-  date      DateTime @default(now())
-  isPresent Boolean
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  id             String    @id @default(uuid()) @map("_id")
+  date           DateTime  @default(now())
+  isPresent      Boolean
+  checkInTime    DateTime?
+  checkOutTime   DateTime?
+  userId         String
+  user           User      @relation(fields: [userId], references: [id])
+  hostelId       String?
+  roomNumber     String?
+  session        String?
+  status         String?   // e.g. "PRESENT", "ABSENT", "LATE"
+  scannedBy      String?   // Name/ID of admin/warden
+  scannerDevice  String?
+  qrVerification String?   // "VERIFIED", "FAILED"
 }
 
 model Leave {
-  id         String         @id @default(uuid())
+  id         String         @id @default(uuid()) @map("_id")
   startDate  DateTime
   endDate    DateTime
   reason     String
   status     ApprovalStatus @default(PENDING)
+  remarks    String?
   userId     String
   user       User           @relation(fields: [userId], references: [id])
   createdAt  DateTime       @default(now())
 }
 
 model Complaint {
-  id          String            @id @default(uuid())
-  title       String
-  description String
-  category    String
-  priority    ComplaintPriority @default(MEDIUM)
-  status      ComplaintStatus   @default(PENDING)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  id              String            @id @default(uuid()) @map("_id")
+  title           String
+  description     String
+  category        String
+  priority        ComplaintPriority @default(MEDIUM)
+  status          ComplaintStatus   @default(PENDING)
+  resolutionImage String?
+  studentFeedback String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
-  hostelId    String
-  hostel      Hostel            @relation(fields: [hostelId], references: [id])
+  hostelId        String
+  hostel          Hostel            @relation(fields: [hostelId], references: [id])
 
-  studentId   String
-  student     User              @relation("StudentComplaints", fields: [studentId], references: [id])
+  studentId       String
+  student         User              @relation("StudentComplaints", fields: [studentId], references: [id])
 
-  staffId     String?
-  staff       User?             @relation("StaffComplaints", fields: [staffId], references: [id])
+  staffId         String?
+  staff           User?             @relation("StaffComplaints", fields: [staffId], references: [id])
 }
 
 model LaundrySlot {
-  id        String   @id @default(uuid())
+  id        String   @id @default(uuid()) @map("_id")
   date      DateTime
   timeSlot  String
   status    String   @default("BOOKED") // BOOKED, COMPLETED, CANCELLED
@@ -167,7 +180,7 @@ model LaundrySlot {
 }
 
 model MessMenu {
-  id        String   @id @default(uuid())
+  id        String   @id @default(uuid()) @map("_id")
   dayOfWeek String   // Monday, Tuesday, etc.
   breakfast String
   lunch     String
@@ -177,15 +190,39 @@ model MessMenu {
 }
 
 model Visitor {
-  id           String         @id @default(uuid())
-  name         String
-  purpose      String
-  visitDate    DateTime
-  status       ApprovalStatus @default(PENDING)
-  hostelId     String
-  hostel       Hostel         @relation(fields: [hostelId], references: [id])
-  studentId    String
-  student      User           @relation(fields: [studentId], references: [id])
-  checkInTime  DateTime?
-  checkOutTime DateTime?
+  id                  String         @id @default(uuid()) @map("_id")
+  name                String
+  purpose             String
+  visitDate           DateTime
+  status              ApprovalStatus @default(PENDING)
+  expectedArrivalTime DateTime?
+  exitTime            DateTime?
+  hostelId            String
+  hostel              Hostel         @relation(fields: [hostelId], references: [id])
+  studentId           String
+  student             User           @relation(fields: [studentId], references: [id])
+  checkInTime         DateTime?
+  checkOutTime        DateTime?
+}
+
+model AttendanceSettings {
+  id                    String    @id @default(uuid()) @map("_id")
+  enableQrAttendance    Boolean   @default(true)
+  autoDateDetection     Boolean   @default(true)
+  manualDateMode        Boolean   @default(false)
+  manualDate            DateTime?
+  manualSession         String?
+  allowMultipleSessions Boolean   @default(false)
+  enableCheckIn         Boolean   @default(true)
+  enableCheckOut        Boolean   @default(true)
+  timeWindow            Int       @default(60)
+  cameraResolution      String    @default("720p")
+  scanDelay             Int       @default(2)
+  notificationsEnabled  Boolean   @default(true)
+}
+
+model AttendanceSession {
+  id        String   @id @default(uuid()) @map("_id")
+  name      String   @unique
+  isActive  Boolean  @default(true)
 }

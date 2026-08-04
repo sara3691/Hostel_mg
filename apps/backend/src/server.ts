@@ -10,7 +10,13 @@ import { authMiddleware, requireRole, AuthRequest } from './core/auth.middleware
 const app = express();
 
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -187,9 +193,13 @@ app.get('/api/admin/pending-approvals', authMiddleware, requireRole(['SUPER_ADMI
 app.post('/api/admin/approve-user', authMiddleware, requireRole(['SUPER_ADMIN', 'WARDEN']), async (req, res) => {
   const { userId } = req.body;
   try {
+    const qrToken = `qr-student-${userId}-${Math.random().toString(36).substring(2, 10)}`;
     await prisma.user.update({
       where: { id: userId },
-      data: { status: 'APPROVED' }
+      data: { 
+        status: 'APPROVED',
+        qrToken
+      }
     });
     res.json({ success: true, message: 'User registration approved' });
   } catch (err: any) {
@@ -307,11 +317,13 @@ app.post('/api/complaints', authMiddleware, async (req: AuthRequest, res) => {
 
 app.patch('/api/complaints/:id', authMiddleware, async (req: AuthRequest, res) => {
   const { id } = req.params;
-  const { status, staffId } = req.body;
+  const { status, staffId, resolutionImage, studentFeedback } = req.body;
   try {
     const data: any = {};
     if (status) data.status = status;
     if (staffId) data.staffId = staffId;
+    if (resolutionImage !== undefined) data.resolutionImage = resolutionImage;
+    if (studentFeedback !== undefined) data.studentFeedback = studentFeedback;
 
     const updated = await prisma.complaint.update({
       where: { id },
@@ -340,7 +352,7 @@ app.get('/api/visitors', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 app.post('/api/visitors', authMiddleware, async (req: AuthRequest, res) => {
-  const { name, purpose, visitDate } = req.body;
+  const { name, purpose, visitDate, expectedArrivalTime } = req.body;
   if (!req.user || !req.user.hostelId) {
     res.status(400).json({ success: false, error: 'Student must belong to a hostel to request a visitor' });
     return;
@@ -351,6 +363,7 @@ app.post('/api/visitors', authMiddleware, async (req: AuthRequest, res) => {
         name,
         purpose,
         visitDate: new Date(visitDate),
+        expectedArrivalTime: expectedArrivalTime ? new Date(expectedArrivalTime) : null,
         studentId: req.user.id,
         hostelId: req.user.hostelId
       }
@@ -361,7 +374,580 @@ app.post('/api/visitors', authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
+app.patch('/api/visitors/:id', authMiddleware, requireRole(['WARDEN', 'SUPER_ADMIN']), async (req, res) => {
+  const { id } = req.params;
+  const { status, checkInTime, checkOutTime, exitTime } = req.body;
+  try {
+    const data: any = {};
+    if (status) data.status = status;
+    if (checkInTime) data.checkInTime = new Date(checkInTime);
+    if (checkOutTime || exitTime) data.checkOutTime = checkOutTime ? new Date(checkOutTime) : new Date(exitTime);
+
+    const updated = await prisma.visitor.update({
+      where: { id },
+      data
+    });
+    res.json({ success: true, data: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- Attendance Endpoints ---
+app.post('/api/attendance/check-in', authMiddleware, async (req: AuthRequest, res) => {
+  if (!req.user || req.user.role !== 'STUDENT') {
+    res.status(403).json({ success: false, error: 'Only students can check in via QR' });
+    return;
+  }
+  const { hostelId } = req.body;
+  if (!hostelId) {
+    res.status(400).json({ success: false, error: 'Hostel ID is required' });
+    return;
+  }
+
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Find if already checked in today
+    let attendance = await prisma.attendance.findFirst({
+      where: {
+        userId: req.user.id,
+        date: {
+          gte: today,
+          lt: tomorrow
+        }
+      }
+    });
+
+    if (attendance) {
+      attendance = await prisma.attendance.update({
+        where: { id: attendance.id },
+        data: {
+          isPresent: true,
+          checkInTime: new Date()
+        }
+      });
+    } else {
+      attendance = await prisma.attendance.create({
+        data: {
+          userId: req.user.id,
+          isPresent: true,
+          checkInTime: new Date(),
+          date: new Date()
+        }
+      });
+    }
+
+    res.json({ success: true, message: 'Check-in recorded successfully!', data: attendance });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/attendance/check-out', authMiddleware, async (req: AuthRequest, res) => {
+  if (!req.user || req.user.role !== 'STUDENT') {
+    res.status(403).json({ success: false, error: 'Only students can check out' });
+    return;
+  }
+
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    let attendance = await prisma.attendance.findFirst({
+      where: {
+        userId: req.user.id,
+        date: {
+          gte: today,
+          lt: tomorrow
+        }
+      }
+    });
+
+    if (attendance) {
+      attendance = await prisma.attendance.update({
+        where: { id: attendance.id },
+        data: {
+          checkOutTime: new Date()
+        }
+      });
+    } else {
+      attendance = await prisma.attendance.create({
+        data: {
+          userId: req.user.id,
+          isPresent: true,
+          checkOutTime: new Date(),
+          date: new Date()
+        }
+      });
+    }
+
+    res.json({ success: true, message: 'Check-out recorded successfully!', data: attendance });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/attendance/history', authMiddleware, async (req: AuthRequest, res) => {
+  if (!req.user) {
+    res.status(401).json({ success: false, error: 'Not authenticated' });
+    return;
+  }
+
+  try {
+    const where: any = {};
+    if (req.user.role === 'STUDENT') {
+      where.userId = req.user.id;
+    } else if (req.user.role === 'WARDEN' && req.user.hostelId) {
+      where.user = { hostelId: req.user.hostelId };
+    }
+    
+    const history = await prisma.attendance.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            fullName: true,
+            email: true,
+            role: true,
+            hostelId: true
+          }
+        }
+      },
+      orderBy: { date: 'desc' }
+    });
+
+    res.json({ success: true, data: history });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/attendance/manual', authMiddleware, requireRole(['WARDEN', 'SUPER_ADMIN']), async (req: AuthRequest, res) => {
+  const { studentId, date, isPresent } = req.body;
+  if (!studentId) {
+    res.status(400).json({ success: false, error: 'Student ID is required' });
+    return;
+  }
+
+  try {
+    const parsedDate = date ? new Date(date) : new Date();
+    parsedDate.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(parsedDate);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    let attendance = await prisma.attendance.findFirst({
+      where: {
+        userId: studentId,
+        date: {
+          gte: parsedDate,
+          lt: tomorrow
+        }
+      }
+    });
+
+    if (attendance) {
+      attendance = await prisma.attendance.update({
+        where: { id: attendance.id },
+        data: { isPresent: Boolean(isPresent) }
+      });
+    } else {
+      attendance = await prisma.attendance.create({
+        data: {
+          userId: studentId,
+          isPresent: Boolean(isPresent),
+          date: parsedDate
+        }
+      });
+    }
+
+    res.json({ success: true, message: 'Attendance marked manually!', data: attendance });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/attendance/stats', authMiddleware, async (req: AuthRequest, res) => {
+  if (!req.user) {
+    res.status(401).json({ success: false, error: 'Not authenticated' });
+    return;
+  }
+
+  try {
+    const where: any = {};
+    if (req.user.role === 'STUDENT') {
+      where.userId = req.user.id;
+    } else if (req.user.role === 'WARDEN' && req.user.hostelId) {
+      where.user = { hostelId: req.user.hostelId };
+    }
+
+    const total = await prisma.attendance.count({ where });
+    const present = await prisma.attendance.count({
+      where: {
+        ...where,
+        isPresent: true
+      }
+    });
+
+    const percentage = total > 0 ? Math.round((present / total) * 100) : 100;
+    res.json({
+      success: true,
+      data: {
+        total,
+        present,
+        absent: total - present,
+        percentage
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- Leave Management Endpoints ---
+app.post('/api/leaves', authMiddleware, async (req: AuthRequest, res) => {
+  if (!req.user || req.user.role !== 'STUDENT') {
+    res.status(403).json({ success: false, error: 'Only students can apply for leaves' });
+    return;
+  }
+  const { startDate, endDate, reason } = req.body;
+  if (!startDate || !endDate || !reason) {
+    res.status(400).json({ success: false, error: 'Start date, end date, and reason are required' });
+    return;
+  }
+
+  try {
+    const leave = await prisma.leave.create({
+      data: {
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        reason,
+        userId: req.user.id,
+        status: 'PENDING'
+      }
+    });
+
+    res.status(201).json({ success: true, message: 'Leave request submitted successfully!', data: leave });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/leaves', authMiddleware, async (req: AuthRequest, res) => {
+  if (!req.user) {
+    res.status(401).json({ success: false, error: 'Not authenticated' });
+    return;
+  }
+
+  try {
+    const where: any = {};
+    if (req.user.role === 'STUDENT') {
+      where.userId = req.user.id;
+    } else if (req.user.role === 'WARDEN' && req.user.hostelId) {
+      where.user = { hostelId: req.user.hostelId };
+    }
+
+    const leaves = await prisma.leave.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            fullName: true,
+            email: true,
+            role: true,
+            hostelId: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({ success: true, data: leaves });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.patch('/api/leaves/:id', authMiddleware, requireRole(['WARDEN', 'SUPER_ADMIN']), async (req: AuthRequest, res) => {
+  const { id } = req.params;
+  const { status, remarks } = req.body;
+  if (!status || !['APPROVED', 'REJECTED'].includes(status)) {
+    res.status(400).json({ success: false, error: 'Invalid status. Must be APPROVED or REJECTED.' });
+    return;
+  }
+
+  try {
+    const leave = await prisma.leave.update({
+      where: { id },
+      data: { status, remarks }
+    });
+
+    res.json({ success: true, message: `Leave request ${status.toLowerCase()} successfully!`, data: leave });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/leaves/:id', authMiddleware, async (req: AuthRequest, res) => {
+  const { id } = req.params;
+  try {
+    const leave = await prisma.leave.findUnique({ where: { id } });
+    if (!leave) {
+      res.status(404).json({ success: false, error: 'Leave request not found' });
+      return;
+    }
+
+    if (leave.userId !== req.user?.id && req.user?.role !== 'SUPER_ADMIN') {
+      res.status(403).json({ success: false, error: 'Unauthorized to cancel this leave request' });
+      return;
+    }
+
+    if (leave.status !== 'PENDING') {
+      res.status(400).json({ success: false, error: 'Cannot cancel a leave request that has already been processed' });
+      return;
+    }
+
+    await prisma.leave.delete({ where: { id } });
+    res.json({ success: true, message: 'Leave request cancelled successfully!' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// QR ATTENDANCE SYSTEM ENHANCEMENTS
+// ----------------------------------------------------
+
+// 1. Get current Attendance Settings
+app.get('/api/attendance/settings', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    let settings = await prisma.attendanceSettings.findFirst();
+    if (!settings) {
+      settings = await prisma.attendanceSettings.create({
+        data: {
+          enableQrAttendance: true,
+          autoDateDetection: true,
+          manualDateMode: false,
+          allowMultipleSessions: false,
+          enableCheckIn: true,
+          enableCheckOut: true,
+          timeWindow: 60,
+          cameraResolution: "720p",
+          scanDelay: 2,
+          notificationsEnabled: true
+        }
+      });
+    }
+    res.json({ success: true, data: settings });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. Update Attendance Settings
+app.patch('/api/attendance/settings', authMiddleware, requireRole(['WARDEN', 'SUPER_ADMIN']), async (req, res) => {
+  try {
+    const existing = await prisma.attendanceSettings.findFirst();
+    if (!existing) {
+      const created = await prisma.attendanceSettings.create({ data: req.body });
+      res.json({ success: true, data: created });
+      return;
+    }
+    const updated = await prisma.attendanceSettings.update({
+      where: { id: existing.id },
+      data: req.body
+    });
+    res.json({ success: true, data: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. Get Attendance Sessions
+app.get('/api/attendance/sessions', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const sessions = await prisma.attendanceSession.findMany();
+    res.json({ success: true, data: sessions });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 4. Create Session
+app.post('/api/attendance/sessions', authMiddleware, requireRole(['SUPER_ADMIN']), async (req, res) => {
+  const { name, isActive } = req.body;
+  try {
+    const session = await prisma.attendanceSession.create({
+      data: { name, isActive: isActive ?? true }
+    });
+    res.json({ success: true, data: session });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 5. Update Session
+app.patch('/api/attendance/sessions/:id', authMiddleware, requireRole(['SUPER_ADMIN']), async (req, res) => {
+  const { id } = req.params;
+  const { name, isActive } = req.body;
+  try {
+    const session = await prisma.attendanceSession.update({
+      where: { id },
+      data: { name, isActive }
+    });
+    res.json({ success: true, data: session });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 6. Delete Session
+app.delete('/api/attendance/sessions/:id', authMiddleware, requireRole(['SUPER_ADMIN']), async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.attendanceSession.delete({ where: { id } });
+    res.json({ success: true, message: 'Session deleted successfully' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 7. Scan QR Token & Mark Attendance
+app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['WARDEN', 'SUPER_ADMIN']), async (req: AuthRequest, res) => {
+  const { qrToken, device } = req.body;
+  if (!qrToken) {
+    res.status(400).json({ success: false, error: 'QR Token is required' });
+    return;
+  }
+
+  try {
+    // Find Student
+    const student = await prisma.user.findFirst({
+      where: { qrToken },
+      include: { hostel: true, room: true }
+    });
+
+    if (!student) {
+      res.status(404).json({ success: false, error: 'Invalid or unrecognized QR Code' });
+      return;
+    }
+
+    if (student.status !== 'APPROVED') {
+      res.status(400).json({ success: false, error: `Student status is ${student.status.toLowerCase()}. Cannot mark attendance.` });
+      return;
+    }
+
+    if (student.role !== 'STUDENT') {
+      res.status(400).json({ success: false, error: 'Only student accounts can be scanned for attendance.' });
+      return;
+    }
+
+    // Load configurations
+    const settings = await prisma.attendanceSettings.findFirst() || {
+      enableQrAttendance: true,
+      autoDateDetection: true,
+      manualDateMode: false,
+      manualDate: null,
+      manualSession: null
+    };
+
+    if (!settings.enableQrAttendance) {
+      res.status(400).json({ success: false, error: 'QR Attendance System is currently disabled in system settings.' });
+      return;
+    }
+
+    // Determine target date and session
+    let targetDate = new Date();
+    let targetSession = 'Morning';
+
+    if (settings.manualDateMode && settings.manualDate) {
+      targetDate = new Date(settings.manualDate);
+      targetSession = settings.manualSession || 'Morning';
+    } else {
+      // Auto-detect based on current local hour
+      const hour = new Date().getHours();
+      if (hour >= 5 && hour < 12) targetSession = 'Morning';
+      else if (hour >= 12 && hour < 17) targetSession = 'Afternoon';
+      else if (hour >= 17 && hour < 21) targetSession = 'Evening';
+      else targetSession = 'Night';
+    }
+
+    // Start of day and end of day boundary for search comparison
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Check for duplicate scan in the exact same date and session
+    const existing = await prisma.attendance.findFirst({
+      where: {
+        userId: student.id,
+        session: targetSession,
+        date: {
+          gte: startOfDay,
+          lte: endOfDay
+        }
+      }
+    });
+
+    if (existing) {
+      res.json({
+        success: false,
+        status: 'ALREADY_MARKED',
+        message: 'Attendance Already Marked',
+        student: {
+          id: student.id,
+          fullName: student.fullName,
+          registerNumber: student.registerNumber || 'N/A',
+          hostelName: student.hostel?.name || 'N/A',
+          roomNumber: student.room?.roomNumber || 'Unassigned',
+          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(student.fullName)}`
+        }
+      });
+      return;
+    }
+
+    // Record attendance
+    const attendance = await prisma.attendance.create({
+      data: {
+        userId: student.id,
+        date: targetDate,
+        isPresent: true,
+        checkInTime: new Date(),
+        hostelId: student.hostelId,
+        roomNumber: student.room?.roomNumber || 'N/A',
+        session: targetSession,
+        status: 'PRESENT',
+        scannedBy: req.user?.email || 'System',
+        scannerDevice: device || 'Webcam Viewfinder',
+        qrVerification: 'VERIFIED'
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Attendance marked successfully',
+      attendance,
+      student: {
+        id: student.id,
+        fullName: student.fullName,
+        registerNumber: student.registerNumber || 'N/A',
+        hostelName: student.hostel?.name || 'N/A',
+        roomNumber: student.room?.roomNumber || 'Unassigned',
+        avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(student.fullName)}`
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Listen on localhost
-const server = app.listen(config.PORT, '127.0.0.1', () => {
-  console.log(`🚀 SmartHostel AI server running at http://127.0.0.1:${config.PORT}`);
+const server = app.listen(config.PORT, '0.0.0.0', () => {
+  console.log(`🚀 SmartHostel AI server running at http://localhost:${config.PORT}`);
 });
