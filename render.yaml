@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: hostel-management-backend
+    runtime: node
+    plan: free
+    rootDir: apps/backend
+    buildCommand: npm run db:generate && npm run build
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false # User will set this in the Render Dashboard env config
+      - key: JWT_SECRET
+        sync: false # User will set this in the Render Dashboard env config
+      - key: PORT
+        value: 3000
