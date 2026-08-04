@@ -12,7 +12,17 @@ const app = express();
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
+    // Allow local development
     if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      return callback(null, true);
+    }
+    // Allow Vercel production and preview deployments
+    if (origin === 'https://hostel-mg.vercel.app' || origin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+    // Allow custom origins from environment variable
+    const allowed = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [];
+    if (allowed.includes(origin)) {
       return callback(null, true);
     }
     callback(new Error('Not allowed by CORS'));
