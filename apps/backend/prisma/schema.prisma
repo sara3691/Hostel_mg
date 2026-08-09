@@ -17,6 +17,7 @@ enum Role {
   ACCOUNTANT
   LAUNDRY
   STUDENT
+  WORKER
 }
 
 enum StaffType {
@@ -38,10 +39,16 @@ enum ComplaintPriority {
 enum ComplaintStatus {
   PENDING
   ASSIGNED
+  ACCEPTED
+  REJECTED
   IN_PROGRESS
+  COMPLETED
   RESOLVED
   VERIFIED
+  REOPENED
+  CANCELLED
 }
+
 
 enum RoomCategory {
   AC
@@ -107,6 +114,7 @@ model Hostel {
   leaves             Leave[]
   gatePasses         GatePass[]
   notices            Notice[]
+  emergencies        EmergencyAlert[]
 }
 
 model User {
@@ -157,7 +165,9 @@ model User {
   leaves             Leave[]
   complaintsRaised   Complaint[]      @relation("StudentComplaints")
   complaintsAssigned Complaint[]      @relation("StaffComplaints")
+  workerAssignedComplaints Complaint[] @relation("WorkerComplaints")
   laundryBookings    LaundrySlot[]
+  laundryWaitlists   LaundryWaitlist[]
   visitors           Visitor[]
   fees               Fee[]
   payments           Payment[]
@@ -166,6 +176,9 @@ model User {
   documents          Document[]
   gatePasses         GatePass[]
   notifications      Notification[]
+  workerProfile      WorkerProfile?
+  reportedEmergencies EmergencyAlert[] @relation("ReportedEmergencies")
+  acknowledgedEmergencies EmergencyAlert[] @relation("AcknowledgedEmergencies")
 }
 
 model Room {
@@ -258,7 +271,24 @@ model Complaint {
 
   staffId         String?
   staff           User?             @relation("StaffComplaints", fields: [staffId], references: [id])
+
+  workerId        String?
+  worker          User?             @relation("WorkerComplaints", fields: [workerId], references: [id])
+  assignedBy      String?
+  assignedAt      DateTime?
+  acceptedAt      DateTime?
+  rejectedAt      DateTime?
+  rejectionReason String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  completionNotes String?
+  materialsUsed   String?
+  reopenedAt      DateTime?
+  reopenReason    String?
+
+  timeline        ComplaintTimeline[]
 }
+
 
 model LaundrySlot {
   id           String   @id @default(uuid()) @map("_id")
@@ -532,3 +562,80 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
 }
+
+model WorkerCategory {
+  id          String   @id @default(uuid()) @map("_id")
+  name        String   @unique
+  description String?
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workers     WorkerProfile[]
+}
+
+model WorkerProfile {
+  id             String         @id @default(uuid()) @map("_id")
+  workerId       String
+  userId         String         @unique
+  user           User           @relation(fields: [userId], references: [id])
+  categoryId     String
+  category       WorkerCategory @relation(fields: [categoryId], references: [id])
+  specialization String?
+  hostelId       String?
+  block          String?
+  joiningDate    DateTime?      @default(now())
+  status         String         @default("ACTIVE")
+  availability   String         @default("AVAILABLE")
+  assignedCount  Int            @default(0)
+  completedCount Int            @default(0)
+  rating         Float?         @default(5.0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model ComplaintTimeline {
+  id          String    @id @default(uuid()) @map("_id")
+  complaintId String
+  complaint   Complaint @relation(fields: [complaintId], references: [id])
+  event       String
+  title       String
+  description String?
+  actorName   String
+  actorRole   String
+  timestamp   DateTime  @default(now())
+}
+
+model EmergencyAlert {
+  id               String    @id @default(uuid()) @map("_id")
+  type             String
+  level            String
+  hostelId         String
+  hostel           Hostel    @relation(fields: [hostelId], references: [id])
+  block            String?
+  floor            Int?
+  roomId           String?
+  roomNumber       String?
+  message          String?
+  reportedById     String
+  reportedBy       User      @relation("ReportedEmergencies", fields: [reportedById], references: [id])
+  acknowledgedById String?
+  acknowledgedBy   User?     @relation("AcknowledgedEmergencies", fields: [acknowledgedById], references: [id])
+  status           String    @default("ACTIVE")
+  createdAt        DateTime  @default(now())
+  acknowledgedAt   DateTime?
+  resolvedAt       DateTime?
+}
+
+model LaundryWaitlist {
+  id        String   @id @default(uuid()) @map("_id")
+  timeSlot  String
+  date      DateTime
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  hostelId  String
+  status    String   @default("WAITING")
+  createdAt DateTime @default(now())
+}
+

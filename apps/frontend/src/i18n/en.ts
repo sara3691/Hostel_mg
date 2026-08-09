@@ -1,4 +1,4 @@
-﻿export const en = {
+export const en = {
   common: {
     appName: "SmartHostel AI",
     subTitle: "Digital Hostel Management ERP",
@@ -199,5 +199,59 @@
     askLeave: "My leave status",
     askFees: "Any pending fees?",
     askRoom: "My room info"
+  },
+  worker: {
+    title: "Worker Operations",
+    dashboardTitle: "Worker Task Dashboard",
+    myJobs: "My Assigned Jobs",
+    categories: "Worker Categories",
+    addCategory: "Add Category",
+    addWorker: "Register New Worker",
+    specialization: "Specialization",
+    assignedJobs: "Assigned Jobs",
+    pendingAcceptance: "Pending Acceptance",
+    inProgress: "In Progress",
+    completed: "Completed Jobs",
+    accept: "Accept Job",
+    reject: "Reject Job",
+    startWork: "Start Work",
+    completeWork: "Complete Work",
+    rejectReason: "Rejection Reason",
+    workNotes: "Work Completion Notes",
+    materialsUsed: "Materials / Parts Used",
+    rating: "Rating",
+    availability: "Availability",
+    available: "Available",
+    busy: "Busy",
+    offline: "Offline",
+    onLeave: "On Leave"
+  },
+  emergency: {
+    title: "Emergency Alert System",
+    sendAlert: "SEND EMERGENCY ALERT",
+    confirmTitle: "Send Emergency Alert?",
+    confirmDesc: "This will immediately notify hostel authorities, wardens, and relevant students.",
+    cancel: "Cancel Alert",
+    send: "Confirm & Send Alert",
+    level: "Target Level",
+    type: "Emergency Type",
+    message: "Emergency Message / Details",
+    roomLevel: "Room Level",
+    floorLevel: "Floor Level",
+    hostelLevel: "Hostel Wide",
+    activeAlerts: "ACTIVE EMERGENCY ALERTS",
+    acknowledge: "Acknowledge Alert",
+    resolve: "Mark Resolved",
+    reportedBy: "Reported By",
+    history: "Emergency Audit History",
+    acknowledgedBy: "Acknowledged By"
+  },
+  waitlist: {
+    joinWaitlist: "Join Waitlist",
+    notifyMe: "Notify Me When Available",
+    slotAvailable: "Laundry Slot Available!",
+    slotAvailableMsg: "A laundry slot has become available for booking.",
+    inWaitlist: "On Waitlist"
   }
 };
+

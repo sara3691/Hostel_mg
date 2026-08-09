@@ -27,7 +27,6 @@ import {
   CreditCard,
   PieChart,
   Clock,
-  ThumbsUp,
   Activity,
   FileText,
   Database,
@@ -43,9 +42,12 @@ import {
   GraduationCap,
   Phone,
   MapPin,
-  Star,
   Globe,
-  Compass
+  Compass,
+  Wrench,
+  ShieldAlert,
+  Play,
+  Check
 } from 'lucide-react';
 import { useTranslation, languages } from './i18n';
 
@@ -54,7 +56,7 @@ import { useTranslation, languages } from './i18n';
 axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 axios.defaults.withCredentials = true;
 
-type UserRole = 'SUPER_ADMIN' | 'HOSTEL_ADMIN' | 'ASSISTANT_WARDEN' | 'MESS_MANAGER' | 'SECURITY' | 'MAINTENANCE' | 'ACCOUNTANT' | 'STUDENT' | 'WARDEN' | 'STAFF';
+type UserRole = 'SUPER_ADMIN' | 'HOSTEL_ADMIN' | 'ASSISTANT_WARDEN' | 'MESS_MANAGER' | 'SECURITY' | 'MAINTENANCE' | 'ACCOUNTANT' | 'STUDENT' | 'WARDEN' | 'STAFF' | 'WORKER';
 
 interface Hostel {
   id: string;
@@ -387,6 +389,49 @@ export default function App() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // ── Worker Management & Emergency States ──
+  const [workerCategories, setWorkerCategories] = useState<any[]>([]);
+  const [workersList, setWorkersList] = useState<any[]>([]);
+  const [workerDashboardData, setWorkerDashboardData] = useState<any | null>(null);
+  const [emergencyAlertsList, setEmergencyAlertsList] = useState<any[]>([]);
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatDesc, setNewCatDesc] = useState('');
+  const [showAddWorkerModal, setShowAddWorkerModal] = useState(false);
+  const [newWorkerName, setNewWorkerName] = useState('');
+  const [newWorkerEmail, setNewWorkerEmail] = useState('');
+  const [newWorkerPassword, setNewWorkerPassword] = useState('');
+  const [newWorkerMobile, setNewWorkerMobile] = useState('');
+  const [newWorkerCategoryId, setNewWorkerCategoryId] = useState('');
+  const [newWorkerSpec, setNewWorkerSpec] = useState('');
+
+  // Complaint Assignment & Timeline States
+  const [showAssignWorkerModal, setShowAssignWorkerModal] = useState(false);
+  const [selectedComplaintForAssign, setSelectedComplaintForAssign] = useState<any | null>(null);
+  const [selectedWorkerIdForAssign, setSelectedWorkerIdForAssign] = useState('');
+  const [showRejectWorkerModal, setShowRejectWorkerModal] = useState(false);
+  const [selectedComplaintForReject, setSelectedComplaintForReject] = useState<any | null>(null);
+  const [rejectReasonInput, setRejectReasonInput] = useState('');
+  const [showCompleteWorkModal, setShowCompleteWorkModal] = useState(false);
+  const [selectedComplaintForComplete, setSelectedComplaintForComplete] = useState<any | null>(null);
+  const [completionNotesInput, setCompletionNotesInput] = useState('');
+  const [materialsUsedInput, setMaterialsUsedInput] = useState('');
+  const [showTimelineModal, setShowTimelineModal] = useState(false);
+  const [selectedComplaintTimeline, setSelectedComplaintTimeline] = useState<any | null>(null);
+  const [showConfirmResolutionModal, setShowConfirmResolutionModal] = useState(false);
+  const [selectedComplaintForConfirm, setSelectedComplaintForConfirm] = useState<any | null>(null);
+  const [resolutionRatingInput, setResolutionRatingInput] = useState(5);
+  const [resolutionFeedbackInput, setResolutionFeedbackInput] = useState('');
+  const [showReopenModal, setShowReopenModal] = useState(false);
+  const [selectedComplaintForReopen, setSelectedComplaintForReopen] = useState<any | null>(null);
+  const [reopenReasonInput, setReopenReasonInput] = useState('');
+
+  // Emergency Modal States
+  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const [emergencyLevel, setEmergencyLevel] = useState<'ROOM' | 'FLOOR' | 'HOSTEL'>('ROOM');
+  const [emergencyType, setEmergencyType] = useState('Medical');
+  const [emergencyMessageInput, setEmergencyMessageInput] = useState('');
+
   // Laundry date state
   const [laundryDate, setLaundryDate] = useState('');
   const [laundryTimeSlot, setLaundryTimeSlot] = useState('8:00 AM - 10:00 AM');
@@ -421,10 +466,7 @@ export default function App() {
   const [activeLeaveIdForRemarks, setActiveLeaveIdForRemarks] = useState<string | null>(null);
 
   // Complaint improvements
-  const [assignStaffId, setAssignStaffId] = useState('');
-  const [resolutionText, setResolutionText] = useState('');
-  const [feedbackRating, setFeedbackRating] = useState(5);
-  const [feedbackComment, setFeedbackComment] = useState('');
+
 
   // Visitor improvements
   const [visitorExpectedArrival, setVisitorExpectedArrival] = useState('');
@@ -665,6 +707,255 @@ export default function App() {
     }
   };
 
+  const loadWorkerCategories = async () => {
+    try {
+      const res = await axios.get('/api/workers/categories');
+      if (res.data?.success) setWorkerCategories(res.data.data);
+    } catch (e) {}
+  };
+
+  const loadWorkersList = async () => {
+    try {
+      const res = await axios.get('/api/workers');
+      if (res.data?.success) setWorkersList(res.data.data);
+    } catch (e) {}
+  };
+
+  const loadWorkerDashboard = async () => {
+    try {
+      const res = await axios.get('/api/worker/dashboard');
+      if (res.data?.success) setWorkerDashboardData(res.data.data);
+    } catch (e) {}
+  };
+
+  const loadEmergencyAlerts = async () => {
+    try {
+      const res = await axios.get('/api/emergency/alerts');
+      if (res.data?.success) setEmergencyAlertsList(res.data.data);
+    } catch (e) {}
+  };
+
+  const handleCreateWorkerCategory = async () => {
+    if (!newCatName) return;
+    try {
+      const res = await axios.post('/api/workers/categories', { name: newCatName, description: newCatDesc });
+      if (res.data?.success) {
+        showToast('success', t('worker.categories'), 'Worker category created');
+        setShowAddCategoryModal(false);
+        setNewCatName(''); setNewCatDesc('');
+        loadWorkerCategories();
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to create category');
+    }
+  };
+
+  const handleCreateWorker = async () => {
+    if (!newWorkerName || !newWorkerEmail || !newWorkerPassword || !newWorkerCategoryId) {
+      showToast('error', t('common.error'), 'Please fill in all required fields');
+      return;
+    }
+    try {
+      const res = await axios.post('/api/workers', {
+        fullName: newWorkerName,
+        email: newWorkerEmail,
+        password: newWorkerPassword,
+        mobileNumber: newWorkerMobile,
+        categoryId: newWorkerCategoryId,
+        specialization: newWorkerSpec
+      });
+      if (res.data?.success) {
+        showToast('success', t('worker.addWorker'), 'Worker registered successfully');
+        setShowAddWorkerModal(false);
+        setNewWorkerName(''); setNewWorkerEmail(''); setNewWorkerPassword(''); setNewWorkerMobile(''); setNewWorkerCategoryId(''); setNewWorkerSpec('');
+        loadWorkersList();
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to register worker');
+    }
+  };
+
+  const handleAssignWorkerToComplaint = async () => {
+    if (!selectedComplaintForAssign || !selectedWorkerIdForAssign) return;
+    try {
+      const res = await axios.post(`/api/complaints/${selectedComplaintForAssign.id}/assign`, { workerId: selectedWorkerIdForAssign });
+      if (res.data?.success) {
+        showToast('success', t('worker.assignedJobs'), 'Worker assigned successfully');
+        setShowAssignWorkerModal(false);
+        setSelectedComplaintForAssign(null);
+        setSelectedWorkerIdForAssign('');
+        if (currentUser) loadDashboardData(currentUser);
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to assign worker');
+    }
+  };
+
+  const handleAcceptWorkerJob = async (id: string) => {
+    try {
+      const res = await axios.post(`/api/worker/complaints/${id}/accept`);
+      if (res.data?.success) {
+        showToast('success', t('worker.accept'), 'Job accepted');
+        loadWorkerDashboard();
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to accept job');
+    }
+  };
+
+  const handleRejectWorkerJob = async () => {
+    if (!selectedComplaintForReject) return;
+    try {
+      const res = await axios.post(`/api/worker/complaints/${selectedComplaintForReject.id}/reject`, { reason: rejectReasonInput });
+      if (res.data?.success) {
+        showToast('success', t('worker.reject'), 'Job assignment rejected');
+        setShowRejectWorkerModal(false);
+        setSelectedComplaintForReject(null);
+        setRejectReasonInput('');
+        loadWorkerDashboard();
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to reject job');
+    }
+  };
+
+  const handleStartWorkerJob = async (id: string) => {
+    try {
+      const res = await axios.post(`/api/worker/complaints/${id}/start`);
+      if (res.data?.success) {
+        showToast('success', t('worker.startWork'), 'Status updated to In Progress');
+        loadWorkerDashboard();
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to start job');
+    }
+  };
+
+  const handleCompleteWorkerJob = async () => {
+    if (!selectedComplaintForComplete) return;
+    try {
+      const res = await axios.post(`/api/worker/complaints/${selectedComplaintForComplete.id}/complete`, {
+        completionNotes: completionNotesInput,
+        materialsUsed: materialsUsedInput
+      });
+      if (res.data?.success) {
+        showToast('success', t('worker.completeWork'), 'Job completed successfully');
+        setShowCompleteWorkModal(false);
+        setSelectedComplaintForComplete(null);
+        setCompletionNotesInput('');
+        setMaterialsUsedInput('');
+        loadWorkerDashboard();
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to complete job');
+    }
+  };
+
+  const handleConfirmComplaintResolution = async () => {
+    if (!selectedComplaintForConfirm) return;
+    try {
+      const res = await axios.post(`/api/complaints/${selectedComplaintForConfirm.id}/confirm`, {
+        rating: resolutionRatingInput,
+        feedback: resolutionFeedbackInput
+      });
+      if (res.data?.success) {
+        showToast('success', t('complaints.confirm'), 'Complaint resolution confirmed');
+        setShowConfirmResolutionModal(false);
+        setSelectedComplaintForConfirm(null);
+        setResolutionRatingInput(5);
+        setResolutionFeedbackInput('');
+        if (currentUser) loadDashboardData(currentUser);
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to confirm resolution');
+    }
+  };
+
+  const handleReopenComplaint = async () => {
+    if (!selectedComplaintForReopen) return;
+    try {
+      const res = await axios.post(`/api/complaints/${selectedComplaintForReopen.id}/reopen`, {
+        reason: reopenReasonInput
+      });
+      if (res.data?.success) {
+        showToast('warning', 'Complaint Reopened', 'Warden and Worker notified');
+        setShowReopenModal(false);
+        setSelectedComplaintForReopen(null);
+        setReopenReasonInput('');
+        if (currentUser) loadDashboardData(currentUser);
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to reopen complaint');
+    }
+  };
+
+  const handleTriggerEmergency = async () => {
+    try {
+      const res = await axios.post('/api/emergency/alert', {
+        type: emergencyType,
+        level: emergencyLevel,
+        message: emergencyMessageInput
+      });
+      if (res.data?.success) {
+        showToast('error', '🚨 EMERGENCY ALERT SENT', `Notified ${res.data.notifiedCount} recipients at ${emergencyLevel} level.`);
+        setShowEmergencyModal(false);
+        setEmergencyMessageInput('');
+        loadEmergencyAlerts();
+
+        try {
+          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(880, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.5);
+          gain.gain.setValueAtTime(0.3, ctx.currentTime);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 1);
+        } catch (_) {}
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to send emergency alert');
+    }
+  };
+
+  const handleAcknowledgeEmergency = async (id: string) => {
+    try {
+      const res = await axios.post(`/api/emergency/${id}/acknowledge`);
+      if (res.data?.success) {
+        showToast('info', t('emergency.acknowledge'), 'Emergency alert acknowledged');
+        loadEmergencyAlerts();
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to acknowledge alert');
+    }
+  };
+
+  const handleResolveEmergency = async (id: string) => {
+    try {
+      const res = await axios.post(`/api/emergency/${id}/resolve`);
+      if (res.data?.success) {
+        showToast('success', t('emergency.resolve'), 'Emergency alert marked resolved');
+        loadEmergencyAlerts();
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to resolve emergency');
+    }
+  };
+
+  const handleJoinLaundryWaitlist = async (timeSlot: string, date: string) => {
+    try {
+      const res = await axios.post('/api/laundry/waitlist', { timeSlot, date });
+      if (res.data?.success) {
+        showToast('success', t('waitlist.inWaitlist'), t('waitlist.slotAvailableMsg'));
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to join waitlist');
+    }
+  };
+
   const loadDashboardData = async (user: UserProfile) => {
     try {
       // 1. Core lists
@@ -673,6 +964,15 @@ export default function App() {
 
       const resVis = await axios.get('/api/visitors');
       if (resVis.data?.success) setVisitors(resVis.data.data);
+
+      // Worker & Emergency Data
+      loadWorkerCategories();
+      loadWorkersList();
+      loadEmergencyAlerts();
+      if (user.role === 'WORKER') {
+        loadWorkerDashboard();
+        setSubView('worker_dashboard');
+      }
 
       // 2. Attendance history & stats
       const resAttHistory = await axios.get('/api/attendance/history');
@@ -1194,39 +1494,7 @@ export default function App() {
     }
   };
 
-  const handleComplaintAction = async (complaintId: string, status: string) => {
-    try {
-      const payload: any = { status };
-      if (assignStaffId) payload.staffId = assignStaffId;
-      if (resolutionText) payload.resolutionImage = `https://images.unsplash.com/photo-1581092921461-eab62e97a780?w=400 (Fixed ${resolutionText})`;
 
-      const res = await axios.patch(`/api/complaints/${complaintId}`, payload);
-      if (res.data?.success) {
-        showToast('success', 'Done', '');
-        setAssignStaffId('');
-        setResolutionText('');
-        if (currentUser) loadDashboardData(currentUser);
-      }
-    } catch (err) {
-      showToast('info', 'Notice', '');
-    }
-  };
-
-  const handleComplaintFeedback = async (complaintId: string) => {
-    try {
-      const res = await axios.patch(`/api/complaints/${complaintId}`, {
-        studentFeedback: `${feedbackRating} Stars: ${feedbackComment}`
-      });
-      if (res.data?.success) {
-        showToast('info', 'Notice', '');
-        setFeedbackRating(5);
-        setFeedbackComment('');
-        if (currentUser) loadDashboardData(currentUser);
-      }
-    } catch (err) {
-      showToast('info', 'Notice', '');
-    }
-  };
 
   // Visitor Pass actions
   const handleCreateVisitor = async (e: React.FormEvent) => {
@@ -1764,6 +2032,8 @@ export default function App() {
         { id: 'hostels', label: 'Hostels', icon: Home },
         { id: 'rooms', label: 'Rooms', icon: Layers },
         { id: 'students', label: 'Onboarding & Verify', icon: Users },
+        { id: 'workers', label: 'Worker Mgmt', icon: Wrench },
+        { id: 'emergencies', label: 'Emergencies', icon: ShieldAlert },
         { id: 'attendance', label: 'Attendance', icon: QrCode },
         { id: 'leave', label: 'Leaves Hub', icon: Calendar },
         { id: 'complaints', label: 'Complaints', icon: AlertTriangle },
@@ -1789,6 +2059,8 @@ export default function App() {
         { id: 'dashboard', label: 'Dashboard', icon: Grid },
         { id: 'rooms', label: 'Rooms', icon: Layers },
         { id: 'students', label: 'Onboarding & Verify', icon: Users },
+        { id: 'workers', label: 'Worker Mgmt', icon: Wrench },
+        { id: 'emergencies', label: 'Emergencies', icon: ShieldAlert },
         { id: 'attendance', label: 'Attendance', icon: QrCode },
         { id: 'leave', label: 'Leaves Hub', icon: Calendar },
         { id: 'complaints', label: 'Complaints', icon: AlertTriangle },
@@ -1810,12 +2082,20 @@ export default function App() {
         { id: 'dashboard', label: 'Dashboard', icon: Grid },
         { id: 'rooms', label: 'Rooms', icon: Layers },
         { id: 'students', label: 'Students List', icon: Users },
+        { id: 'workers', label: 'Worker Mgmt', icon: Wrench },
+        { id: 'emergencies', label: 'Emergencies', icon: ShieldAlert },
         { id: 'attendance', label: 'Attendance', icon: QrCode },
         { id: 'leave', label: 'Leaves Hub', icon: Calendar },
         { id: 'complaints', label: 'Complaints', icon: AlertTriangle },
         { id: 'visitors', label: 'Visitors Pass', icon: Users },
         { id: 'laundry', label: 'Laundry Slots', icon: Clipboard },
         { id: 'mess', label: 'Mess Operations', icon: BookOpen },
+        { id: 'profile', label: 'Profile', icon: User }
+      );
+    } else if (currentUser.role === 'WORKER') {
+      items.push(
+        { id: 'worker_dashboard', label: 'Task Dashboard', icon: Wrench },
+        { id: 'notifications', label: 'Notifications', icon: Bell },
         { id: 'profile', label: 'Profile', icon: User }
       );
     } else if (currentUser.role === 'MESS_MANAGER') {
@@ -2662,6 +2942,50 @@ export default function App() {
           {/* Main Content Area */}
           <main style={{ flex: 1, padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
+            {/* Active Emergency Alert Banner Overlay */}
+            {emergencyAlertsList.filter(a => a.status === 'ACTIVE').length > 0 && (
+              <div style={{ background: 'rgba(239,68,68,0.15)', border: '2px solid #ef4444', borderRadius: '12px', padding: '1rem 1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <ShieldAlert size={28} color="#ef4444" style={{ animation: 'pulse 1s infinite' }} />
+                  <div>
+                    <h4 style={{ fontWeight: 800, color: '#ef4444', fontSize: '1rem' }}>
+                      🚨 {t('emergency.activeAlerts')} ({emergencyAlertsList.filter(a => a.status === 'ACTIVE').length})
+                    </h4>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      {emergencyAlertsList.find(a => a.status === 'ACTIVE')?.type} emergency reported in {emergencyAlertsList.find(a => a.status === 'ACTIVE')?.hostel?.name || 'Hostel'} (Room {emergencyAlertsList.find(a => a.status === 'ACTIVE')?.roomNumber || 'N/A'})
+                    </p>
+                  </div>
+                </div>
+                {currentUser && ['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SECURITY'].includes(currentUser.role) && (
+                  <button className="btn btn-secondary" style={{ fontSize: '0.8rem', borderColor: '#ef4444', color: '#ef4444' }} onClick={() => setSubView('emergencies')}>
+                    View Emergency Details
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Floating Student Emergency Trigger Button */}
+            {currentUser && currentUser.role === 'STUDENT' && (
+              <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 900 }}>
+                <button
+                  className="btn btn-danger"
+                  style={{
+                    padding: '0.85rem 1.5rem',
+                    fontSize: '0.9rem',
+                    fontWeight: 800,
+                    borderRadius: '999px',
+                    boxShadow: '0 8px 24px rgba(239,68,68,0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                  onClick={() => setShowEmergencyModal(true)}
+                >
+                  <ShieldAlert size={20} /> 🚨 {t('emergency.sendAlert')}
+                </button>
+              </div>
+            )}
+
             {/* 1. ROLE DASHBOARDS */}
             {subView === 'dashboard' && currentUser && (
               <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -3266,11 +3590,21 @@ export default function App() {
                       <input className="form-input" type="text" value={compTitle} onChange={e => setCompTitle(e.target.value)} placeholder="Title (e.g. Broken Water Pipe)" required />
                       <input className="form-input" type="text" value={compDesc} onChange={e => setCompDesc(e.target.value)} placeholder="Describe details..." required />
                       <select className="form-input" value={compCategory} onChange={e => setCompCategory(e.target.value)}>
-                        <option value="Electrical">Electrical</option>
-                        <option value="Plumbing">Plumbing</option>
-                        <option value="Internet">Internet</option>
-                        <option value="Furniture">Furniture</option>
-                        <option value="Cleaning">Cleaning</option>
+                        {workerCategories.length > 0 ? (
+                          workerCategories.map((cat: any) => (
+                            <option key={cat.id} value={cat.name}>{cat.name}</option>
+                          ))
+                        ) : (
+                          <>
+                            <option value="Plumbing">Plumbing</option>
+                            <option value="Electrical">Electrical</option>
+                            <option value="Carpentry">Carpentry</option>
+                            <option value="Cleaning">Cleaning</option>
+                            <option value="AC Technician">AC Technician</option>
+                            <option value="Internet">Internet</option>
+                            <option value="Other">Other</option>
+                          </>
+                        )}
                       </select>
                       <select className="form-input" value={compPriority} onChange={e => setCompPriority(e.target.value)}>
                         <option value="LOW">Low Priority</option>
@@ -3304,97 +3638,52 @@ export default function App() {
                               <h4 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{c.title}</h4>
                               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{c.description}</p>
                             </div>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                               <span className={`badge ${
                                 c.priority === 'HIGH' ? 'badge-danger' :
                                 c.priority === 'MEDIUM' ? 'badge-warning' : 'badge-info'
                               }`}>{c.priority} Priority</span>
                               <span className="badge badge-info">{c.category}</span>
                               <span className={`badge ${
-                                c.status === 'RESOLVED' ? 'badge-success' :
-                                c.status === 'ASSIGNED' ? 'badge-info' : 'badge-warning'
+                                c.status === 'RESOLVED' || c.status === 'COMPLETED' ? 'badge-success' :
+                                c.status === 'ASSIGNED' || c.status === 'ACCEPTED' || c.status === 'IN_PROGRESS' ? 'badge-info' :
+                                c.status === 'REJECTED' ? 'badge-danger' : 'badge-warning'
                               }`}>{c.status}</span>
                             </div>
                           </div>
 
-                          {/* Timeline visualization */}
-                          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '0.75rem', background: 'rgba(0,0,0,0.1)', padding: '0.75rem', borderRadius: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#10b981' }}>
-                              <CheckCircle size={14} /> Created
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: c.status !== 'PENDING' ? '#10b981' : 'var(--text-muted)' }}>
-                              <Clock size={14} /> {c.status !== 'PENDING' ? 'Staff Assigned' : 'Awaiting Assignment'}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: c.status === 'RESOLVED' ? '#10b981' : 'var(--text-muted)' }}>
-                              <ThumbsUp size={14} /> {c.status === 'RESOLVED' ? 'Resolved' : 'Not Resolved'}
-                            </div>
-                          </div>
-
-                          {c.resolutionImage && (
-                            <div style={{ fontSize: '0.75rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                              <CheckCircle size={14} /> <strong>Resolution Details:</strong> {c.resolutionImage}
+                          {/* Worker Completion Banner */}
+                          {c.status === 'COMPLETED' && (
+                            <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid #10b981', padding: '0.75rem 1rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                              <div style={{ fontWeight: 700, color: '#10b981' }}>✓ Work Completed by Worker</div>
+                              <div style={{ marginTop: '0.2rem', color: 'var(--text-main)' }}>Notes: {c.completionNotes || 'Work completed'}</div>
+                              {c.materialsUsed && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Materials Used: {c.materialsUsed}</div>}
                             </div>
                           )}
 
-                          {c.studentFeedback && (
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                              <strong>Student Feedback:</strong> {c.studentFeedback}
-                            </div>
-                          )}
-
-                          {/* Warden/Staff Action Area */}
-                          {(currentUser.role === 'WARDEN' || currentUser.role === 'STAFF') && c.status !== 'RESOLVED' && (
-                            <div className="flex-responsive-action" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-                              {currentUser.role === 'WARDEN' && c.status === 'PENDING' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                                  <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Assign Staff Email/ID</label>
-                                  <input
-                                    type="text"
-                                    className="form-input"
-                                    style={{ height: '32px', width: '200px' }}
-                                    placeholder="Staff email"
-                                    onChange={e => setAssignStaffId(e.target.value)}
-                                  />
-                                </div>
-                              )}
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1 }}>
-                                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Resolution Notes (Required to resolve)</label>
-                                <input
-                                  type="text"
-                                  className="form-input"
-                                  style={{ height: '32px' }}
-                                  placeholder="What was fixed?"
-                                  onChange={e => setResolutionText(e.target.value)}
-                                />
-                              </div>
-                              <button className="btn btn-primary" style={{ padding: '0.4rem 1rem' }} onClick={() => handleComplaintAction(c.id, c.status === 'PENDING' ? 'ASSIGNED' : 'RESOLVED')}>
-                                {c.status === 'PENDING' ? 'Assign & Update' : 'Mark Resolved'}
+                          {/* Action Toolbar */}
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
+                            {['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN'].includes(currentUser.role) && (c.status === 'PENDING' || c.status === 'REJECTED') && (
+                              <button className="btn btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }} onClick={() => { setSelectedComplaintForAssign(c); setShowAssignWorkerModal(true); }}>
+                                👷 Assign Worker
                               </button>
-                            </div>
-                          )}
+                            )}
 
-                          {/* Student Feedback Entry Area */}
-                          {currentUser.role === 'STUDENT' && c.status === 'RESOLVED' && !c.studentFeedback && (
-                            <div className="flex-responsive-center" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-                              <span style={{ fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Star size={14} color="#f59e0b" fill="#f59e0b" /> Rate Resolution:</span>
-                              <select className="form-input" style={{ width: '80px', height: '32px', padding: '0 4px' }} value={feedbackRating} onChange={e => setFeedbackRating(Number(e.target.value))}>
-                                <option value="5">5 Star</option>
-                                <option value="4">4 Star</option>
-                                <option value="3">3 Star</option>
-                                <option value="2">2 Star</option>
-                                <option value="1">1 Star</option>
-                              </select>
-                              <input
-                                type="text"
-                                className="form-input"
-                                style={{ height: '32px', flex: 1 }}
-                                placeholder="Add comments on quality of work..."
-                                value={feedbackComment}
-                                onChange={e => setFeedbackComment(e.target.value)}
-                              />
-                              <button className="btn btn-primary" style={{ padding: '0.4rem 1rem' }} onClick={() => handleComplaintFeedback(c.id)}>Submit Feedback</button>
-                            </div>
-                          )}
+                            {currentUser.role === 'STUDENT' && c.status === 'COMPLETED' && (
+                              <>
+                                <button className="btn btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', background: '#10b981' }} onClick={() => { setSelectedComplaintForConfirm(c); setShowConfirmResolutionModal(true); }}>
+                                  ✓ Confirm Resolution
+                                </button>
+                                <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', color: '#f59e0b' }} onClick={() => { setSelectedComplaintForReopen(c); setShowReopenModal(true); }}>
+                                  ⚠️ Report Issue / Reopen
+                                </button>
+                              </>
+                            )}
+
+                            <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }} onClick={() => { setSelectedComplaintTimeline(c); setShowTimelineModal(true); }}>
+                              <Clock size={14} /> View Timeline
+                            </button>
+                          </div>
                         </div>
                       ))
                     )}
@@ -4571,7 +4860,17 @@ export default function App() {
                           <input className="form-input" type="text" placeholder="e.g. Delicate items, handle with care" value={laundryNotes} onChange={e => setLaundryNotes(e.target.value)} />
                         </div>
                       </div>
-                      <button className="btn btn-primary" type="submit">Book Laundry Slot</button>
+                      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <button className="btn btn-primary" type="submit">Book Laundry Slot</button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                          onClick={() => handleJoinLaundryWaitlist(laundryTimeSlot, laundryDate || new Date().toISOString().split('T')[0])}
+                        >
+                          🔔 {t('waitlist.notifyAvailable')}
+                        </button>
+                      </div>
                     </form>
                   </div>
                 )}
@@ -4602,6 +4901,226 @@ export default function App() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* WORKER PORTAL DASHBOARD */}
+            {subView === 'worker_dashboard' && currentUser && (
+              <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                <div className="flex-responsive-header">
+                  <div>
+                    <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>👷 {t('worker.dashboardTitle')}</h1>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                      Category: <strong style={{ color: 'var(--primary)' }}>{workerDashboardData?.profile?.category?.name || 'Technician'}</strong> · ID: {workerDashboardData?.profile?.workerId || 'WRK-001'}
+                    </p>
+                  </div>
+                  <button className="btn btn-primary" onClick={loadWorkerDashboard}>↻ Refresh</button>
+                </div>
+
+                {/* Worker Metrics Cards */}
+                <div className="dashboard-grid">
+                  <div className="glass-panel stat-card" style={{ padding: '1.25rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{t('worker.assignedJobs')}</span>
+                    <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.25rem' }}>{workerDashboardData?.metrics?.assignedCount || 0}</h3>
+                  </div>
+                  <div className="glass-panel stat-card" style={{ padding: '1.25rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{t('worker.pendingAcceptance')}</span>
+                    <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#f59e0b', marginTop: '0.25rem' }}>{workerDashboardData?.metrics?.pendingAcceptance || 0}</h3>
+                  </div>
+                  <div className="glass-panel stat-card" style={{ padding: '1.25rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{t('worker.inProgress')}</span>
+                    <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#3b82f6', marginTop: '0.25rem' }}>{workerDashboardData?.metrics?.inProgress || 0}</h3>
+                  </div>
+                  <div className="glass-panel stat-card" style={{ padding: '1.25rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{t('worker.completed')}</span>
+                    <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#10b981', marginTop: '0.25rem' }}>{workerDashboardData?.metrics?.completed || 0}</h3>
+                  </div>
+                </div>
+
+                {/* Assigned Complaints List */}
+                <div className="glass-panel" style={{ padding: '2rem' }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('worker.myJobs')}</h3>
+                  <div style={{ display: 'grid', gap: '1rem' }}>
+                    {!workerDashboardData?.complaints || workerDashboardData.complaints.length === 0 ? (
+                      <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>No assigned jobs at the moment.</p>
+                    ) : (
+                      workerDashboardData.complaints.map((c: any) => (
+                        <div key={c.id} className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid var(--border-color)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <div>
+                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <span className={`badge ${c.priority === 'HIGH' ? 'badge-danger' : c.priority === 'MEDIUM' ? 'badge-warning' : 'badge-info'}`}>{c.priority} Priority</span>
+                                <h4 style={{ fontSize: '1.1rem', fontWeight: 800 }}>{c.title}</h4>
+                              </div>
+                              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>{c.description}</p>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                <span>📍 Room: <strong>{c.student?.room?.roomNumber || 'N/A'}</strong> (Block {c.student?.room?.block || 'A'}, Floor {c.student?.room?.floor || 1})</span>
+                                <span>👤 Student: <strong>{c.student?.fullName || 'Student'}</strong> ({c.student?.mobileNumber || 'N/A'})</span>
+                              </div>
+                            </div>
+                            <span className={`badge ${c.status === 'COMPLETED' || c.status === 'RESOLVED' ? 'badge-success' : c.status === 'IN_PROGRESS' ? 'badge-info' : c.status === 'ACCEPTED' ? 'badge-info' : c.status === 'REJECTED' ? 'badge-danger' : 'badge-warning'}`}>
+                              {c.status}
+                            </span>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
+                            {c.status === 'ASSIGNED' && (
+                              <>
+                                <button className="btn btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem' }} onClick={() => handleAcceptWorkerJob(c.id)}>
+                                  <Check size={14} /> {t('worker.accept')}
+                                </button>
+                                <button className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', color: '#ef4444' }} onClick={() => { setSelectedComplaintForReject(c); setShowRejectWorkerModal(true); }}>
+                                  <X size={14} /> {t('worker.reject')}
+                                </button>
+                              </>
+                            )}
+
+                            {c.status === 'ACCEPTED' && (
+                              <button className="btn btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem' }} onClick={() => handleStartWorkerJob(c.id)}>
+                                <Play size={14} /> {t('worker.startWork')}
+                              </button>
+                            )}
+
+                            {c.status === 'IN_PROGRESS' && (
+                              <button className="btn btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', background: '#10b981' }} onClick={() => { setSelectedComplaintForComplete(c); setShowCompleteWorkModal(true); }}>
+                                <Check size={14} /> {t('worker.completeWork')}
+                              </button>
+                            )}
+
+                            <button className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem' }} onClick={() => { setSelectedComplaintTimeline(c); setShowTimelineModal(true); }}>
+                              <Clock size={14} /> View Timeline
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* WORKER MANAGEMENT (ADMIN / WARDEN) */}
+            {subView === 'workers' && currentUser && (
+              <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>👷 {t('worker.title')}</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Configure operational categories and register hostel workers</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="btn btn-secondary" onClick={() => setShowAddCategoryModal(true)}>+ {t('worker.addCategory')}</button>
+                    <button className="btn btn-primary" onClick={() => setShowAddWorkerModal(true)}>+ {t('worker.addWorker')}</button>
+                  </div>
+                </div>
+
+                {/* Worker Categories Grid */}
+                <div className="glass-panel" style={{ padding: '2rem' }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('worker.categories')}</h3>
+                  <div className="responsive-grid-3">
+                    {workerCategories.map((cat: any) => (
+                      <div key={cat.id} className="glass-panel" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <h4 style={{ fontWeight: 800, fontSize: '1rem' }}>{cat.name}</h4>
+                          <span className="badge badge-info">{cat._count?.workers || 0} Workers</span>
+                        </div>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{cat.description || 'General maintenance category'}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Registered Workers Directory */}
+                <div className="glass-panel" style={{ padding: '2rem' }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>Registered Workers Directory</h3>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                          <th style={{ padding: '0.75rem' }}>Worker Name</th>
+                          <th>Category</th>
+                          <th>Specialization</th>
+                          <th>Contact</th>
+                          <th>Availability</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {workersList.map((w: any) => (
+                          <tr key={w.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
+                            <td style={{ padding: '0.75rem', fontWeight: 700 }}>{w.fullName} <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{w.workerProfile?.workerId}</div></td>
+                            <td><span className="badge badge-info">{w.workerProfile?.category?.name || 'General'}</span></td>
+                            <td>{w.workerProfile?.specialization || 'All maintenance'}</td>
+                            <td>{w.mobileNumber || w.email}</td>
+                            <td>
+                              <span className={`badge ${w.workerProfile?.availability === 'AVAILABLE' ? 'badge-success' : 'badge-warning'}`}>
+                                {w.workerProfile?.availability || 'AVAILABLE'}
+                              </span>
+                            </td>
+                            <td><span className="badge badge-success">{w.status}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* EMERGENCY AUDIT LOG (ADMIN / WARDEN) */}
+            {subView === 'emergencies' && currentUser && (
+              <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>🚨 {t('emergency.history')}</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Audit trail of all emergency alerts and response lifecycle</p>
+                  </div>
+                  <button className="btn btn-primary" onClick={loadEmergencyAlerts}>↻ Refresh</button>
+                </div>
+
+                <div className="glass-panel" style={{ padding: '2rem' }}>
+                  <div style={{ display: 'grid', gap: '1rem' }}>
+                    {emergencyAlertsList.length === 0 ? (
+                      <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>No emergency alerts recorded.</p>
+                    ) : (
+                      emergencyAlertsList.map((e: any) => (
+                        <div key={e.id} className="glass-panel" style={{ padding: '1.5rem', borderLeft: `4px solid ${e.status === 'ACTIVE' ? '#ef4444' : e.status === 'ACKNOWLEDGED' ? '#f59e0b' : '#10b981'}`, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <div>
+                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                <span className="badge badge-danger">🚨 {e.type}</span>
+                                <span className="badge badge-info">{e.level} Level</span>
+                                <h4 style={{ fontWeight: 800, fontSize: '1.05rem' }}>Location: {e.hostel?.name} - Room {e.roomNumber || 'N/A'}</h4>
+                              </div>
+                              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>{e.message}</p>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                <span>👤 Reported By: <strong>{e.reportedBy?.fullName || 'Student'}</strong> ({e.reportedBy?.mobileNumber || 'N/A'})</span>
+                                <span>⏰ Time: {new Date(e.createdAt).toLocaleString()}</span>
+                                {e.acknowledgedBy && <span>✓ Ack By: <strong>{e.acknowledgedBy.fullName}</strong></span>}
+                              </div>
+                            </div>
+                            <span className={`badge ${e.status === 'ACTIVE' ? 'badge-danger' : e.status === 'ACKNOWLEDGED' ? 'badge-warning' : 'badge-success'}`}>
+                              {e.status}
+                            </span>
+                          </div>
+
+                          {['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SECURITY'].includes(currentUser.role) && e.status !== 'RESOLVED' && (
+                            <div style={{ display: 'flex', gap: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
+                              {e.status === 'ACTIVE' && (
+                                <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleAcknowledgeEmergency(e.id)}>
+                                  {t('emergency.acknowledge')}
+                                </button>
+                              )}
+                              <button className="btn btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleResolveEmergency(e.id)}>
+                                {t('emergency.resolve')}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -5251,6 +5770,287 @@ export default function App() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* MODAL 1: ADD WORKER CATEGORY */}
+      {showAddCategoryModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '420px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>{t('worker.addCategory')}</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowAddCategoryModal(false)}><X size={16} /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Category Name</label>
+                <input className="form-input" type="text" placeholder="e.g. Plumber, Electrician" value={newCatName} onChange={e => setNewCatName(e.target.value)} required />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Description</label>
+                <textarea className="form-input" placeholder="Scope of work..." value={newCatDesc} onChange={e => setNewCatDesc(e.target.value)} rows={3}></textarea>
+              </div>
+              <button className="btn btn-primary" onClick={handleCreateWorkerCategory}>Save Category</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: REGISTER NEW WORKER */}
+      {showAddWorkerModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '480px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>{t('worker.addWorker')}</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowAddWorkerModal(false)}><X size={16} /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Full Name *</label>
+                <input className="form-input" type="text" placeholder="Ravi Kumar" value={newWorkerName} onChange={e => setNewWorkerName(e.target.value)} required />
+              </div>
+              <div className="responsive-grid">
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Email / Login ID *</label>
+                  <input className="form-input" type="email" placeholder="ravi@worker.com" value={newWorkerEmail} onChange={e => setNewWorkerEmail(e.target.value)} required />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Password *</label>
+                  <input className="form-input" type="password" placeholder="••••••••" value={newWorkerPassword} onChange={e => setNewWorkerPassword(e.target.value)} required />
+                </div>
+              </div>
+              <div className="responsive-grid">
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Worker Category *</label>
+                  <select className="form-input" value={newWorkerCategoryId} onChange={e => setNewWorkerCategoryId(e.target.value)} required>
+                    <option value="">-- Select Category --</option>
+                    {workerCategories.map((cat: any) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Mobile Number</label>
+                  <input className="form-input" type="tel" placeholder="9876543210" value={newWorkerMobile} onChange={e => setNewWorkerMobile(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Specialization Notes</label>
+                <input className="form-input" type="text" placeholder="e.g. Sanitary & tap repairs" value={newWorkerSpec} onChange={e => setNewWorkerSpec(e.target.value)} />
+              </div>
+              <button className="btn btn-primary" onClick={handleCreateWorker}>Register Worker Account</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: ASSIGN WORKER TO COMPLAINT */}
+      {showAssignWorkerModal && selectedComplaintForAssign && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '440px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Assign Worker to Grievance</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowAssignWorkerModal(false)}><X size={16} /></button>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <h4 style={{ fontWeight: 700 }}>{selectedComplaintForAssign.title}</h4>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Category: <strong>{selectedComplaintForAssign.category}</strong></p>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Select Available Worker</label>
+              <select className="form-input" value={selectedWorkerIdForAssign} onChange={e => setSelectedWorkerIdForAssign(e.target.value)}>
+                <option value="">-- Choose Worker --</option>
+                {workersList.map((w: any) => (
+                  <option key={w.id} value={w.id}>
+                    {w.fullName} ({w.workerProfile?.category?.name || 'General'}) - {w.workerProfile?.availability || 'AVAILABLE'}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button className="btn btn-primary" onClick={handleAssignWorkerToComplaint}>Confirm Assignment</button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: WORKER REJECT REASON */}
+      {showRejectWorkerModal && selectedComplaintForReject && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '420px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Reject Job Assignment</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowRejectWorkerModal(false)}><X size={16} /></button>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Rejection Reason *</label>
+              <select className="form-input" value={rejectReasonInput} onChange={e => setRejectReasonInput(e.target.value)}>
+                <option value="">-- Select Reason --</option>
+                <option value="Wrong Category Assignment">Wrong Category Assignment</option>
+                <option value="Currently Unavailable / Busy">Currently Unavailable / Busy</option>
+                <option value="Requires Additional Specialist Technician">Requires Additional Specialist Technician</option>
+                <option value="On Leave">On Leave</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <button className="btn btn-primary" style={{ background: '#ef4444' }} onClick={handleRejectWorkerJob}>Confirm Rejection</button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: WORKER COMPLETE WORK */}
+      {showCompleteWorkModal && selectedComplaintForComplete && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '440px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Complete Work Task</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowCompleteWorkModal(false)}><X size={16} /></button>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Work Completion Notes *</label>
+              <textarea className="form-input" placeholder="Describe work done (e.g. Replaced leaking tap washer)..." value={completionNotesInput} onChange={e => setCompletionNotesInput(e.target.value)} rows={3} required></textarea>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Materials / Spare Parts Used</label>
+              <input className="form-input" type="text" placeholder="e.g. 1 x Tap washer, Teflon tape" value={materialsUsedInput} onChange={e => setMaterialsUsedInput(e.target.value)} />
+            </div>
+            <button className="btn btn-primary" style={{ background: '#10b981' }} onClick={handleCompleteWorkerJob}>Submit Work Completion</button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 6: VISUAL COMPLAINT TIMELINE */}
+      {showTimelineModal && selectedComplaintTimeline && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '520px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Complaint Timeline</h3>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{selectedComplaintTimeline.title}</p>
+              </div>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowTimelineModal(false)}><X size={16} /></button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative', paddingLeft: '1.5rem', borderLeft: '2px solid var(--border-color)', margin: '0.5rem 0' }}>
+              {!selectedComplaintTimeline.timeline || selectedComplaintTimeline.timeline.length === 0 ? (
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  <div style={{ fontWeight: 700, color: '#10b981' }}>✓ Created</div>
+                  <div style={{ fontSize: '0.75rem' }}>{new Date(selectedComplaintTimeline.createdAt).toLocaleString()}</div>
+                </div>
+              ) : (
+                selectedComplaintTimeline.timeline.map((item: any, idx: number) => (
+                  <div key={idx} style={{ position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: '-1.95rem', top: '0.2rem', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--primary)' }} />
+                    <h5 style={{ fontWeight: 800, fontSize: '0.9rem' }}>{item.title}</h5>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{item.description}</p>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{item.actorName} ({item.actorRole}) · {new Date(item.timestamp).toLocaleString()}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 7: STUDENT CONFIRM RESOLUTION */}
+      {showConfirmResolutionModal && selectedComplaintForConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '420px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Confirm Resolution</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowConfirmResolutionModal(false)}><X size={16} /></button>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Rating (1 - 5 Stars)</label>
+              <select className="form-input" value={resolutionRatingInput} onChange={e => setResolutionRatingInput(Number(e.target.value))}>
+                <option value={5}>⭐⭐⭐⭐⭐ 5 Stars (Excellent)</option>
+                <option value={4}>⭐⭐⭐⭐ 4 Stars (Good)</option>
+                <option value={3}>⭐⭐⭐ 3 Stars (Satisfactory)</option>
+                <option value={2}>⭐⭐ 2 Stars (Poor)</option>
+                <option value={1}>⭐ 1 Star (Unsatisfactory)</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Feedback Remarks</label>
+              <textarea className="form-input" placeholder="Add optional comments..." value={resolutionFeedbackInput} onChange={e => setResolutionFeedbackInput(e.target.value)} rows={3}></textarea>
+            </div>
+            <button className="btn btn-primary" onClick={handleConfirmComplaintResolution}>Confirm & Close Complaint</button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 8: STUDENT REOPEN COMPLAINT */}
+      {showReopenModal && selectedComplaintForReopen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '420px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Reopen Complaint</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowReopenModal(false)}><X size={16} /></button>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Reason for Reopening *</label>
+              <textarea className="form-input" placeholder="Explain why the issue persists..." value={reopenReasonInput} onChange={e => setReopenReasonInput(e.target.value)} rows={3} required></textarea>
+            </div>
+            <button className="btn btn-primary" style={{ background: '#f59e0b' }} onClick={handleReopenComplaint}>Reopen Complaint</button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 9: TARGETED EMERGENCY ALERT */}
+      {showEmergencyModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(239,68,68,0.3)', backdropFilter: 'blur(8px)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '460px', width: '100%', padding: '2rem', border: '2px solid #ef4444', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <ShieldAlert size={24} color="#ef4444" />
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ef4444' }}>{t('emergency.confirmTitle')}</h3>
+              </div>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowEmergencyModal(false)}><X size={16} /></button>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('emergency.confirmDesc')}</p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('emergency.level')}</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                  {(['ROOM', 'FLOOR', 'HOSTEL'] as const).map((lvl) => (
+                    <button
+                      key={lvl}
+                      type="button"
+                      className={`btn ${emergencyLevel === lvl ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ padding: '0.4rem', fontSize: '0.75rem' }}
+                      onClick={() => setEmergencyLevel(lvl)}
+                    >
+                      {lvl === 'ROOM' ? t('emergency.roomLevel') : lvl === 'FLOOR' ? t('emergency.floorLevel') : t('emergency.hostelLevel')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('emergency.type')}</label>
+                <select className="form-input" value={emergencyType} onChange={e => setEmergencyType(e.target.value)}>
+                  <option value="Fire">🔥 Fire Emergency</option>
+                  <option value="Medical">🚑 Medical Emergency</option>
+                  <option value="Electrical">⚡ Electrical Hazard</option>
+                  <option value="Security">🛡️ Security Breach / Violence</option>
+                  <option value="Gas Leak">💨 Gas Leak</option>
+                  <option value="Water Leak">💧 Water Leak / Flooding</option>
+                  <option value="Other">⚠️ Other Incident</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('emergency.message')}</label>
+                <textarea className="form-input" placeholder="Brief details about location and incident..." value={emergencyMessageInput} onChange={e => setEmergencyMessageInput(e.target.value)} rows={2}></textarea>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowEmergencyModal(false)}>{t('emergency.cancel')}</button>
+                <button className="btn btn-danger" style={{ flex: 1.5, background: '#ef4444', fontWeight: 800 }} onClick={handleTriggerEmergency}>
+                  🚨 {t('emergency.send')}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

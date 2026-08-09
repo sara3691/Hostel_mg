@@ -1,4 +1,4 @@
-﻿export const hi = {
+export const hi = {
   common: {
     appName: "स्मार्ट हॉस्टल AI",
     subTitle: "डिजिटल छात्रावास प्रबंधन ERP",
@@ -199,5 +199,59 @@
     askLeave: "मेरी छुट्टी की स्थिति",
     askFees: "क्या कोई शुल्क लंबित है?",
     askRoom: "मेरे कमरे की जानकारी"
+  },
+  worker: {
+    title: "कर्मचारी कार्य",
+    dashboardTitle: "कर्मचारी कार्य डैशबोर्ड",
+    myJobs: "मेरे आवंटित कार्य",
+    categories: "कर्मचारी श्रेणियां",
+    addCategory: "श्रेणी जोड़ें",
+    addWorker: "नया कर्मचारी पंजीकृत करें",
+    specialization: "विशेषज्ञता",
+    assignedJobs: "आवंटित कार्य",
+    pendingAcceptance: "स्वीकृति के लिए लंबित",
+    inProgress: "प्रगति पर है",
+    completed: "पूरे किए गए कार्य",
+    accept: "कार्य स्वीकार करें",
+    reject: "कार्य अस्वीकार करें",
+    startWork: "काम शुरू करें",
+    completeWork: "काम पूरा करें",
+    rejectReason: "अस्वीकृति का कारण",
+    workNotes: "कार्य पूर्णता नोट्स",
+    materialsUsed: "उपयोग की गई सामग्री / स्पेयर पार्ट्स",
+    rating: "रेटिंग",
+    availability: "उपलब्धता",
+    available: "उपलब्ध",
+    busy: "व्यस्त",
+    offline: "ऑफ़लाइन",
+    onLeave: "छुट्टी पर"
+  },
+  emergency: {
+    title: "आपतकालीन चेतावनी प्रणाली",
+    sendAlert: "आपतकालीन अलर्ट भेजें",
+    confirmTitle: "आपतकालीन अलर्ट भेजें?",
+    confirmDesc: "यह तुरंत छात्रावास अधिकारियों, वार्डन और संबंधित छात्रों को सूचित करेगा।",
+    cancel: "रद्द करें",
+    send: "पुष्टि करें और अलर्ट भेजें",
+    level: "लक्ष्य स्तर",
+    type: "आपतकालीन प्रकार",
+    message: "आपतकालीन संदेश / विवरण",
+    roomLevel: "कमरा स्तर",
+    floorLevel: "मंज़िल स्तर",
+    hostelLevel: "पूरा छात्रावास",
+    activeAlerts: "सक्रिय आपतकालीन चेतावनियाँ",
+    acknowledge: "चेतावनी स्वीकार करें",
+    resolve: "हल किया गया चिह्नित करें",
+    reportedBy: "रिपोर्टकर्ता",
+    history: "आपतकालीन ऑडिट इतिहास",
+    acknowledgedBy: "स्वीकारकर्ता"
+  },
+  waitlist: {
+    joinWaitlist: "वेटलिस्ट में शामिल हों",
+    notifyMe: "उपलब्ध होने पर सूचित करें",
+    slotAvailable: "लॉन्ड्री स्लॉट उपलब्ध है!",
+    slotAvailableMsg: "बुकिंग के लिए लॉन्ड्री स्लॉट उपलब्ध हो गया है।",
+    inWaitlist: "वेटलिस्ट में"
   }
 };
+
