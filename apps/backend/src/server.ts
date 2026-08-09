@@ -1,36 +1,24 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import jwt from 'jsonwebtoken';
 import * as argon2 from 'argon2';
 import { config } from './core/config';
 import { prisma } from './core/prisma';
 import { authMiddleware, requireRole, AuthRequest } from './core/auth.middleware';
+import { sessionStore } from './core/sessionStore';
+import erpRouter from './core/erp.routes';
 
 const app = express();
 
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    // Allow local development
-    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
-      return callback(null, true);
-    }
-    // Allow Vercel production and preview deployments
-    if (origin === 'https://hostel-mg.vercel.app' || origin.endsWith('.vercel.app')) {
-      return callback(null, true);
-    }
-    // Allow custom origins from environment variable
-    const allowed = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()) || [];
-    if (allowed.includes(origin)) {
-      return callback(null, true);
-    }
-    callback(new Error('Not allowed by CORS'));
-  },
+  origin: true,
   credentials: true
 }));
 app.use(express.json());
 app.use(cookieParser());
+
+// Mount ERP system routes
+app.use('/api', erpRouter);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -105,11 +93,12 @@ app.post('/api/auth/login', async (req, res) => {
       return;
     }
 
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, hostelId: user.hostelId },
-      config.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    const token = sessionStore.createSession({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      hostelId: user.hostelId
+    });
 
     res.cookie('access_token', token, {
       httpOnly: true,
@@ -136,6 +125,10 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.post('/api/auth/logout', (req, res) => {
+  const token = req.cookies?.['access_token'];
+  if (token) {
+    sessionStore.deleteSession(token);
+  }
   res.clearCookie('access_token');
   res.json({ success: true, message: 'Logged out successfully' });
 });
@@ -171,12 +164,12 @@ app.get('/api/auth/me', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 // Admin management endpoints
-app.get('/api/admin/pending-approvals', authMiddleware, requireRole(['SUPER_ADMIN', 'WARDEN']), async (req: AuthRequest, res) => {
+app.get('/api/admin/pending-approvals', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN']), async (req: AuthRequest, res) => {
   try {
     const whereClause: any = { status: 'PENDING' };
-    if (req.user?.role === 'WARDEN' && req.user.hostelId) {
+    if ((req.user?.role === 'HOSTEL_ADMIN' || req.user?.role === 'ASSISTANT_WARDEN') && req.user.hostelId) {
       whereClause.hostelId = req.user.hostelId;
-      whereClause.role = 'STUDENT'; // Wardens approve students for their hostel
+      whereClause.role = 'STUDENT'; // Hostel admins approve students for their hostel
     }
 
     const pending = await prisma.user.findMany({
@@ -200,7 +193,7 @@ app.get('/api/admin/pending-approvals', authMiddleware, requireRole(['SUPER_ADMI
   }
 });
 
-app.post('/api/admin/approve-user', authMiddleware, requireRole(['SUPER_ADMIN', 'WARDEN']), async (req, res) => {
+app.post('/api/admin/approve-user', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN']), async (req, res) => {
   const { userId } = req.body;
   try {
     const qrToken = `qr-student-${userId}-${Math.random().toString(36).substring(2, 10)}`;
@@ -217,7 +210,7 @@ app.post('/api/admin/approve-user', authMiddleware, requireRole(['SUPER_ADMIN', 
   }
 });
 
-app.post('/api/admin/reject-user', authMiddleware, requireRole(['SUPER_ADMIN', 'WARDEN']), async (req, res) => {
+app.post('/api/admin/reject-user', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN']), async (req, res) => {
   const { userId } = req.body;
   try {
     await prisma.user.update({
@@ -269,7 +262,7 @@ app.get('/api/rooms', authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-app.post('/api/rooms', authMiddleware, requireRole(['SUPER_ADMIN', 'WARDEN']), async (req, res) => {
+app.post('/api/rooms', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN']), async (req, res) => {
   const { block, floor, roomNumber, capacity, hostelId } = req.body;
   try {
     const room = await prisma.room.create({
@@ -287,9 +280,9 @@ app.get('/api/complaints', authMiddleware, async (req: AuthRequest, res) => {
     const where: any = {};
     if (req.user?.role === 'STUDENT') {
       where.studentId = req.user.id;
-    } else if (req.user?.role === 'STAFF') {
+    } else if (req.user?.role === 'MAINTENANCE' || req.user?.role === 'SECURITY') {
       where.staffId = req.user.id;
-    } else if (req.user?.role === 'WARDEN' && req.user.hostelId) {
+    } else if (req.user?.hostelId) {
       where.hostelId = req.user.hostelId;
     }
     const complaints = await prisma.complaint.findMany({
@@ -384,7 +377,7 @@ app.post('/api/visitors', authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-app.patch('/api/visitors/:id', authMiddleware, requireRole(['WARDEN', 'SUPER_ADMIN']), async (req, res) => {
+app.patch('/api/visitors/:id', authMiddleware, requireRole(['HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SECURITY', 'SUPER_ADMIN']), async (req, res) => {
   const { id } = req.params;
   const { status, checkInTime, checkOutTime, exitTime } = req.body;
   try {
@@ -513,7 +506,7 @@ app.get('/api/attendance/history', authMiddleware, async (req: AuthRequest, res)
     const where: any = {};
     if (req.user.role === 'STUDENT') {
       where.userId = req.user.id;
-    } else if (req.user.role === 'WARDEN' && req.user.hostelId) {
+    } else if (req.user.hostelId) {
       where.user = { hostelId: req.user.hostelId };
     }
     
@@ -538,7 +531,7 @@ app.get('/api/attendance/history', authMiddleware, async (req: AuthRequest, res)
   }
 });
 
-app.post('/api/attendance/manual', authMiddleware, requireRole(['WARDEN', 'SUPER_ADMIN']), async (req: AuthRequest, res) => {
+app.post('/api/attendance/manual', authMiddleware, requireRole(['HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SUPER_ADMIN']), async (req: AuthRequest, res) => {
   const { studentId, date, isPresent } = req.body;
   if (!studentId) {
     res.status(400).json({ success: false, error: 'Student ID is required' });
@@ -592,7 +585,7 @@ app.get('/api/attendance/stats', authMiddleware, async (req: AuthRequest, res) =
     const where: any = {};
     if (req.user.role === 'STUDENT') {
       where.userId = req.user.id;
-    } else if (req.user.role === 'WARDEN' && req.user.hostelId) {
+    } else if (req.user.hostelId) {
       where.user = { hostelId: req.user.hostelId };
     }
 
@@ -658,8 +651,8 @@ app.get('/api/leaves', authMiddleware, async (req: AuthRequest, res) => {
     const where: any = {};
     if (req.user.role === 'STUDENT') {
       where.userId = req.user.id;
-    } else if (req.user.role === 'WARDEN' && req.user.hostelId) {
-      where.user = { hostelId: req.user.hostelId };
+    } else if (req.user.hostelId) {
+      where.hostelId = req.user.hostelId;
     }
 
     const leaves = await prisma.leave.findMany({
@@ -683,7 +676,7 @@ app.get('/api/leaves', authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-app.patch('/api/leaves/:id', authMiddleware, requireRole(['WARDEN', 'SUPER_ADMIN']), async (req: AuthRequest, res) => {
+app.patch('/api/leaves/:id', authMiddleware, requireRole(['HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SUPER_ADMIN']), async (req: AuthRequest, res) => {
   const { id } = req.params;
   const { status, remarks } = req.body;
   if (!status || !['APPROVED', 'REJECTED'].includes(status)) {
@@ -760,7 +753,7 @@ app.get('/api/attendance/settings', authMiddleware, async (req: AuthRequest, res
 });
 
 // 2. Update Attendance Settings
-app.patch('/api/attendance/settings', authMiddleware, requireRole(['WARDEN', 'SUPER_ADMIN']), async (req, res) => {
+app.patch('/api/attendance/settings', authMiddleware, requireRole(['HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SUPER_ADMIN']), async (req, res) => {
   try {
     const existing = await prisma.attendanceSettings.findFirst();
     if (!existing) {
@@ -828,7 +821,7 @@ app.delete('/api/attendance/sessions/:id', authMiddleware, requireRole(['SUPER_A
 });
 
 // 7. Scan QR Token & Mark Attendance
-app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['WARDEN', 'SUPER_ADMIN']), async (req: AuthRequest, res) => {
+app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SUPER_ADMIN']), async (req: AuthRequest, res) => {
   const { qrToken, device } = req.body;
   if (!qrToken) {
     res.status(400).json({ success: false, error: 'QR Token is required' });

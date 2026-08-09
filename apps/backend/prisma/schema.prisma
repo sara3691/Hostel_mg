@@ -9,9 +9,14 @@ generator client {
 
 enum Role {
   SUPER_ADMIN
-  WARDEN
+  HOSTEL_ADMIN
+  ASSISTANT_WARDEN
+  MESS_MANAGER
+  SECURITY
+  MAINTENANCE
+  ACCOUNTANT
+  LAUNDRY
   STUDENT
-  STAFF
 }
 
 enum StaffType {
@@ -24,12 +29,6 @@ enum StaffType {
   MESS
 }
 
-enum ApprovalStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
 enum ComplaintPriority {
   LOW
   MEDIUM
@@ -39,78 +38,141 @@ enum ComplaintPriority {
 enum ComplaintStatus {
   PENDING
   ASSIGNED
+  IN_PROGRESS
   RESOLVED
+  VERIFIED
+}
+
+enum RoomCategory {
+  AC
+  NON_AC
+  PREMIUM
+  DORMITORY
+}
+
+enum GatePassStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXITED
+  RETURNED
+}
+
+enum NoticeAudience {
+  ALL
+  STUDENTS
+  STAFF
+  HOSTEL_ADMIN
+  MESS_MANAGER
+  SECURITY
+  MAINTENANCE
 }
 
 model Hostel {
-  id          String   @id @default(uuid()) @map("_id")
-  name        String
-  code        String   @unique
-  collegeName String
-  address     String
-  capacity    Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(uuid()) @map("_id")
+  name         String
+  code         String   @unique
+  collegeName  String
+  address      String
+  capacity     Int
+  phone        String?
+  email        String?
+  logo         String?
+  gender       String?  @default("MIXED")
+  academicYear String?  @default("2025-2026")
+  status       String?  @default("ACTIVE")
+  wardenId     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  users       User[]
-  rooms       Room[]
-  complaints  Complaint[]
-  laundrySlots LaundrySlot[]
-  messMenus    MessMenu[]
-  visitors    Visitor[]
+  users              User[]
+  rooms              Room[]
+  complaints         Complaint[]
+  laundrySlots       LaundrySlot[]
+  messMenus          MessMenu[]
+  visitors           Visitor[]
+  messes             Mess[]
+  fees               Fee[]
+  payments           Payment[]
+  inventories        Inventory[]
+  inventoryUsages    InventoryUsage[]
+  inventoryPurchases InventoryPurchase[]
+  expenses           Expense[]
+  payrolls           Payroll[]
+  documents          Document[]
+  leaves             Leave[]
+  gatePasses         GatePass[]
+  notices            Notice[]
 }
 
 model User {
-  id              String         @id @default(uuid()) @map("_id")
-  email           String         @unique
-  passwordHash    String
-  fullName        String
-  mobileNumber    String
-  role            Role
-  status          ApprovalStatus @default(PENDING)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  qrToken         String?        @unique
+  id               String     @id @default(uuid()) @map("_id")
+  email            String     @unique
+  passwordHash     String
+  fullName         String
+  mobileNumber     String
+  role             Role
+  status           String     @default("PENDING")
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  qrToken          String?    @unique
+  isDeleted        Boolean    @default(false)
 
-  // Student specific fields
-  collegeName    String?
-  department     String?
-  year           String?
-  registerNumber String?
-  gender         String?
-  parentName     String?
-  parentMobile   String?
+  collegeName      String?
+  department       String?
+  year             String?
+  registerNumber   String?
+  gender           String?
+  parentName       String?
+  parentMobile     String?
   emergencyContact String?
-  address        String?
+  address          String?
 
-  // Warden / Staff fields
-  qualification  String?
-  experience     String?
-  staffType      StaffType?
+  photo            String?
+  bloodGroup       String?
+  medicalDetails   String?
+  guardianName     String?
+  guardianMobile   String?
+  guardianRelation String?
 
-  hostelId        String?
-  hostel          Hostel?        @relation(fields: [hostelId], references: [id])
+  qualification    String?
+  experience       String?
+  staffType        StaffType?
 
-  roomId          String?
-  room            Room?          @relation(fields: [roomId], references: [id])
+  hostelId         String?
+  hostel           Hostel?    @relation(fields: [hostelId], references: [id])
 
-  // Relations
-  attendances     Attendance[]
-  leaves          Leave[]
-  complaintsRaised Complaint[]   @relation("StudentComplaints")
-  complaintsAssigned Complaint[]  @relation("StaffComplaints")
-  laundryBookings LaundrySlot[]
-  visitors        Visitor[]
+  roomId           String?
+  room             Room?      @relation(fields: [roomId], references: [id])
+
+  messId           String?
+  mess             Mess?      @relation(fields: [messId], references: [id])
+
+  attendances        Attendance[]
+  leaves             Leave[]
+  complaintsRaised   Complaint[]      @relation("StudentComplaints")
+  complaintsAssigned Complaint[]      @relation("StaffComplaints")
+  laundryBookings    LaundrySlot[]
+  visitors           Visitor[]
+  fees               Fee[]
+  payments           Payment[]
+  messAttendances    MessAttendance[]
+  payrolls           Payroll[]
+  documents          Document[]
+  gatePasses         GatePass[]
+  notifications      Notification[]
 }
 
 model Room {
-  id         String   @id @default(uuid()) @map("_id")
+  id         String       @id @default(uuid()) @map("_id")
   block      String
   floor      Int
   roomNumber String
   capacity   Int
+  category   RoomCategory @default(NON_AC)
   hostelId   String
-  hostel     Hostel   @relation(fields: [hostelId], references: [id])
+  hostel     Hostel       @relation(fields: [hostelId], references: [id])
+  isDeleted  Boolean      @default(false)
 
   users      User[]
 
@@ -128,22 +190,24 @@ model Attendance {
   hostelId       String?
   roomNumber     String?
   session        String?
-  status         String?   // e.g. "PRESENT", "ABSENT", "LATE"
-  scannedBy      String?   // Name/ID of admin/warden
+  status         String?
+  scannedBy      String?
   scannerDevice  String?
-  qrVerification String?   // "VERIFIED", "FAILED"
+  qrVerification String?
 }
 
 model Leave {
-  id         String         @id @default(uuid()) @map("_id")
-  startDate  DateTime
-  endDate    DateTime
-  reason     String
-  status     ApprovalStatus @default(PENDING)
-  remarks    String?
-  userId     String
-  user       User           @relation(fields: [userId], references: [id])
-  createdAt  DateTime       @default(now())
+  id        String   @id @default(uuid()) @map("_id")
+  startDate DateTime
+  endDate   DateTime
+  reason    String
+  status    String   @default("PENDING")
+  remarks   String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  hostelId  String?
+  hostel    Hostel?  @relation(fields: [hostelId], references: [id])
+  createdAt DateTime @default(now())
 }
 
 model Complaint {
@@ -155,8 +219,10 @@ model Complaint {
   status          ComplaintStatus   @default(PENDING)
   resolutionImage String?
   studentFeedback String?
+  feedbackRating  Int?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
+  isDeleted       Boolean           @default(false)
 
   hostelId        String
   hostel          Hostel            @relation(fields: [hostelId], references: [id])
@@ -169,40 +235,48 @@ model Complaint {
 }
 
 model LaundrySlot {
-  id        String   @id @default(uuid()) @map("_id")
-  date      DateTime
-  timeSlot  String
-  status    String   @default("BOOKED") // BOOKED, COMPLETED, CANCELLED
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  hostelId  String
-  hostel    Hostel   @relation(fields: [hostelId], references: [id])
+  id           String   @id @default(uuid()) @map("_id")
+  date         DateTime
+  timeSlot     String
+  status       String   @default("BOOKED")
+  clothesCount Int?     @default(0)
+  notes        String?
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  hostelId     String
+  hostel       Hostel   @relation(fields: [hostelId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model MessMenu {
-  id        String   @id @default(uuid()) @map("_id")
-  dayOfWeek String   // Monday, Tuesday, etc.
+  id        String  @id @default(uuid()) @map("_id")
+  dayOfWeek String
   breakfast String
   lunch     String
   dinner    String
   hostelId  String
-  hostel    Hostel   @relation(fields: [hostelId], references: [id])
+  hostel    Hostel  @relation(fields: [hostelId], references: [id])
+  messId    String?
+  mess      Mess?   @relation(fields: [messId], references: [id])
 }
 
 model Visitor {
-  id                  String         @id @default(uuid()) @map("_id")
+  id                  String   @id @default(uuid()) @map("_id")
   name                String
   purpose             String
   visitDate           DateTime
-  status              ApprovalStatus @default(PENDING)
+  status              String   @default("PENDING")
   expectedArrivalTime DateTime?
   exitTime            DateTime?
   hostelId            String
-  hostel              Hostel         @relation(fields: [hostelId], references: [id])
+  hostel              Hostel   @relation(fields: [hostelId], references: [id])
   studentId           String
-  student             User           @relation(fields: [studentId], references: [id])
+  student             User     @relation(fields: [studentId], references: [id])
   checkInTime         DateTime?
   checkOutTime        DateTime?
+  visitorPhone        String?
+  relationship        String?
 }
 
 model AttendanceSettings {
@@ -222,7 +296,213 @@ model AttendanceSettings {
 }
 
 model AttendanceSession {
+  id       String  @id @default(uuid()) @map("_id")
+  name     String  @unique
+  isActive Boolean @default(true)
+}
+
+model RolePermission {
+  id         String @id @default(uuid()) @map("_id")
+  role       Role
+  permission String
+
+  @@unique([role, permission])
+}
+
+model Mess {
+  id          String           @id @default(uuid()) @map("_id")
+  name        String
+  messType    String?          @default("VEG")
+  hostelId    String
+  hostel      Hostel           @relation(fields: [hostelId], references: [id])
+  students    User[]
+  menus       MessMenu[]
+  expenses    Expense[]
+  attendances MessAttendance[]
+  inventories Inventory[]
+}
+
+model MessAttendance {
   id        String   @id @default(uuid()) @map("_id")
-  name      String   @unique
-  isActive  Boolean  @default(true)
+  date      DateTime @default(now())
+  mealType  String
+  isPresent Boolean
+  studentId String
+  student   User     @relation(fields: [studentId], references: [id])
+  messId    String
+  mess      Mess     @relation(fields: [messId], references: [id])
+  hostelId  String
+}
+
+model Fee {
+  id         String    @id @default(uuid()) @map("_id")
+  title      String
+  feeType    String?   @default("GENERAL")
+  amount     Float
+  dueDate    DateTime
+  status     String
+  paidAmount Float     @default(0)
+  discount   Float?    @default(0)
+  studentId  String
+  student    User      @relation(fields: [studentId], references: [id])
+  hostelId   String
+  hostel     Hostel    @relation(fields: [hostelId], references: [id])
+  payments   Payment[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Payment {
+  id            String   @id @default(uuid()) @map("_id")
+  amount        Float
+  paymentMode   String
+  transactionId String?
+  receiptNumber String   @unique
+  feeId         String
+  fee           Fee      @relation(fields: [feeId], references: [id])
+  studentId     String
+  student       User     @relation(fields: [studentId], references: [id])
+  hostelId      String
+  hostel        Hostel   @relation(fields: [hostelId], references: [id])
+  createdAt     DateTime @default(now())
+}
+
+model Inventory {
+  id        String              @id @default(uuid()) @map("_id")
+  itemName  String
+  category  String
+  quantity  Int
+  unit      String
+  minStock  Int                 @default(5)
+  hostelId  String
+  hostel    Hostel              @relation(fields: [hostelId], references: [id])
+  messId    String?
+  mess      Mess?               @relation(fields: [messId], references: [id])
+  usages    InventoryUsage[]
+  purchases InventoryPurchase[]
+}
+
+model InventoryUsage {
+  id          String    @id @default(uuid()) @map("_id")
+  quantity    Int
+  usedBy      String
+  purpose     String?
+  createdAt   DateTime  @default(now())
+  inventoryId String
+  inventory   Inventory @relation(fields: [inventoryId], references: [id])
+  hostelId    String
+  hostel      Hostel    @relation(fields: [hostelId], references: [id])
+}
+
+model InventoryPurchase {
+  id           String    @id @default(uuid()) @map("_id")
+  quantity     Int
+  cost         Float
+  supplier     String?
+  purchaseDate DateTime  @default(now())
+  inventoryId  String
+  inventory    Inventory @relation(fields: [inventoryId], references: [id])
+  hostelId     String
+  hostel       Hostel    @relation(fields: [hostelId], references: [id])
+}
+
+model Expense {
+  id          String   @id @default(uuid()) @map("_id")
+  category    String
+  amount      Float
+  description String?
+  expenseDate DateTime @default(now())
+  hostelId    String
+  hostel      Hostel   @relation(fields: [hostelId], references: [id])
+  messId      String?
+  mess        Mess?    @relation(fields: [messId], references: [id])
+}
+
+model Payroll {
+  id         String    @id @default(uuid()) @map("_id")
+  staffId    String
+  staff      User      @relation(fields: [staffId], references: [id])
+  month      String
+  baseSalary Float
+  bonus      Float     @default(0)
+  deductions Float     @default(0)
+  advance    Float?    @default(0)
+  pf         Float?    @default(0)
+  esi        Float?    @default(0)
+  netSalary  Float
+  status     String
+  paidDate   DateTime?
+  payslipNo  String    @unique
+  hostelId   String
+  hostel     Hostel    @relation(fields: [hostelId], references: [id])
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid()) @map("_id")
+  userId    String
+  userEmail String
+  action    String
+  module    String
+  details   String?
+  createdAt DateTime @default(now())
+}
+
+model Document {
+  id         String  @id @default(uuid()) @map("_id")
+  name       String
+  fileUrl    String
+  docType    String? @default("OTHER")
+  isVerified Boolean @default(false)
+  userId     String
+  user       User    @relation(fields: [userId], references: [id])
+  hostelId   String
+  hostel     Hostel  @relation(fields: [hostelId], references: [id])
+}
+
+model GatePass {
+  id             String         @id @default(uuid()) @map("_id")
+  purpose        String
+  destination    String
+  expectedReturn DateTime
+  actualReturn   DateTime?
+  exitTime       DateTime?
+  status         GatePassStatus @default(PENDING)
+  qrCode         String?        @unique
+  approvedBy     String?
+  remarks        String?
+  lateReturn     Boolean        @default(false)
+  studentId      String
+  student        User           @relation(fields: [studentId], references: [id])
+  hostelId       String
+  hostel         Hostel         @relation(fields: [hostelId], references: [id])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model Notice {
+  id          String         @id @default(uuid()) @map("_id")
+  title       String
+  content     String
+  audience    NoticeAudience @default(ALL)
+  isEmergency Boolean        @default(false)
+  isPinned    Boolean        @default(false)
+  hostelId    String?
+  hostel      Hostel?        @relation(fields: [hostelId], references: [id])
+  postedBy    String
+  department  String?
+  expiresAt   DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid()) @map("_id")
+  title     String
+  message   String
+  type      String
+  isRead    Boolean  @default(false)
+  link      String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
 }
