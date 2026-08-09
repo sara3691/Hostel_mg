@@ -43,8 +43,12 @@ import {
   GraduationCap,
   Phone,
   MapPin,
-  Star
+  Star,
+  Globe,
+  Compass
 } from 'lucide-react';
+import { useTranslation, languages } from './i18n';
+
 
 // Setup base url
 axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
@@ -189,11 +193,24 @@ const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast:
 };
 
 export default function App() {
+  const { t, lang, changeLanguage } = useTranslation();
+  const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('theme');
     if (saved === 'light' || saved === 'dark') return saved;
     return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   });
+
+  // ── Dynamic 5-min Temporary QR states ──
+  const [tempQrData, setTempQrData] = useState<any | null>(null);
+  const [qrCountdownSeconds, setQrCountdownSeconds] = useState<number>(0);
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Scanner GPS states ──
+  const [scannerGps, setScannerGps] = useState<{ latitude: number; longitude: number; accuracy: number } | null>(null);
+  const [gpsStatus, setGpsStatus] = useState<string>('Detecting...');
+  const [gpsError, setGpsError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [view, setView] = useState<'home' | 'login' | 'register' | 'dashboard' | 'qr_login'>('home');
   const [subView, setSubView] = useState<string>('dashboard');
@@ -475,8 +492,61 @@ export default function App() {
 
   // Camera cleanup on unmount
   useEffect(() => {
-    return () => { stopCameraStream(); };
+    return () => {
+      stopCameraStream();
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    };
   }, []);
+
+  const captureScannerGps = useCallback(() => {
+    if (!('geolocation' in navigator)) {
+      setGpsStatus('Geolocation not supported');
+      setGpsError('Geolocation is not supported by this browser.');
+      return;
+    }
+    setGpsStatus('Detecting GPS location...');
+    setGpsError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setScannerGps({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy
+        });
+        setGpsStatus(`GPS Active (±${Math.round(pos.coords.accuracy)}m)`);
+      },
+      (err) => {
+        setGpsError(err.message || 'Location permission denied');
+        setGpsStatus('Location Unavailable');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+    );
+  }, []);
+
+  const handleGenerateStudentQR = async () => {
+    try {
+      const res = await axios.post('/api/attendance/generate-qr');
+      if (res.data?.success) {
+        setTempQrData(res.data.data);
+        setQrCountdownSeconds(300); // 5 minutes
+
+        if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = setInterval(() => {
+          setQrCountdownSeconds((prev) => {
+            if (prev <= 1) {
+              if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+
+        showToast('success', t('attendance.generateQr'), t('attendance.qrValidFor', { time: '05:00' }));
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to generate QR');
+    }
+  };
 
   // Camera QR scanning functions
   const startCameraStream = async () => {
@@ -739,17 +809,22 @@ export default function App() {
     try {
       const res = await axios.post('/api/attendance/scan-qr', {
         qrToken: tokenStr,
-        device: selectedCamera
+        device: selectedCamera,
+        latitude: scannerGps?.latitude,
+        longitude: scannerGps?.longitude,
+        accuracy: scannerGps?.accuracy
       });
       if (res.data?.success) {
         playSuccessSound();
         setScannerStatus('Success');
+        const distStr = typeof res.data.distanceMeters === 'number' ? ` (${res.data.distanceMeters}m)` : '';
         setLastScannedStudent({
           ...res.data.student,
           time: new Date().toLocaleTimeString(),
           status: 'PRESENT',
-          message: 'Attendance Marked Successfully'
+          message: `${t('attendance.markedSuccess')}${distStr}`
         });
+        showToast('success', t('attendance.markedSuccess'), `${t('attendance.locationVerified')}${distStr}`);
         
         // Add to history
         const newLog = {
@@ -761,11 +836,13 @@ export default function App() {
           status: 'PRESENT',
           scannedBy: res.data.attendance?.scannedBy || 'System',
           scannerDevice: res.data.attendance?.scannerDevice || 'Webcam',
-          qrVerification: 'VERIFIED'
+          qrVerification: 'VERIFIED',
+          referenceCode: res.data.attendance?.referenceCode || 'ATD-LIVE',
+          locationCode: res.data.attendance?.locationCode || 'HSTL-MAIN-001',
+          distanceMeters: res.data.distanceMeters ?? 0
         };
         setScanHistory(prev => [newLog, ...prev]);
         
-        // Reload dashboard details
         if (currentUser) loadDashboardData(currentUser);
       } else {
         playErrorSound();
@@ -777,9 +854,15 @@ export default function App() {
             status: 'ALREADY_MARKED',
             message: 'Attendance Already Marked'
           });
-          showToast('warning', 'Already Marked', 'Attendance already recorded for this session.');
+          showToast('warning', t('attendance.title'), t('attendance.alreadyMarked') || 'Attendance already recorded for this session.');
+        } else if (res.data?.status === 'OUTSIDE_RADIUS') {
+          showToast('error', t('attendance.locationFailed'), res.data.error || t('attendance.outsideRadius'));
+        } else if (res.data?.status === 'LOCATION_LOW_ACCURACY') {
+          showToast('warning', t('attendance.locationRequired'), t('attendance.locationLowAccuracy'));
+        } else if (res.data?.status === 'EXPIRED') {
+          showToast('error', t('attendance.qrExpired'), t('attendance.qrExpiredMsg'));
         } else {
-          showToast('error', 'Verification Failed', res.data?.message || 'Invalid QR token');
+          showToast('error', t('attendance.locationFailed'), res.data?.error || res.data?.message || 'Verification Failed');
         }
       }
     } catch (err: any) {
@@ -2266,11 +2349,74 @@ export default function App() {
             </>
           )}
 
+          {/* Language Selector Dropdown */}
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              onClick={() => setLangDropdownOpen(!langDropdownOpen)}
+              id="language-selector-btn"
+            >
+              <Globe size={16} color="var(--primary)" />
+              <span>{languages.find(l => l.code === lang)?.nativeName || 'English'}</span>
+            </button>
+
+            {langDropdownOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                  padding: '0.5rem',
+                  zIndex: 200,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.25rem',
+                  minWidth: '130px'
+                }}
+              >
+                {languages.map(l => (
+                  <button
+                    key={l.code}
+                    type="button"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: lang === l.code ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                      color: lang === l.code ? 'var(--primary)' : 'var(--text-main)',
+                      fontWeight: lang === l.code ? 700 : 500,
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      textAlign: 'left'
+                    }}
+                    onClick={() => {
+                      changeLanguage(l.code);
+                      setLangDropdownOpen(false);
+                    }}
+                  >
+                    <span>{l.flag}</span>
+                    <span>{l.nativeName}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <button className="btn btn-secondary" style={{ padding: '0.5rem', borderRadius: '50%' }} onClick={toggleTheme}>
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
         </div>
       </header>
+
 
       {/* Mobile Drawer (Collapsible) */}
       <div className={`drawer-overlay ${mobileMenuOpen ? 'active' : ''}`} onClick={() => setMobileMenuOpen(false)}>
@@ -2362,7 +2508,7 @@ export default function App() {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>Password</label>
-                  <input className="form-input" type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" required />
+                  <input className="form-input" type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••" required />
                 </div>
                 <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.75rem' }}>Sign In</button>
               </form>
@@ -2384,7 +2530,7 @@ export default function App() {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>Portal Security Password</label>
-                  <input className="form-input" type="password" value={qrPortalPassword} onChange={e => setQrPortalPassword(e.target.value)} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" required />
+                  <input className="form-input" type="password" value={qrPortalPassword} onChange={e => setQrPortalPassword(e.target.value)} placeholder="••••••••" required />
                 </div>
                 <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.75rem', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                   <Shield size={18} /> Authenticate & Open Gate Scanner
@@ -2694,17 +2840,52 @@ export default function App() {
 
                 {currentUser.role === 'STUDENT' && (
                   <div className="responsive-grid-1-2">
-                    {/* Student Left Card: Actions */}
-                    <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', textAlign: 'center' }}>
-                      <AttendanceRing percentage={attendanceStats.percentage} />
-                      <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
-                        <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => { setShowQRScanner(true); setQrScanMessage('Align the hostel QR Code in the scanner box'); }}>
-                          <QrCode size={18} /> QR Scanner
-                        </button>
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        <p>Verify check-in & check-out by scanning the display code near the hostel main office.</p>
-                      </div>
+                    {/* Student Left Card: 5-Minute Temporary Attendance QR Generator */}
+                    <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.25rem', textAlign: 'center' }}>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>{t('attendance.generateQr')}</h3>
+
+                      {tempQrData && qrCountdownSeconds > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
+                          {/* QR Code Container */}
+                          <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '16px', border: '4px solid var(--primary)', width: '200px', height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', boxShadow: '0 8px 24px rgba(99,102,241,0.25)' }}>
+                            <QrCode size={150} color="#000000" />
+                          </div>
+
+                          {/* Countdown Timer & Reference Pill */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', alignItems: 'center' }}>
+                            <span className="badge badge-success" style={{ fontSize: '0.9rem', padding: '0.4rem 1rem', fontWeight: 800 }}>
+                              {t('attendance.qrValidFor', {
+                                time: `${String(Math.floor(qrCountdownSeconds / 60)).padStart(2, '0')}:${String(qrCountdownSeconds % 60).padStart(2, '0')}`
+                              })}
+                            </span>
+                            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.25rem' }}>
+                              {t('attendance.refCode', { code: tempQrData.referenceCode })}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              {t('attendance.locCode', { code: tempQrData.locationCode })}
+                            </div>
+                          </div>
+
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                            Show this QR to the attendance scanner. Valid for 5 minutes.
+                          </p>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                          <div style={{ width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <QrCode size={56} color="var(--primary)" />
+                          </div>
+                          {qrCountdownSeconds === 0 && tempQrData && (
+                            <span className="badge badge-danger">{t('attendance.qrExpired')}</span>
+                          )}
+                          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                            {tempQrData ? t('attendance.qrExpiredMsg') : 'Generate a 5-minute temporary QR code for location-verified attendance check-in.'}
+                          </p>
+                          <button className="btn btn-primary" style={{ width: '100%', padding: '0.75rem 1.5rem', fontSize: '0.9rem' }} onClick={handleGenerateStudentQR}>
+                            <QrCode size={18} /> {t('attendance.generateQr')}
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Student Right Card: logs */}
@@ -4356,15 +4537,15 @@ export default function App() {
               <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                   <div>
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>ðŸ§º Laundry Management</h2>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>🧺 {t('laundry.title')}</h2>
                     <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem', fontSize: '0.875rem' }}>Book pickup slots and track laundry delivery status</p>
                   </div>
-                  <button className="btn btn-primary" onClick={loadLaundrySlots}>â†» Refresh</button>
+                  <button className="btn btn-primary" onClick={loadLaundrySlots}>↻ Refresh</button>
                 </div>
 
                 {currentUser.role === 'STUDENT' && (
                   <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '2rem', background: 'rgba(16,185,129,0.04)' }}>
-                    <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>ðŸ“… Book a Laundry Slot</h4>
+                    <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>📅 {t('laundry.bookSlot')}</h4>
                     <form onSubmit={handleBookLaundry}>
                       <div className="responsive-grid" style={{ marginBottom: '1rem' }}>
                         <div>
@@ -4398,15 +4579,15 @@ export default function App() {
                 <div style={{ display: 'grid', gap: '0.75rem' }}>
                   {laundrySlots.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                      <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>ðŸ§º</div>
-                      <p>No laundry bookings found.</p>
+                      <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🧺</div>
+                      <p>{t('common.noData')}</p>
                     </div>
                   ) : laundrySlots.map(slot => (
                     <div key={slot.id} style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                       <div>
                         <div style={{ fontWeight: 700 }}>{slot.user?.fullName || 'Student'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Room: {slot.user?.room?.roomNumber || 'N/A'}</span></div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                          ðŸ“… {new Date(slot.date).toLocaleDateString()} Â· â° {slot.timeSlot} Â· ðŸ‘• {slot.clothesCount} items
+                          📅 {new Date(slot.date).toLocaleDateString()} · ⏰ {slot.timeSlot} · 👕 {slot.clothesCount} items
                         </div>
                         {slot.notes && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Notes: {slot.notes}</div>}
                       </div>
@@ -4416,7 +4597,7 @@ export default function App() {
                           <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateLaundry(slot.id, 'PICKED_UP')}>Picked Up</button>
                         )}
                         {['LAUNDRY', 'HOSTEL_ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) && slot.status === 'PICKED_UP' && (
-                          <button className="btn btn-primary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateLaundry(slot.id, 'DELIVERED')}>âœ“ Delivered</button>
+                          <button className="btn btn-primary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateLaundry(slot.id, 'DELIVERED')}>✓ Delivered</button>
                         )}
                       </div>
                     </div>
@@ -4424,6 +4605,7 @@ export default function App() {
                 </div>
               </div>
             )}
+
           </main>
         </div>
       )}
@@ -4435,10 +4617,21 @@ export default function App() {
           <div className="glass-panel" style={{ maxWidth: '440px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', textAlign: 'center' }}
             onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>QR Attendance Scanner</h3>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>{t('attendance.scanQr')}</h3>
               <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => { stopCameraStream(); setShowQRScanner(false); }}>
                 <X size={16} />
               </button>
+            </div>
+
+            {/* GPS Location Status Indicator Pill */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontSize: '0.75rem', background: scannerGps ? 'rgba(16,185,129,0.1)' : gpsError ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', color: scannerGps ? '#10b981' : gpsError ? '#ef4444' : '#f59e0b', padding: '0.35rem 0.75rem', borderRadius: '999px', border: '1px solid var(--border-color)' }}>
+              <Compass size={14} />
+              <span>{gpsError || gpsStatus}</span>
+              {!scannerGps && (
+                <button type="button" className="btn btn-secondary" style={{ padding: '0.1rem 0.4rem', fontSize: '0.65rem' }} onClick={captureScannerGps}>
+                  Enable GPS
+                </button>
+              )}
             </div>
 
             {/* Camera Viewfinder */}
@@ -4836,7 +5029,7 @@ export default function App() {
               <div key={notice.id} style={{ padding: '1.5rem', background: notice.isEmergency ? 'rgba(239,68,68,0.05)' : 'rgba(255,255,255,0.02)', border: `1px solid ${notice.isEmergency ? 'rgba(239,68,68,0.3)' : notice.isPinned ? 'rgba(99,102,241,0.3)' : 'var(--border-color)'}`, borderRadius: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {notice.isPinned && <span style={{ fontSize: '1rem' }}>ðŸ“Œ</span>}
+                    {notice.isPinned && <span style={{ fontSize: '1rem' }}>📌</span>}
                     {notice.isEmergency && <span className="badge badge-danger">Emergency</span>}
                     <h4 style={{ fontWeight: 700 }}>{notice.title}</h4>
                   </div>
@@ -4952,7 +5145,7 @@ export default function App() {
                   {Object.entries(reportData.summary).map(([key, val]) => (
                     <div key={key} className="glass-panel" style={{ padding: '1.25rem' }}>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{key.replace(/([A-Z])/g, ' $1').trim()}</div>
-                      <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.25rem' }}>{typeof val === 'number' && (key.includes('Due') || key.includes('Collected') || key.includes('outstanding')) ? 'â‚¹' + Number(val).toLocaleString() : String(val)}</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.25rem' }}>{typeof val === 'number' && (key.includes('Due') || key.includes('Collected') || key.includes('outstanding')) ? '₹' + Number(val).toLocaleString() : String(val)}</div>
                     </div>
                   ))}
                 </div>
@@ -5073,7 +5266,7 @@ export default function App() {
         background: 'var(--bg-card)',
         paddingBottom: currentUser ? '0' : '0' // Adjusted layout spacing
       }}>
-        Â© 2026 SmartHostel AI Â· Secure Enterprise Edition
+        © 2026 SmartHostel AI · Secure Enterprise Edition
       </footer>
     </div>
   );

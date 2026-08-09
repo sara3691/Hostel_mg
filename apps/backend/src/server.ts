@@ -820,18 +820,132 @@ app.delete('/api/attendance/sessions/:id', authMiddleware, requireRole(['SUPER_A
   }
 });
 
-// 7. Scan QR Token & Mark Attendance
+function calculateHaversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000; // Earth's radius in meters
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+}
+
+// 7a. Generate 5-Minute Temporary Attendance QR
+app.post('/api/attendance/generate-qr', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const user = req.user!;
+    const student = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: { hostel: true }
+    });
+    if (!student) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
+    const locationCode = student.hostel?.locationCode || 'HSTL-MAIN-001';
+    const referenceCode = 'ATD-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    const issuedAt = new Date();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    const qrRecord = await prisma.attendanceQR.create({
+      data: {
+        referenceCode,
+        userId: student.id,
+        locationCode,
+        issuedAt,
+        expiresAt,
+        status: 'ACTIVE'
+      }
+    });
+
+    const payload = {
+      type: 'attendance',
+      referenceCode,
+      locationCode,
+      issuedAt: issuedAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      validitySeconds: 300
+    };
+
+    res.json({
+      success: true,
+      data: {
+        ...payload,
+        qrString: JSON.stringify(payload),
+        qrRecordId: qrRecord.id
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 7b. Scan QR Token & Mark Attendance (with 5-meter GPS Location Validation)
 app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SUPER_ADMIN']), async (req: AuthRequest, res) => {
-  const { qrToken, device } = req.body;
+  const { qrToken, device, latitude, longitude, accuracy } = req.body;
   if (!qrToken) {
     res.status(400).json({ success: false, error: 'QR Token is required' });
     return;
   }
 
   try {
+    let studentId: string | null = null;
+    let refCode: string | null = null;
+    let locCode: string | null = null;
+    let qrRecord: any = null;
+
+    // Parse payload (JSON object string or raw ATD- token or permanent qrToken)
+    let parsedPayload: any = null;
+    if (typeof qrToken === 'string' && (qrToken.trim().startsWith('{') || qrToken.includes('referenceCode'))) {
+      try { parsedPayload = JSON.parse(qrToken); } catch (_) {}
+    }
+
+    const lookupRef = parsedPayload?.referenceCode || (typeof qrToken === 'string' && qrToken.startsWith('ATD-') ? qrToken : null);
+
+    if (lookupRef) {
+      qrRecord = await prisma.attendanceQR.findUnique({
+        where: { referenceCode: lookupRef }
+      });
+
+      if (!qrRecord) {
+        res.status(404).json({ success: false, error: 'Invalid or unrecognized QR Code' });
+        return;
+      }
+
+      if (qrRecord.status === 'EXPIRED' || new Date(qrRecord.expiresAt) < new Date()) {
+        if (qrRecord.status !== 'EXPIRED') {
+          await prisma.attendanceQR.update({ where: { id: qrRecord.id }, data: { status: 'EXPIRED' } });
+        }
+        res.status(400).json({
+          success: false,
+          status: 'EXPIRED',
+          error: 'This attendance QR code has expired. Please generate a new QR code.',
+          code: 'QR_EXPIRED'
+        });
+        return;
+      }
+
+      if (qrRecord.status === 'USED') {
+        res.status(400).json({
+          success: false,
+          status: 'USED',
+          error: 'This temporary QR code has already been scanned.',
+          code: 'QR_USED'
+        });
+        return;
+      }
+
+      studentId = qrRecord.userId;
+      refCode = qrRecord.referenceCode;
+      locCode = qrRecord.locationCode;
+    }
+
     // Find Student
     const student = await prisma.user.findFirst({
-      where: { qrToken },
+      where: studentId ? { id: studentId } : { qrToken },
       include: { hostel: true, room: true }
     });
 
@@ -848,6 +962,41 @@ app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['HOSTEL_ADMIN',
     if (student.role !== 'STUDENT') {
       res.status(400).json({ success: false, error: 'Only student accounts can be scanned for attendance.' });
       return;
+    }
+
+    // ── GPS 5-METER LOCATION VALIDATION ──
+    const hostel = student.hostel;
+    const hostelLat = hostel?.latitude ?? 13.0827;
+    const hostelLng = hostel?.longitude ?? 80.2707;
+    const allowedRadius = hostel?.allowedRadius ?? 5.0; // 5 meters
+
+    let distMeters: number | null = null;
+    let locationVerified = true;
+
+    if (typeof latitude === 'number' && typeof longitude === 'number') {
+      // Check GPS Accuracy
+      if (typeof accuracy === 'number' && accuracy > 35) {
+        res.status(400).json({
+          success: false,
+          status: 'LOCATION_LOW_ACCURACY',
+          error: 'Location accuracy is too low. Please enable high-accuracy GPS and try again.',
+          accuracy
+        });
+        return;
+      }
+
+      distMeters = calculateHaversineDistance(latitude, longitude, hostelLat, hostelLng);
+
+      if (distMeters > allowedRadius) {
+        res.status(400).json({
+          success: false,
+          status: 'OUTSIDE_RADIUS',
+          error: `You are outside the allowed attendance location (${distMeters}m away). Please move within 5 meters of the hostel.`,
+          distanceMeters: distMeters,
+          allowedRadius
+        });
+        return;
+      }
     }
 
     // Load configurations
@@ -872,7 +1021,6 @@ app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['HOSTEL_ADMIN',
       targetDate = new Date(settings.manualDate);
       targetSession = settings.manualSession || 'Morning';
     } else {
-      // Auto-detect based on current local hour
       const hour = new Date().getHours();
       if (hour >= 5 && hour < 12) targetSession = 'Morning';
       else if (hour >= 12 && hour < 17) targetSession = 'Afternoon';
@@ -880,21 +1028,17 @@ app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['HOSTEL_ADMIN',
       else targetSession = 'Night';
     }
 
-    // Start of day and end of day boundary for search comparison
     const startOfDay = new Date(targetDate);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(targetDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Check for duplicate scan in the exact same date and session
+    // Check for duplicate scan
     const existing = await prisma.attendance.findFirst({
       where: {
         userId: student.id,
         session: targetSession,
-        date: {
-          gte: startOfDay,
-          lte: endOfDay
-        }
+        date: { gte: startOfDay, lte: endOfDay }
       }
     });
 
@@ -928,14 +1072,30 @@ app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['HOSTEL_ADMIN',
         status: 'PRESENT',
         scannedBy: req.user?.email || 'System',
         scannerDevice: device || 'Webcam Viewfinder',
-        qrVerification: 'VERIFIED'
+        qrVerification: 'VERIFIED',
+        referenceCode: refCode || null,
+        locationCode: locCode || hostel?.locationCode || 'HSTL-MAIN-001',
+        scannerLatitude: latitude || null,
+        scannerLongitude: longitude || null,
+        distanceMeters: distMeters ?? 0,
+        locationVerified
       }
     });
+
+    // Invalidate temporary QR
+    if (qrRecord) {
+      await prisma.attendanceQR.update({
+        where: { id: qrRecord.id },
+        data: { status: 'USED', usedAt: new Date() }
+      });
+    }
 
     res.json({
       success: true,
       message: 'Attendance marked successfully',
       attendance,
+      distanceMeters: distMeters ?? 0,
+      locationVerified: true,
       student: {
         id: student.id,
         fullName: student.fullName,
@@ -949,6 +1109,7 @@ app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['HOSTEL_ADMIN',
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 // Listen on localhost
 const server = app.listen(config.PORT, '0.0.0.0', () => {

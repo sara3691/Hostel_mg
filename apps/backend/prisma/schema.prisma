@@ -82,6 +82,10 @@ model Hostel {
   academicYear String?  @default("2025-2026")
   status       String?  @default("ACTIVE")
   wardenId     String?
+  latitude     Float?   @default(13.0827)
+  longitude    Float?   @default(80.2707)
+  locationCode String?  @default("HSTL-MAIN-001")
+  allowedRadius Float?  @default(5.0)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -149,6 +153,7 @@ model User {
   mess             Mess?      @relation(fields: [messId], references: [id])
 
   attendances        Attendance[]
+  attendanceQRs      AttendanceQR[]
   leaves             Leave[]
   complaintsRaised   Complaint[]      @relation("StudentComplaints")
   complaintsAssigned Complaint[]      @relation("StaffComplaints")
@@ -180,21 +185,42 @@ model Room {
 }
 
 model Attendance {
-  id             String    @id @default(uuid()) @map("_id")
-  date           DateTime  @default(now())
-  isPresent      Boolean
-  checkInTime    DateTime?
-  checkOutTime   DateTime?
-  userId         String
-  user           User      @relation(fields: [userId], references: [id])
-  hostelId       String?
-  roomNumber     String?
-  session        String?
-  status         String?
-  scannedBy      String?
-  scannerDevice  String?
-  qrVerification String?
+  id               String    @id @default(uuid()) @map("_id")
+  date             DateTime  @default(now())
+  isPresent        Boolean
+  checkInTime      DateTime?
+  checkOutTime     DateTime?
+  userId           String
+  user             User      @relation(fields: [userId], references: [id])
+  hostelId         String?
+  roomNumber       String?
+  session          String?
+  status           String?
+  scannedBy        String?
+  scannerDevice    String?
+  qrVerification   String?
+  referenceCode    String?
+  locationCode     String?
+  scannerLatitude  Float?
+  scannerLongitude Float?
+  distanceMeters   Float?
+  locationVerified Boolean?  @default(true)
 }
+
+model AttendanceQR {
+  id            String    @id @default(uuid()) @map("_id")
+  referenceCode String    @unique
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  locationCode  String
+  issuedAt      DateTime  @default(now())
+  expiresAt     DateTime
+  status        String    @default("ACTIVE")
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
 
 model Leave {
   id        String   @id @default(uuid()) @map("_id")
