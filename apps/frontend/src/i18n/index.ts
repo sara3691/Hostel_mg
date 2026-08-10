@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { en } from './en';
 import { ta } from './ta';
 import { hi } from './hi';
@@ -28,26 +28,38 @@ export function setStoredLanguage(lang: Language) {
 export function translate(lang: Language, key: string, params?: Record<string, string | number>): string {
   const parts = key.split('.');
   let obj: any = translations[lang] || translations.en;
-  
+  let found = true;
+
   for (const part of parts) {
     if (obj && typeof obj === 'object' && part in obj) {
       obj = obj[part];
     } else {
-      // Fallback to English
-      let fallback: any = translations.en;
-      for (const p of parts) {
-        if (fallback && typeof fallback === 'object' && p in fallback) {
-          fallback = fallback[p];
-        } else {
-          return key;
-        }
-      }
-      obj = fallback;
+      found = false;
       break;
     }
   }
 
-  if (typeof obj !== 'string') return key;
+  // Fallback to English if missing in current language
+  if (!found || typeof obj !== 'string') {
+    let fallback: any = translations.en;
+    let fallbackFound = true;
+    for (const p of parts) {
+      if (fallback && typeof fallback === 'object' && p in fallback) {
+        fallback = fallback[p];
+      } else {
+        fallbackFound = false;
+        break;
+      }
+    }
+    if (fallbackFound && typeof fallback === 'string') {
+      obj = fallback;
+    } else {
+      if (import.meta.env.DEV) {
+        console.warn(`[i18n] Missing translation key: "${key}" for language "${lang}"`);
+      }
+      return key;
+    }
+  }
 
   let result = obj;
   if (params) {

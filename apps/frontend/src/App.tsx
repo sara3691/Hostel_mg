@@ -28,7 +28,6 @@ import {
   PieChart,
   Clock,
   Activity,
-  FileText,
   Database,
   Camera,
   CameraOff,
@@ -88,6 +87,7 @@ interface UserProfile {
 
 // Attendance circular ring component
 const AttendanceRing = ({ percentage }: { percentage: number }) => {
+  const { t } = useTranslation();
   const radius = 60;
   const stroke = 8;
   const normalizedRadius = radius - stroke * 2;
@@ -127,7 +127,7 @@ const AttendanceRing = ({ percentage }: { percentage: number }) => {
           {percentage}%
         </text>
       </svg>
-      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Overall Attendance</span>
+      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dashboard.overallAttendance')}</span>
     </div>
   );
 };
@@ -145,9 +145,8 @@ const SimpleBarChart = ({ data }: { data: { name: string; value: number }[] }) =
             <div style={{
               width: '24px',
               height: `${Math.max(heightPercent, 5)}px`,
-              background: 'linear-gradient(180deg, var(--primary), var(--primary-hover))',
-              borderRadius: '6px 6px 0 0',
-              boxShadow: '0 2px 8px rgba(99, 102, 241, 0.25)'
+              background: 'var(--primary)',
+              borderRadius: '4px 4px 0 0'
             }} />
             <div style={{ fontSize: '9px', color: 'var(--text-muted)', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', width: '50px', textAlign: 'center', fontWeight: 600 }}>
               {item.name}
@@ -839,7 +838,7 @@ export default function App() {
         materialsUsed: materialsUsedInput
       });
       if (res.data?.success) {
-        showToast('success', t('worker.completeWork'), 'Job completed successfully');
+        showToast('success', t('worker.completeWork'), t('dialogs.saveSuccess'));
         setShowCompleteWorkModal(false);
         setSelectedComplaintForComplete(null);
         setCompletionNotesInput('');
@@ -847,7 +846,7 @@ export default function App() {
         loadWorkerDashboard();
       }
     } catch (err: any) {
-      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to complete job');
+      showToast('error', t('common.error'), err.response?.data?.error || t('common.error'));
     }
   };
 
@@ -859,7 +858,7 @@ export default function App() {
         feedback: resolutionFeedbackInput
       });
       if (res.data?.success) {
-        showToast('success', t('complaints.confirm'), 'Complaint resolution confirmed');
+        showToast('success', t('complaints.confirm'), t('dialogs.saveSuccess'));
         setShowConfirmResolutionModal(false);
         setSelectedComplaintForConfirm(null);
         setResolutionRatingInput(5);
@@ -867,7 +866,7 @@ export default function App() {
         if (currentUser) loadDashboardData(currentUser);
       }
     } catch (err: any) {
-      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to confirm resolution');
+      showToast('error', t('common.error'), err.response?.data?.error || t('common.error'));
     }
   };
 
@@ -878,14 +877,14 @@ export default function App() {
         reason: reopenReasonInput
       });
       if (res.data?.success) {
-        showToast('warning', 'Complaint Reopened', 'Warden and Worker notified');
+        showToast('warning', t('common.reopened'), t('complaints.reopened'));
         setShowReopenModal(false);
         setSelectedComplaintForReopen(null);
         setReopenReasonInput('');
         if (currentUser) loadDashboardData(currentUser);
       }
     } catch (err: any) {
-      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to reopen complaint');
+      showToast('error', t('common.error'), err.response?.data?.error || t('common.error'));
     }
   };
 
@@ -897,7 +896,7 @@ export default function App() {
         message: emergencyMessageInput
       });
       if (res.data?.success) {
-        showToast('error', '🚨 EMERGENCY ALERT SENT', `Notified ${res.data.notifiedCount} recipients at ${emergencyLevel} level.`);
+        showToast('error', `🚨 ${t('emergency.sendAlert')}`, `${t('emergency.active')}`);
         setShowEmergencyModal(false);
         setEmergencyMessageInput('');
         loadEmergencyAlerts();
@@ -917,7 +916,7 @@ export default function App() {
         } catch (_) {}
       }
     } catch (err: any) {
-      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to send emergency alert');
+      showToast('error', t('common.error'), err.response?.data?.error || t('common.error'));
     }
   };
 
@@ -925,11 +924,11 @@ export default function App() {
     try {
       const res = await axios.post(`/api/emergency/${id}/acknowledge`);
       if (res.data?.success) {
-        showToast('info', t('emergency.acknowledge'), 'Emergency alert acknowledged');
+        showToast('info', t('emergency.acknowledge'), t('emergency.acknowledged'));
         loadEmergencyAlerts();
       }
     } catch (err: any) {
-      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to acknowledge alert');
+      showToast('error', t('common.error'), err.response?.data?.error || t('common.error'));
     }
   };
 
@@ -937,11 +936,11 @@ export default function App() {
     try {
       const res = await axios.post(`/api/emergency/${id}/resolve`);
       if (res.data?.success) {
-        showToast('success', t('emergency.resolve'), 'Emergency alert marked resolved');
+        showToast('success', t('emergency.resolve'), t('emergency.resolved'));
         loadEmergencyAlerts();
       }
     } catch (err: any) {
-      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to resolve emergency');
+      showToast('error', t('common.error'), err.response?.data?.error || t('common.error'));
     }
   };
 
@@ -952,7 +951,7 @@ export default function App() {
         showToast('success', t('waitlist.inWaitlist'), t('waitlist.slotAvailableMsg'));
       }
     } catch (err: any) {
-      showToast('error', t('common.error'), err.response?.data?.error || 'Failed to join waitlist');
+      showToast('error', t('common.error'), err.response?.data?.error || t('common.error'));
     }
   };
 
@@ -2028,128 +2027,115 @@ export default function App() {
     const items = [];
     if (currentUser.role === 'SUPER_ADMIN') {
       items.push(
-        { id: 'dashboard', label: 'Dashboard', icon: Grid },
-        { id: 'hostels', label: 'Hostels', icon: Home },
-        { id: 'rooms', label: 'Rooms', icon: Layers },
-        { id: 'students', label: 'Onboarding & Verify', icon: Users },
-        { id: 'workers', label: 'Worker Mgmt', icon: Wrench },
-        { id: 'emergencies', label: 'Emergencies', icon: ShieldAlert },
-        { id: 'attendance', label: 'Attendance', icon: QrCode },
-        { id: 'leave', label: 'Leaves Hub', icon: Calendar },
-        { id: 'complaints', label: 'Complaints', icon: AlertTriangle },
-        { id: 'visitors', label: 'Visitors Pass', icon: Users },
-        { id: 'laundry', label: 'Laundry', icon: Clipboard },
-        { id: 'mess', label: 'Mess System', icon: BookOpen },
-        { id: 'payments', label: 'Fees Ledger', icon: CreditCard },
-        { id: 'payroll', label: 'Staff Payroll', icon: FileText },
-        { id: 'inventory', label: 'Inventory Stock', icon: Clipboard },
-        { id: 'expenses', label: 'Expenses Tracking', icon: CreditCard },
-        { id: 'gate_pass', label: 'Gate Pass', icon: Shield },
-        { id: 'notices', label: 'Notice Board', icon: Bell },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
-        { id: 'mess_menu', label: 'Mess Menu', icon: BookOpen },
-        { id: 'reports', label: 'Reports', icon: PieChart },
-        { id: 'search', label: 'Search', icon: Search },
-        { id: 'audit_logs', label: 'System Logs', icon: Activity },
-        { id: 'settings', label: 'System Settings', icon: Settings },
-        { id: 'profile', label: 'Profile', icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
+        { id: 'hostels', label: t('nav.hostels'), icon: Home },
+        { id: 'rooms', label: t('nav.rooms'), icon: Layers },
+        { id: 'students', label: t('nav.students'), icon: Users },
+        { id: 'workers', label: t('nav.workers'), icon: Wrench },
+        { id: 'emergencies', label: t('emergency.title'), icon: ShieldAlert },
+        { id: 'attendance', label: t('nav.attendance'), icon: QrCode },
+        { id: 'leave', label: t('nav.leaves'), icon: Calendar },
+        { id: 'complaints', label: t('nav.complaints'), icon: AlertTriangle },
+        { id: 'visitors', label: t('nav.visitors'), icon: Users },
+        { id: 'laundry', label: t('nav.laundry'), icon: Clipboard },
+        { id: 'mess', label: t('nav.mess'), icon: BookOpen },
+        { id: 'payments', label: t('nav.payments'), icon: CreditCard },
+        { id: 'gate_pass', label: t('nav.gatePass'), icon: Shield },
+        { id: 'notices', label: t('nav.noticeBoard'), icon: Bell },
+        { id: 'notifications', label: t('nav.notifications'), icon: Bell },
+        { id: 'reports', label: t('nav.reports'), icon: PieChart },
+        { id: 'audit_logs', label: t('nav.auditLogs'), icon: Activity },
+        { id: 'settings', label: t('nav.settings'), icon: Settings },
+        { id: 'profile', label: t('nav.profile'), icon: User }
       );
     } else if (currentUser.role === 'HOSTEL_ADMIN') {
       items.push(
-        { id: 'dashboard', label: 'Dashboard', icon: Grid },
-        { id: 'rooms', label: 'Rooms', icon: Layers },
-        { id: 'students', label: 'Onboarding & Verify', icon: Users },
-        { id: 'workers', label: 'Worker Mgmt', icon: Wrench },
-        { id: 'emergencies', label: 'Emergencies', icon: ShieldAlert },
-        { id: 'attendance', label: 'Attendance', icon: QrCode },
-        { id: 'leave', label: 'Leaves Hub', icon: Calendar },
-        { id: 'complaints', label: 'Complaints', icon: AlertTriangle },
-        { id: 'visitors', label: 'Visitors Pass', icon: Users },
-        { id: 'laundry', label: 'Laundry Slots', icon: Clipboard },
-        { id: 'mess', label: 'Mess Operations', icon: BookOpen },
-        { id: 'payments', label: 'Fees Ledger', icon: CreditCard },
-        { id: 'inventory', label: 'Inventory Stock', icon: Clipboard },
-        { id: 'expenses', label: 'Expenses', icon: CreditCard },
-        { id: 'gate_pass', label: 'Gate Pass', icon: Shield },
-        { id: 'notices', label: 'Notice Board', icon: Bell },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
-        { id: 'mess_menu', label: 'Mess Menu', icon: BookOpen },
-        { id: 'reports', label: 'Reports', icon: PieChart },
-        { id: 'profile', label: 'Profile', icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
+        { id: 'rooms', label: t('nav.rooms'), icon: Layers },
+        { id: 'students', label: t('nav.students'), icon: Users },
+        { id: 'workers', label: t('nav.workers'), icon: Wrench },
+        { id: 'emergencies', label: t('emergency.title'), icon: ShieldAlert },
+        { id: 'attendance', label: t('nav.attendance'), icon: QrCode },
+        { id: 'leave', label: t('nav.leaves'), icon: Calendar },
+        { id: 'complaints', label: t('nav.complaints'), icon: AlertTriangle },
+        { id: 'visitors', label: t('nav.visitors'), icon: Users },
+        { id: 'laundry', label: t('nav.laundry'), icon: Clipboard },
+        { id: 'mess', label: t('nav.mess'), icon: BookOpen },
+        { id: 'payments', label: t('nav.payments'), icon: CreditCard },
+        { id: 'gate_pass', label: t('nav.gatePass'), icon: Shield },
+        { id: 'notices', label: t('nav.noticeBoard'), icon: Bell },
+        { id: 'notifications', label: t('nav.notifications'), icon: Bell },
+        { id: 'reports', label: t('nav.reports'), icon: PieChart },
+        { id: 'profile', label: t('nav.profile'), icon: User }
       );
     } else if (currentUser.role === 'ASSISTANT_WARDEN') {
       items.push(
-        { id: 'dashboard', label: 'Dashboard', icon: Grid },
-        { id: 'rooms', label: 'Rooms', icon: Layers },
-        { id: 'students', label: 'Students List', icon: Users },
-        { id: 'workers', label: 'Worker Mgmt', icon: Wrench },
-        { id: 'emergencies', label: 'Emergencies', icon: ShieldAlert },
-        { id: 'attendance', label: 'Attendance', icon: QrCode },
-        { id: 'leave', label: 'Leaves Hub', icon: Calendar },
-        { id: 'complaints', label: 'Complaints', icon: AlertTriangle },
-        { id: 'visitors', label: 'Visitors Pass', icon: Users },
-        { id: 'laundry', label: 'Laundry Slots', icon: Clipboard },
-        { id: 'mess', label: 'Mess Operations', icon: BookOpen },
-        { id: 'profile', label: 'Profile', icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
+        { id: 'rooms', label: t('nav.rooms'), icon: Layers },
+        { id: 'students', label: t('nav.students'), icon: Users },
+        { id: 'workers', label: t('nav.workers'), icon: Wrench },
+        { id: 'emergencies', label: t('emergency.title'), icon: ShieldAlert },
+        { id: 'attendance', label: t('nav.attendance'), icon: QrCode },
+        { id: 'leave', label: t('nav.leaves'), icon: Calendar },
+        { id: 'complaints', label: t('nav.complaints'), icon: AlertTriangle },
+        { id: 'visitors', label: t('nav.visitors'), icon: Users },
+        { id: 'laundry', label: t('nav.laundry'), icon: Clipboard },
+        { id: 'mess', label: t('nav.mess'), icon: BookOpen },
+        { id: 'profile', label: t('nav.profile'), icon: User }
       );
     } else if (currentUser.role === 'WORKER') {
       items.push(
-        { id: 'worker_dashboard', label: 'Task Dashboard', icon: Wrench },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
-        { id: 'profile', label: 'Profile', icon: User }
+        { id: 'worker_dashboard', label: t('worker.dashboardTitle'), icon: Wrench },
+        { id: 'notifications', label: t('nav.notifications'), icon: Bell },
+        { id: 'profile', label: t('nav.profile'), icon: User }
       );
     } else if (currentUser.role === 'MESS_MANAGER') {
       items.push(
-        { id: 'dashboard', label: 'Dashboard', icon: Grid },
-        { id: 'mess', label: 'Mess Operations', icon: BookOpen },
-        { id: 'inventory', label: 'Food Inventory', icon: Clipboard },
-        { id: 'expenses', label: 'Mess Expenses', icon: CreditCard },
-        { id: 'profile', label: 'Profile', icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
+        { id: 'mess', label: t('nav.mess'), icon: BookOpen },
+        { id: 'profile', label: t('nav.profile'), icon: User }
       );
     } else if (currentUser.role === 'SECURITY') {
       items.push(
-        { id: 'dashboard', label: 'Dashboard', icon: Grid },
-        { id: 'visitors', label: 'Visitor Pass', icon: Users },
-        { id: 'attendance', label: 'Gate Scan QR', icon: QrCode },
-        { id: 'profile', label: 'Profile', icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
+        { id: 'visitors', label: t('nav.visitors'), icon: Users },
+        { id: 'attendance', label: t('nav.attendance'), icon: QrCode },
+        { id: 'profile', label: t('nav.profile'), icon: User }
       );
     } else if (currentUser.role === 'MAINTENANCE') {
       items.push(
-        { id: 'dashboard', label: 'Dashboard', icon: Grid },
-        { id: 'complaints', label: 'Complaints Tasks', icon: AlertTriangle },
-        { id: 'inventory', label: 'Spare Parts Stock', icon: Clipboard },
-        { id: 'profile', label: 'Profile', icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
+        { id: 'complaints', label: t('nav.complaints'), icon: AlertTriangle },
+        { id: 'profile', label: t('nav.profile'), icon: User }
       );
     } else if (currentUser.role === 'ACCOUNTANT') {
       items.push(
-        { id: 'dashboard', label: 'Dashboard', icon: Grid },
-        { id: 'payments', label: 'Fees Ledger', icon: CreditCard },
-        { id: 'expenses', label: 'Expenses Log', icon: CreditCard },
-        { id: 'payroll', label: 'Staff Payroll', icon: FileText },
-        { id: 'profile', label: 'Profile', icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
+        { id: 'payments', label: t('nav.payments'), icon: CreditCard },
+        { id: 'profile', label: t('nav.profile'), icon: User }
       );
     } else if (currentUser.role === 'STUDENT') {
       items.push(
-        { id: 'dashboard', label: 'Dashboard', icon: Grid },
-        { id: 'rooms', label: 'My Room Info', icon: Home },
-        { id: 'attendance', label: 'Attendance logs', icon: QrCode },
-        { id: 'leave', label: 'Apply Leave', icon: Calendar },
-        { id: 'complaints', label: 'Raise Complaint', icon: AlertTriangle },
-        { id: 'visitors', label: 'Visitor Pass', icon: Users },
-        { id: 'laundry', label: 'Laundry slots', icon: Clipboard },
-        { id: 'mess', label: 'Mess & Menu', icon: BookOpen },
-        { id: 'payments', label: 'Fee Summary', icon: CreditCard },
-        { id: 'gate_pass', label: 'Gate Pass', icon: Shield },
-        { id: 'notices', label: 'Notice Board', icon: Bell },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
-        { id: 'ai_assistant', label: 'AI Assistant', icon: Sparkles },
-        { id: 'profile', label: 'My Profile', icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
+        { id: 'rooms', label: t('nav.rooms'), icon: Home },
+        { id: 'attendance', label: t('nav.attendance'), icon: QrCode },
+        { id: 'leave', label: t('leaves.applyLeave'), icon: Calendar },
+        { id: 'complaints', label: t('complaints.raiseComplaint'), icon: AlertTriangle },
+        { id: 'visitors', label: t('nav.visitors'), icon: Users },
+        { id: 'laundry', label: t('nav.laundry'), icon: Clipboard },
+        { id: 'mess', label: t('nav.mess'), icon: BookOpen },
+        { id: 'payments', label: t('nav.payments'), icon: CreditCard },
+        { id: 'gate_pass', label: t('nav.gatePass'), icon: Shield },
+        { id: 'notices', label: t('nav.noticeBoard'), icon: Bell },
+        { id: 'notifications', label: t('nav.notifications'), icon: Bell },
+        { id: 'ai_assistant', label: t('nav.aiAssistant'), icon: Sparkles },
+        { id: 'profile', label: t('nav.profile'), icon: User }
       );
     } else {
       // Fallback
       items.push(
-        { id: 'dashboard', label: 'Dashboard', icon: Grid },
-        { id: 'profile', label: 'Profile', icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
+        { id: 'profile', label: t('nav.profile'), icon: User }
       );
     }
 
@@ -2249,7 +2235,7 @@ export default function App() {
           </div>
           <div className="glass-panel" style={{ padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>SCANNER EFFICIENCY</span>
-            <span style={{ fontSize: '1.75rem', fontWeight: 800, color: '#6366f1', marginTop: '0.25rem' }}>
+            <span style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.25rem' }}>
               {totalScans > 0 ? `${Math.round((successScans / totalScans) * 100)}%` : '100%'}
             </span>
           </div>
@@ -2282,7 +2268,7 @@ export default function App() {
               }}>
                 {scannerActive ? (
                   <>
-                    <QrCode size={100} color="rgba(99, 102, 241, 0.4)" />
+                    <QrCode size={100} color="var(--primary)" style={{ opacity: 0.4 }} />
                     {/* Viewfinder Scanning Grid Overlay */}
                     <div style={{
                       position: 'absolute',
@@ -2579,9 +2565,9 @@ export default function App() {
             <Menu size={20} />
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }} onClick={() => setView(currentUser ? 'dashboard' : 'home')}>
-            <Shield size={24} color="#6366f1" />
+            <Shield size={24} color="var(--primary)" />
             <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-              SmartHostel <span style={{ color: '#6366f1' }}>AI</span>
+              SmartHostel <span style={{ color: 'var(--primary)' }}>AI</span>
             </span>
           </div>
         </div>
@@ -2594,7 +2580,7 @@ export default function App() {
               type="text"
               className="form-input"
               style={{ paddingLeft: '2.25rem', height: '36px', fontSize: '0.875rem' }}
-              placeholder="Global Search..."
+              placeholder={t('common.search')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
@@ -2605,10 +2591,10 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {(view === 'home' || view === 'login' || view === 'register' || view === 'qr_login') && (
             <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }} onClick={() => setView('home')}>Home</button>
-              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }} onClick={() => setView('login')}>Sign In</button>
-              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }} onClick={() => setView('qr_login')}>QR Portal</button>
-              <button className="btn btn-primary" onClick={() => setView('register')}>Register</button>
+              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }} onClick={() => setView('home')}>{t('nav.dashboard')}</button>
+              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }} onClick={() => setView('login')}>{t('auth.signIn')}</button>
+              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }} onClick={() => setView('qr_login')}>{t('nav.qrPortal')}</button>
+              <button className="btn btn-primary" onClick={() => setView('register')}>{t('nav.register')}</button>
             </div>
           )}
 
@@ -2624,7 +2610,7 @@ export default function App() {
               </div>
               <div className="hide-mobile" style={{ display: 'flex', flexDirection: 'column', textAlign: 'right' }}>
                 <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{currentUser.fullName}</span>
-                <span style={{ fontSize: '0.75rem', color: '#6366f1', textTransform: 'uppercase', fontWeight: 800 }}>{currentUser.role.replace('_', ' ')}</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--primary)', textTransform: 'uppercase', fontWeight: 800 }}>{currentUser.role.replace('_', ' ')}</span>
               </div>
             </>
           )}
@@ -2671,7 +2657,7 @@ export default function App() {
                       padding: '0.5rem 0.75rem',
                       borderRadius: '8px',
                       border: 'none',
-                      background: lang === l.code ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                      background: lang === l.code ? 'var(--primary-soft)' : 'transparent',
                       color: lang === l.code ? 'var(--primary)' : 'var(--text-main)',
                       fontWeight: lang === l.code ? 700 : 500,
                       cursor: 'pointer',
@@ -2702,7 +2688,7 @@ export default function App() {
       <div className={`drawer-overlay ${mobileMenuOpen ? 'active' : ''}`} onClick={() => setMobileMenuOpen(false)}>
         <div className={`drawer-content ${mobileMenuOpen ? 'active' : ''}`} onClick={e => e.stopPropagation()}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-            <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>{currentUser ? 'All Modules' : 'Menu'}</span>
+            <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>{currentUser ? t('common.all') : t('common.notice')}</span>
             <button className="btn btn-secondary" style={{ padding: '0.25rem' }} onClick={() => setMobileMenuOpen(false)}>
               <X size={18} />
             </button>
@@ -2714,28 +2700,28 @@ export default function App() {
                 onClick={() => { setView('home'); setMobileMenuOpen(false); }}
                 style={{ justifyContent: 'flex-start' }}
               >
-                Home
+                {t('nav.dashboard')}
               </button>
               <button 
                 className="sidebar-item" 
                 onClick={() => { setView('login'); setMobileMenuOpen(false); }}
                 style={{ justifyContent: 'flex-start' }}
               >
-                Sign In
+                {t('auth.signIn')}
               </button>
               <button 
                 className="sidebar-item" 
                 onClick={() => { setView('qr_login'); setMobileMenuOpen(false); }}
                 style={{ justifyContent: 'flex-start' }}
               >
-                QR Portal
+                {t('nav.qrPortal')}
               </button>
               <button 
                 className="btn btn-primary" 
                 onClick={() => { setView('register'); setMobileMenuOpen(false); }}
                 style={{ width: '100%', marginTop: '1rem' }}
               >
-                Register
+                {t('nav.register')}
               </button>
             </div>
           )}
@@ -2766,12 +2752,12 @@ export default function App() {
           {/* HOME LANDING VIEW */}
           {view === 'home' && (
             <div className="animate-slide-up hero-container">
-              <Sparkles size={48} color="#6366f1" style={{ marginBottom: '1.5rem' }} />
-              <h1 className="hero-title" style={{ fontWeight: 800, marginBottom: '1rem', lineHeight: '1.1' }}>Enterprise Digital Hostel Suite</h1>
-              <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)', marginBottom: '2.5rem' }}>A centralized multi-role platform supporting QR Attendance, leave cycles, automated booking operations, mess dashboards, and AI Assistant utilities.</p>
+              <Sparkles size={48} color="var(--primary)" style={{ marginBottom: '1.5rem' }} />
+              <h1 className="hero-title" style={{ fontWeight: 800, marginBottom: '1rem', lineHeight: '1.1' }}>{t('common.appName')}</h1>
+              <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)', marginBottom: '2.5rem' }}>{t('common.subTitle')}</p>
               <div className="hero-buttons">
-                <button className="btn btn-primary" style={{ padding: '1rem 2rem', fontSize: '1rem' }} onClick={() => setView('register')}>Start System Setup <ArrowRight size={18} /></button>
-                <button className="btn btn-secondary" style={{ padding: '1rem 2rem', fontSize: '1rem' }} onClick={() => setView('login')}>Sign In</button>
+                <button className="btn btn-primary" style={{ padding: '1rem 2rem', fontSize: '1rem' }} onClick={() => setView('register')}>{t('auth.registerBtn')} <ArrowRight size={18} /></button>
+                <button className="btn btn-secondary" style={{ padding: '1rem 2rem', fontSize: '1rem' }} onClick={() => setView('login')}>{t('auth.signIn')}</button>
               </div>
             </div>
           )}
@@ -2779,18 +2765,18 @@ export default function App() {
           {/* LOGIN VIEW */}
           {view === 'login' && (
             <div className="glass-panel animate-slide-up" style={{ maxWidth: '420px', margin: '3rem auto', padding: '2.5rem' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>Welcome Back</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Enter credentials to access your hostel profile</p>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>{t('auth.welcomeBack')}</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>{t('auth.loginTitle')}</p>
               <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>Email / Username</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.email')}</label>
                   <input className="form-input" type="text" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="admin@user" required />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>Password</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.password')}</label>
                   <input className="form-input" type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••" required />
                 </div>
-                <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.75rem' }}>Sign In</button>
+                <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.75rem' }}>{t('auth.signIn')}</button>
               </form>
             </div>
           )}
@@ -2800,20 +2786,20 @@ export default function App() {
             <div className="glass-panel animate-slide-up" style={{ maxWidth: '420px', margin: '3rem auto', padding: '2.5rem', border: '1px dashed var(--primary)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
                 <QrCode size={28} color="var(--primary)" />
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>QR Attendance Login</h2>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('nav.qrPortal')}</h2>
               </div>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Access-controlled portal for Super Admins and Wardens only. Students will be denied access.</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>{t('auth.loginTitle')}</p>
               <form onSubmit={handleQRLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>Portal Email / Username</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.email')}</label>
                   <input className="form-input" type="text" value={qrPortalEmail} onChange={e => setQrPortalEmail(e.target.value)} placeholder="warden@user or admin@user" required />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>Portal Security Password</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.password')}</label>
                   <input className="form-input" type="password" value={qrPortalPassword} onChange={e => setQrPortalPassword(e.target.value)} placeholder="••••••••" required />
                 </div>
                 <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.75rem', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                  <Shield size={18} /> Authenticate & Open Gate Scanner
+                  <Shield size={18} /> {t('auth.signIn')}
                 </button>
               </form>
             </div>
@@ -2822,13 +2808,13 @@ export default function App() {
           {/* REGISTER VIEW */}
           {view === 'register' && (
             <div className="glass-panel animate-slide-up" style={{ maxWidth: '640px', margin: '2rem auto', padding: '2.5rem' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>Register Account</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>All applications require administrator approval before logging in.</p>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>{t('auth.registerBtn')}</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>{t('auth.pendingApproval')}</p>
 
               <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 <div className="responsive-grid">
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Role Type</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.role')}</label>
                     <select className="form-input" value={regRole} onChange={e => setRegRole(e.target.value as UserRole)}>
                       <option value="STUDENT">Student</option>
                       <option value="SUPER_ADMIN">Super Admin</option>
@@ -2841,29 +2827,29 @@ export default function App() {
                     </select>
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Full Name</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.fullName')}</label>
                     <input className="form-input" type="text" value={regFullName} onChange={e => setRegFullName(e.target.value)} placeholder="John Doe" required />
                   </div>
                 </div>
 
                 <div className="responsive-grid">
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Email Address</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.email')}</label>
                     <input className="form-input" type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="john@example.com" required />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Password</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.password')}</label>
                     <input className="form-input" type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="Minimum 8 characters" required />
                   </div>
                 </div>
 
                 <div className="responsive-grid">
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Mobile Number</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.mobile')}</label>
                     <input className="form-input" type="tel" value={regMobile} onChange={e => setRegMobile(e.target.value)} placeholder="10 Digit Number" required />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Select Hostel</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.selectHostel')}</label>
                     <select className="form-input" value={regHostelId} onChange={e => setRegHostelId(e.target.value)}>
                       <option value="">No Hostel (Platform Admin)</option>
                       {hostels.map(h => (
@@ -2877,15 +2863,15 @@ export default function App() {
                   <>
                     <div className="responsive-grid-3">
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>College Name</label>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.college')}</label>
                         <input className="form-input" type="text" value={regCollege} onChange={e => setRegCollege(e.target.value)} placeholder="College name" />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Department</label>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.department')}</label>
                         <input className="form-input" type="text" value={regDept} onChange={e => setRegDept(e.target.value)} placeholder="CSE, ECE etc" />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Year</label>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.year')}</label>
                         <select className="form-input" value={regYear} onChange={e => setRegYear(e.target.value)}>
                           <option value="1st Year">1st Year</option>
                           <option value="2nd Year">2nd Year</option>
@@ -2897,15 +2883,15 @@ export default function App() {
 
                     <div className="responsive-grid-3">
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Register Number</label>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.registerNumber')}</label>
                         <input className="form-input" type="text" value={regNumber} onChange={e => setRegNumber(e.target.value)} placeholder="Reg No" />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Parent Name</label>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.parentName')}</label>
                         <input className="form-input" type="text" value={regParentName} onChange={e => setRegParentName(e.target.value)} placeholder="Parent's Name" />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Parent Mobile</label>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.parentMobile')}</label>
                         <input className="form-input" type="tel" value={regParentMobile} onChange={e => setRegParentMobile(e.target.value)} placeholder="Parent's Mobile" />
                       </div>
                     </div>
@@ -2913,11 +2899,11 @@ export default function App() {
                 )}
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Residential Address</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.address')}</label>
                   <textarea className="form-input" value={regAddress} onChange={e => setRegAddress(e.target.value)} placeholder="Full street address..." rows={2}></textarea>
                 </div>
 
-                <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.75rem' }}>Submit Registration Application</button>
+                <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.75rem' }}>{t('auth.registerBtn')}</button>
               </form>
             </div>
           )}
@@ -2991,17 +2977,17 @@ export default function App() {
               <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                 <div className="flex-responsive-header">
                   <div>
-                    <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Welcome Back, {currentUser.fullName}!</h1>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Role: <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{currentUser.role.replace('_', ' ')}</span></p>
+                    <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>{t('dashboard.welcome', { name: currentUser.fullName })}</h1>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t('dashboard.roleBadge', { role: currentUser.role.replace('_', ' ') })}</p>
                   </div>
-                  <span className="badge badge-success" style={{ padding: '0.5rem 1rem' }}>Active Session</span>
+                  <span className="badge badge-success" style={{ padding: '0.5rem 1rem' }}>{t('common.active')}</span>
                 </div>
 
                 {/* Dashboard statistics based on role */}
                 <div className="dashboard-grid">
                   <div className="glass-panel stat-card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>My Attendance percentage</span>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('dashboard.overallAttendance')}</span>
                       <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.25rem' }}>{attendanceStats.percentage}%</h3>
                       <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Target: 75% min</p>
                     </div>
@@ -3010,10 +2996,10 @@ export default function App() {
 
                   <div className="glass-panel stat-card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Registered Complaints</span>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('dashboard.openComplaints')}</span>
                       <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.25rem' }}>{complaints.length}</h3>
                       <span className="badge badge-warning" style={{ marginTop: '0.5rem' }}>
-                        {complaints.filter(c => c.status !== 'RESOLVED').length} Active
+                        {complaints.filter(c => c.status !== 'RESOLVED').length} {t('common.active')}
                       </span>
                     </div>
                     <AlertTriangle size={36} color="#f59e0b" />
@@ -3021,15 +3007,15 @@ export default function App() {
 
                   <div className="glass-panel stat-card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Active Leaves</span>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('dashboard.pendingLeaves')}</span>
                       <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.25rem' }}>
-                        {leavesHistory.filter(l => l.status === 'APPROVED').length} Approved
+                        {leavesHistory.filter(l => l.status === 'APPROVED').length} {t('common.approved')}
                       </h3>
                       <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                        {leavesHistory.filter(l => l.status === 'PENDING').length} Pending Review
+                        {leavesHistory.filter(l => l.status === 'PENDING').length} {t('common.pending')}
                       </p>
                     </div>
-                    <Calendar size={36} color="#6366f1" />
+                    <Calendar size={36} color="var(--primary)" />
                   </div>
                 </div>
 
@@ -3041,21 +3027,21 @@ export default function App() {
                     {/* SVG Analytics Chart for Admin/Warden, Check-in logs for Student */}
                     {currentUser.role === 'STUDENT' ? (
                       <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>My Recent Activities</h3>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.recentActivity')}</h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                           <div style={{ display: 'flex', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '1px solid var(--border-color)' }}>
                             <Clock size={16} color="var(--primary)" />
                             <div>
-                              <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>Checked In via QR Code</p>
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Today at 09:15 AM</span>
+                              <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>{t('attendance.checkIn')}</p>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t('attendance.today')}</span>
                             </div>
                           </div>
                           {leavesHistory[0] && (
                             <div style={{ display: 'flex', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '1px solid var(--border-color)' }}>
-                              <Calendar size={16} color="var(--accent)" />
+                              <Calendar size={16} color="var(--primary)" />
                               <div>
-                                <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>Leave Request: {leavesHistory[0].reason}</p>
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Status: {leavesHistory[0].status}</span>
+                                <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>{t('leaves.title')}: {leavesHistory[0].reason}</p>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t('common.status')}: {leavesHistory[0].status}</span>
                               </div>
                             </div>
                           )}
@@ -3063,8 +3049,8 @@ export default function App() {
                             <div style={{ display: 'flex', gap: '0.75rem', padding: '0.5rem 0' }}>
                               <AlertTriangle size={16} color="#f59e0b" />
                               <div>
-                                <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>Filed Complaint: {complaints[0].title}</p>
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Status: {complaints[0].status}</span>
+                                <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>{t('complaints.title')}: {complaints[0].title}</p>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t('common.status')}: {complaints[0].status}</span>
                               </div>
                             </div>
                           )}
@@ -3072,60 +3058,60 @@ export default function App() {
                       </div>
                     ) : (
                       <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Attendance & Leaves Analytics</h3>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>{t('ai.analytics')}</h3>
                         <SimpleBarChart data={[
-                          { name: 'Active User', value: pendingUsers.length + 10 },
-                          { name: 'Present Today', value: attendanceHistory.filter(a => a.isPresent).length + 3 },
-                          { name: 'On Leave', value: leavesHistory.filter(l => l.status === 'APPROVED').length },
-                          { name: 'Complaints', value: complaints.filter(c => c.status !== 'RESOLVED').length },
-                          { name: 'Visitors Pass', value: visitors.length }
+                          { name: t('common.active'), value: pendingUsers.length + 10 },
+                          { name: t('attendance.today'), value: attendanceHistory.filter(a => a.isPresent).length + 3 },
+                          { name: t('leaves.title'), value: leavesHistory.filter(l => l.status === 'APPROVED').length },
+                          { name: t('complaints.title'), value: complaints.filter(c => c.status !== 'RESOLVED').length },
+                          { name: t('visitors.title'), value: visitors.length }
                         ]} />
                       </div>
                     )}
 
                     {/* Quick Action Card Panels */}
                     <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>Quick Actions Shortcuts</h3>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('dashboard.quickActions')}</h3>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                         {currentUser.role === 'STUDENT' && (
                           <>
                             <button className="btn btn-secondary" onClick={() => setSubView('attendance')}>
-                              <QrCode size={16} /> QR Scan Attendance
+                              <QrCode size={16} /> {t('attendance.scanQr')}
                             </button>
                             <button className="btn btn-secondary" onClick={() => setSubView('leave')}>
-                              <Calendar size={16} /> Request Leave
+                              <Calendar size={16} /> {t('leaves.applyLeave')}
                             </button>
                             <button className="btn btn-secondary" onClick={() => setSubView('complaints')}>
-                              <AlertTriangle size={16} /> Report Complaint
+                              <AlertTriangle size={16} /> {t('complaints.raiseComplaint')}
                             </button>
                             <button className="btn btn-secondary" onClick={() => setSubView('visitors')}>
-                              <Users size={16} /> Request Visitor Pass
+                              <Users size={16} /> {t('visitors.createRequest')}
                             </button>
                           </>
                         )}
                         {currentUser.role === 'WARDEN' && (
                           <>
                             <button className="btn btn-secondary" onClick={() => setSubView('leave')}>
-                              <Calendar size={16} /> Leave Requests ({leavesHistory.filter(l => l.status === 'PENDING').length})
+                              <Calendar size={16} /> {t('leaves.title')} ({leavesHistory.filter(l => l.status === 'PENDING').length})
                             </button>
                             <button className="btn btn-secondary" onClick={() => setSubView('attendance')}>
-                              <QrCode size={16} /> Manual Attendance
+                              <QrCode size={16} /> {t('attendance.title')}
                             </button>
                             <button className="btn btn-secondary" onClick={() => setSubView('complaints')}>
-                              <AlertTriangle size={16} /> Resolve Complaints
+                              <AlertTriangle size={16} /> {t('complaints.title')}
                             </button>
                           </>
                         )}
                         {currentUser.role === 'SUPER_ADMIN' && (
                           <>
                             <button className="btn btn-secondary" onClick={() => setSubView('hostels')}>
-                              <PlusCircle size={16} /> Create Hostel
+                              <PlusCircle size={16} /> {t('hostel.add')}
                             </button>
                             <button className="btn btn-secondary" onClick={() => setSubView('rooms')}>
-                              <Layers size={16} /> Manage Rooms
+                              <Layers size={16} /> {t('rooms.title')}
                             </button>
                             <button className="btn btn-secondary" onClick={() => setSubView('attendance')}>
-                              <PieChart size={16} /> System Attendance
+                              <PieChart size={16} /> {t('attendance.title')}
                             </button>
                           </>
                         )}
@@ -3137,7 +3123,7 @@ export default function App() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                     <div className="glass-panel" style={{ padding: '1.5rem' }}>
                       <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Bell size={18} color="#6366f1" /> Announcements
+                        <Bell size={18} color="var(--primary)" /> {t('dashboard.recentAnnouncements')}
                       </h3>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div style={{ padding: '0.75rem', background: 'rgba(99, 102, 241, 0.05)', borderRadius: '8px', borderLeft: '3px solid var(--primary)' }}>
@@ -3160,7 +3146,7 @@ export default function App() {
             {/* 2. QR ATTENDANCE MODULE */}
             {subView === 'attendance' && currentUser && (
               <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>QR Attendance Dashboard</h2>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('attendance.title')}</h2>
 
                 {currentUser.role === 'STUDENT' && (
                   <div className="responsive-grid-1-2">
@@ -3191,7 +3177,7 @@ export default function App() {
                           </div>
 
                           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                            Show this QR to the attendance scanner. Valid for 5 minutes.
+                            {t('attendance.qrValidFor', { time: '5m' })}
                           </p>
                         </div>
                       ) : (
@@ -3203,7 +3189,7 @@ export default function App() {
                             <span className="badge badge-danger">{t('attendance.qrExpired')}</span>
                           )}
                           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                            {tempQrData ? t('attendance.qrExpiredMsg') : 'Generate a 5-minute temporary QR code for location-verified attendance check-in.'}
+                            {tempQrData ? t('attendance.qrExpiredMsg') : t('attendance.generateQr')}
                           </p>
                           <button className="btn btn-primary" style={{ width: '100%', padding: '0.75rem 1.5rem', fontSize: '0.9rem' }} onClick={handleGenerateStudentQR}>
                             <QrCode size={18} /> {t('attendance.generateQr')}
@@ -3214,22 +3200,22 @@ export default function App() {
 
                     {/* Student Right Card: logs */}
                     <div className="glass-panel" style={{ padding: '2rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>My Attendance Log History</h3>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('attendance.historyTitle')}</h3>
                       <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                           <thead>
                             <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                              <th style={{ padding: '0.75rem 0' }}>Date</th>
-                              <th>Status</th>
-                              <th>Check-In Time</th>
-                              <th>Check-Out Time</th>
+                              <th style={{ padding: '0.75rem 0' }}>{t('tables.date')}</th>
+                              <th>{t('tables.status')}</th>
+                              <th>{t('attendance.checkIn')}</th>
+                              <th>{t('attendance.checkOut')}</th>
                             </tr>
                           </thead>
                           <tbody>
                             {attendanceHistory.map(log => (
                               <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
                                 <td style={{ padding: '0.75rem 0' }}>{new Date(log.date).toLocaleDateString()}</td>
-                                <td><span className={`badge ${log.isPresent ? 'badge-success' : 'badge-danger'}`}>{log.isPresent ? 'Present' : 'Absent'}</span></td>
+                                <td><span className={`badge ${log.isPresent ? 'badge-success' : 'badge-danger'}`}>{log.isPresent ? t('common.active') : t('common.inactive')}</span></td>
                                 <td>{log.checkInTime ? new Date(log.checkInTime).toLocaleTimeString() : '-'}</td>
                                 <td>{log.checkOutTime ? new Date(log.checkOutTime).toLocaleTimeString() : '-'}</td>
                               </tr>
@@ -3246,39 +3232,39 @@ export default function App() {
                   <div className="responsive-grid-1-2">
                     {/* Manual Form */}
                     <div className="glass-panel" style={{ padding: '2rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>Manual Attendance Override</h3>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('attendance.title')}</h3>
                       <form onSubmit={handleManualAttendance} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Student E-mail/ID</label>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('students.studentName')}</label>
                           <input className="form-input" type="text" placeholder="Enter student email" value={manualStudentId} onChange={e => setManualStudentId(e.target.value)} required />
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Date</label>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('tables.date')}</label>
                           <input className="form-input" type="date" value={manualDate} onChange={e => setManualDate(e.target.value)} required />
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Attendance Status</label>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('tables.status')}</label>
                           <select className="form-input" value={manualIsPresent ? 'present' : 'absent'} onChange={e => setManualIsPresent(e.target.value === 'present')}>
-                            <option value="present">Present</option>
-                            <option value="absent">Absent</option>
+                            <option value="present">{t('common.active')}</option>
+                            <option value="absent">{t('common.inactive')}</option>
                           </select>
                         </div>
-                        <button className="btn btn-primary" type="submit" style={{ width: '100%' }}>Mark Attendance</button>
+                        <button className="btn btn-primary" type="submit" style={{ width: '100%' }}>{t('common.submit')}</button>
                       </form>
                     </div>
 
                     {/* Live logs */}
                     <div className="glass-panel" style={{ padding: '2rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>Live Attendance Logs</h3>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('attendance.historyTitle')}</h3>
                       <div style={{ maxHeight: '380px', overflowY: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                           <thead>
                             <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                              <th style={{ padding: '0.75rem' }}>Student Name</th>
-                              <th>Date</th>
-                              <th>Status</th>
-                              <th>Check-In</th>
-                              <th>Check-Out</th>
+                              <th style={{ padding: '0.75rem' }}>{t('tables.name')}</th>
+                              <th>{t('tables.date')}</th>
+                              <th>{t('tables.status')}</th>
+                              <th>{t('attendance.checkIn')}</th>
+                              <th>{t('attendance.checkOut')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -3286,7 +3272,7 @@ export default function App() {
                               <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
                                 <td style={{ padding: '0.75rem', fontWeight: 600 }}>{log.user?.fullName || 'Anonymous student'}</td>
                                 <td>{new Date(log.date).toLocaleDateString()}</td>
-                                <td><span className={`badge ${log.isPresent ? 'badge-success' : 'badge-danger'}`}>{log.isPresent ? 'Present' : 'Absent'}</span></td>
+                                <td><span className={`badge ${log.isPresent ? 'badge-success' : 'badge-danger'}`}>{log.isPresent ? t('common.active') : t('common.inactive')}</span></td>
                                 <td>{log.checkInTime ? new Date(log.checkInTime).toLocaleTimeString() : '-'}</td>
                                 <td>{log.checkOutTime ? new Date(log.checkOutTime).toLocaleTimeString() : '-'}</td>
                               </tr>
@@ -3829,7 +3815,7 @@ export default function App() {
             {subView === 'ai_assistant' && (
               <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '680px', margin: '0 auto', width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Sparkles size={24} color="#6366f1" />
+                  <Sparkles size={24} color="var(--primary)" />
                   <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>SmartHostel AI Concierge</h2>
                 </div>
 
@@ -3849,14 +3835,13 @@ export default function App() {
                     {chatMessages.map((msg, index) => (
                       <div key={index} style={{
                         alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
-                        background: msg.sender === 'user' ? 'var(--primary)' : 'rgba(255,255,255,0.03)',
+                        background: msg.sender === 'user' ? 'var(--primary)' : 'var(--bg-main)',
                         color: msg.sender === 'user' ? '#ffffff' : 'var(--text-main)',
                         padding: '0.75rem 1rem',
-                        borderRadius: msg.sender === 'user' ? '16px 16px 2px 16px' : '16px 16px 16px 2px',
+                        borderRadius: msg.sender === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
                         maxWidth: '80%',
                         fontSize: '0.875rem',
                         border: msg.sender === 'user' ? 'none' : '1px solid var(--border-color)',
-                        boxShadow: msg.sender === 'user' ? '0 4px 10px rgba(99,102,241,0.2)' : 'none',
                         lineHeight: 1.5,
                         whiteSpace: 'pre-line'
                       }}>
@@ -4388,13 +4373,13 @@ export default function App() {
                   <div style={{
                     borderRadius: '16px',
                     padding: '1.5rem',
-                    background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%)',
+                    background: 'var(--bg-card)',
                     width: '300px',
                     textAlign: 'center',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-                    border: '1px solid var(--primary)'
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                    border: '2px solid var(--primary)'
                   }}>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '2px', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.5rem' }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '2px', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
                       SMARTHOSTEL PASS
                     </div>
                     <img 
@@ -4402,14 +4387,14 @@ export default function App() {
                       style={{ width: '80px', height: '80px', borderRadius: '50%', border: '2px solid var(--primary)', margin: '0 auto 1rem', display: 'block' }}
                       alt="Avatar"
                     />
-                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ffffff' }}>{currentUser.fullName}</div>
-                    <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.2)', padding: '0.15rem 0.5rem', borderRadius: '12px', display: 'inline-block', margin: '0.25rem 0 1rem', fontWeight: 700 }}>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)' }}>{currentUser.fullName}</div>
+                    <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--primary)', background: 'var(--primary-soft)', padding: '0.15rem 0.5rem', borderRadius: '12px', display: 'inline-block', margin: '0.25rem 0 1rem', fontWeight: 700 }}>
                       {currentUser.role}
                     </span>
-                    <div style={{ textAlign: 'left', fontSize: '0.75rem', background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', border: '1px solid rgba(255,255,255,0.04)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8' }}>Register No:</span><strong>{currentUser.registerNumber || 'N/A'}</strong></div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8' }}>Hostel:</span><strong>{currentUser.hostel?.name || 'Demo Hostel A'}</strong></div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#94a3b8' }}>Room Number:</span><strong>{currentUser.room?.roomNumber || 'Unassigned'}</strong></div>
+                    <div style={{ textAlign: 'left', fontSize: '0.75rem', background: 'var(--bg-main)', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', border: '1px solid var(--border-color)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Register No:</span><strong>{currentUser.registerNumber || 'N/A'}</strong></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Hostel:</span><strong>{currentUser.hostel?.name || 'Demo Hostel A'}</strong></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Room Number:</span><strong>{currentUser.room?.roomNumber || 'Unassigned'}</strong></div>
                     </div>
                     
                     {/* QR Code Container */}
@@ -4435,12 +4420,12 @@ export default function App() {
                             <head>
                               <title>${currentUser.fullName} - Hostel ID Card</title>
                               <style>
-                                body { font-family: 'Inter', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #0b0f19; color: #ffffff; }
-                                .card { border: 2px solid #6366f1; border-radius: 20px; padding: 2rem; background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%); width: 350px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-                                .header { font-size: 1.25rem; font-weight: 800; color: #6366f1; letter-spacing: 2px; margin-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.75rem; }
-                                .avatar { width: 100px; height: 100px; border-radius: 50%; border: 3px solid #6366f1; margin: 0 auto 1rem; object-fit: cover; }
+                                body { font-family: 'Inter', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #101715; color: #EDF5F2; }
+                                .card { border: 2px solid #4DB89A; border-radius: 16px; padding: 2rem; background: #17211E; width: 350px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+                                .header { font-size: 1.25rem; font-weight: 800; color: #4DB89A; letter-spacing: 2px; margin-bottom: 1.5rem; border-bottom: 1px solid #293934; padding-bottom: 0.75rem; }
+                                .avatar { width: 100px; height: 100px; border-radius: 50%; border: 3px solid #4DB89A; margin: 0 auto 1rem; object-fit: cover; }
                                 .name { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
-                                .role { font-size: 0.75rem; text-transform: uppercase; color: #a5b4fc; background: rgba(99, 102, 241, 0.2); padding: 0.25rem 0.75rem; border-radius: 20px; display: inline-block; margin-bottom: 1.5rem; font-weight: 700; }
+                                .role { font-size: 0.75rem; text-transform: uppercase; color: #4DB89A; background: #2A4A40; padding: 0.25rem 0.75rem; border-radius: 20px; display: inline-block; margin-bottom: 1.5rem; font-weight: 700; }
                                 .details { text-align: left; font-size: 0.85rem; display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; background: rgba(255,255,255,0.02); padding: 1rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
                                 .details-row { display: flex; justify-content: space-between; }
                                 .details-label { color: #94a3b8; }
@@ -5465,7 +5450,7 @@ export default function App() {
             <button className="btn btn-secondary" onClick={loadGatePasses}>Refresh</button>
           </div>
           {currentUser.role === 'STUDENT' && (
-            <div style={{ padding: '1.5rem', background: 'rgba(99,102,241,0.04)', border: '1px solid var(--border-color)', borderRadius: '12px', marginBottom: '2rem' }}>
+            <div style={{ padding: '1.5rem', background: 'var(--primary-soft)', border: '1px solid var(--border-color)', borderRadius: '12px', marginBottom: '2rem' }}>
               <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>Request Gate Pass</h4>
               <form onSubmit={handleCreateGatePass} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                 <input className="form-input" type="text" placeholder="Purpose (e.g. Medical)" value={gpPurpose} onChange={e => setGpPurpose(e.target.value)} required />
@@ -5479,7 +5464,7 @@ export default function App() {
             {gatePasses.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}><p>No gate passes found.</p></div>
             ) : gatePasses.map((gp: any) => (
-              <div key={gp.id} style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+              <div key={gp.id} style={{ padding: '1.25rem', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
                   <div>
                     <div style={{ fontWeight: 700 }}>{gp.student?.fullName || 'Student'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>#{gp.student?.registerNumber || '-'}</span></div>
@@ -5517,7 +5502,7 @@ export default function App() {
             <button className="btn btn-secondary" onClick={loadNotices}>Refresh</button>
           </div>
           {['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN'].includes(currentUser.role) && (
-            <div style={{ padding: '1.5rem', background: 'rgba(99,102,241,0.04)', border: '1px solid var(--border-color)', borderRadius: '12px', marginBottom: '2rem' }}>
+            <div style={{ padding: '1.5rem', background: 'var(--primary-soft)', border: '1px solid var(--border-color)', borderRadius: '12px', marginBottom: '2rem' }}>
               <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>Post Notice</h4>
               <form onSubmit={handleCreateNotice} style={{ display: 'grid', gap: '1rem' }}>
                 <input className="form-input" type="text" placeholder="Notice Title" value={noticeTitle} onChange={e => setNoticeTitle(e.target.value)} required />
@@ -5545,7 +5530,7 @@ export default function App() {
             {notices.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}><p>No notices posted yet.</p></div>
             ) : notices.map((notice: any) => (
-              <div key={notice.id} style={{ padding: '1.5rem', background: notice.isEmergency ? 'rgba(239,68,68,0.05)' : 'rgba(255,255,255,0.02)', border: `1px solid ${notice.isEmergency ? 'rgba(239,68,68,0.3)' : notice.isPinned ? 'rgba(99,102,241,0.3)' : 'var(--border-color)'}`, borderRadius: '12px' }}>
+              <div key={notice.id} style={{ padding: '1.5rem', background: notice.isEmergency ? 'rgba(201,74,74,0.06)' : 'var(--bg-card)', border: `1px solid ${notice.isEmergency ? 'rgba(201,74,74,0.3)' : notice.isPinned ? 'var(--primary)' : 'var(--border-color)'}`, borderRadius: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     {notice.isPinned && <span style={{ fontSize: '1rem' }}>📌</span>}
@@ -5582,7 +5567,7 @@ export default function App() {
             {notifications.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}><p>No notifications. You are all caught up!</p></div>
             ) : notifications.map((notif: any) => (
-              <div key={notif.id} onClick={() => !notif.isRead && handleMarkNotificationRead(notif.id)} style={{ padding: '1rem 1.25rem', background: notif.isRead ? 'rgba(255,255,255,0.01)' : 'rgba(99,102,241,0.06)', border: `1px solid ${notif.isRead ? 'var(--border-color)' : 'rgba(99,102,241,0.25)'}`, borderRadius: '10px', cursor: notif.isRead ? 'default' : 'pointer' }}>
+              <div key={notif.id} onClick={() => !notif.isRead && handleMarkNotificationRead(notif.id)} style={{ padding: '1rem 1.25rem', background: notif.isRead ? 'var(--bg-card)' : 'var(--primary-soft)', border: `1px solid ${notif.isRead ? 'var(--border-color)' : 'var(--primary)'}`, borderRadius: '10px', cursor: notif.isRead ? 'default' : 'pointer' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
