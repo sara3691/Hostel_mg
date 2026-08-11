@@ -1101,20 +1101,56 @@ app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['HOSTEL_ADMIN',
     });
 
     if (existing) {
-      res.json({
-        success: false,
-        status: 'ALREADY_MARKED',
-        message: 'Attendance Already Marked',
-        student: {
-          id: student.id,
-          fullName: student.fullName,
-          registerNumber: student.registerNumber || 'N/A',
-          hostelName: student.hostel?.name || 'N/A',
-          roomNumber: student.room?.roomNumber || 'Unassigned',
-          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(student.fullName)}`
-        }
-      });
-      return;
+      const secondsSinceCheckIn = existing.checkInTime ? Math.floor((Date.now() - new Date(existing.checkInTime).getTime()) / 1000) : 999;
+
+      if (secondsSinceCheckIn < 60) {
+        res.json({
+          success: false,
+          status: 'ALREADY_MARKED',
+          message: `Check-in already recorded! Please wait ${60 - secondsSinceCheckIn} seconds before scanning again for check-out.`,
+          student: {
+            id: student.id,
+            fullName: student.fullName,
+            registerNumber: student.registerNumber || 'N/A',
+            hostelName: student.hostel?.name || 'N/A',
+            roomNumber: student.room?.roomNumber || 'Unassigned',
+            avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(student.fullName)}`
+          }
+        });
+        return;
+      } else if (!existing.checkOutTime) {
+        await prisma.attendance.update({
+          where: { id: existing.id },
+          data: { checkOutTime: new Date() }
+        });
+        res.json({
+          success: true,
+          status: 'CHECKED_OUT',
+          message: 'Check-out recorded successfully.',
+          student: {
+            id: student.id,
+            fullName: student.fullName,
+            registerNumber: student.registerNumber || 'N/A',
+            hostelName: student.hostel?.name || 'N/A',
+            roomNumber: student.room?.roomNumber || 'Unassigned'
+          }
+        });
+        return;
+      } else {
+        res.json({
+          success: false,
+          status: 'ALREADY_MARKED',
+          message: 'Attendance Check-in and Check-out already completed for today.',
+          student: {
+            id: student.id,
+            fullName: student.fullName,
+            registerNumber: student.registerNumber || 'N/A',
+            hostelName: student.hostel?.name || 'N/A',
+            roomNumber: student.room?.roomNumber || 'Unassigned'
+          }
+        });
+        return;
+      }
     }
 
     // Record attendance

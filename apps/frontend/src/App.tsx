@@ -878,6 +878,25 @@ export default function App() {
     } catch (e) {}
   };
 
+  const fetchAttendanceHistory = useCallback(async () => {
+    try {
+      const resAttHistory = await axios.get('/api/attendance/history');
+      if (resAttHistory.data?.success) setAttendanceHistory(resAttHistory.data.data);
+
+      const resAttStats = await axios.get('/api/attendance/stats');
+      if (resAttStats.data?.success) setAttendanceStats(resAttStats.data.data);
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    fetchAttendanceHistory();
+    const interval = setInterval(() => {
+      fetchAttendanceHistory();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [currentUser, fetchAttendanceHistory]);
+
   const loadWorkerDashboard = async () => {
     try {
       const res = await axios.get('/api/worker/dashboard');
@@ -1299,7 +1318,7 @@ export default function App() {
           distanceMeters: res.data.distanceMeters ?? 0
         };
         setScanHistory(prev => [newLog, ...prev]);
-        
+        fetchAttendanceHistory();
         if (currentUser) loadDashboardData(currentUser);
       } else {
         playErrorSound();
@@ -2947,7 +2966,6 @@ export default function App() {
           {/* HOME LANDING VIEW */}
           {view === 'home' && (
             <div className="animate-slide-up hero-container">
-              <Sparkles size={48} color="var(--primary)" style={{ marginBottom: '1.5rem' }} />
               <h1 className="hero-title" style={{ fontWeight: 800, marginBottom: '1rem', lineHeight: '1.1' }}>{t('common.appName')}</h1>
               <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)', marginBottom: '2.5rem' }}>{t('common.subTitle')}</p>
               <div className="hero-buttons">
@@ -3406,53 +3424,90 @@ export default function App() {
                     <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.25rem', textAlign: 'center' }}>
                       <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>{t('attendance.generateQr')}</h3>
 
-                      {tempQrData && qrCountdownSeconds > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
-                          {/* QR Code Container with Real Scannable QRCodeSVG */}
-                          <div style={{ background: '#ffffff', padding: '1rem', borderRadius: '16px', border: '4px solid var(--primary)', width: '210px', height: '210px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', boxShadow: '0 8px 24px rgba(99,102,241,0.25)' }}>
-                            <QRCodeSVG 
-                              value={tempQrData.qrString || JSON.stringify(tempQrData)} 
-                              size={180} 
-                              level="H" 
-                              includeMargin={false}
-                            />
-                          </div>
+                      {(() => {
+                        const todayAttendanceRecord = attendanceHistory.find(a => 
+                          (a.userId === currentUser.id || a.user?.id === currentUser.id) && 
+                          new Date(a.date).toDateString() === new Date().toDateString() && 
+                          a.isPresent
+                        );
 
-                          {/* Countdown Timer & Reference Pill */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', alignItems: 'center' }}>
-                            <span className="badge badge-success" style={{ fontSize: '0.9rem', padding: '0.4rem 1rem', fontWeight: 800 }}>
-                              {t('attendance.qrValidFor', {
-                                time: `${String(Math.floor(qrCountdownSeconds / 60)).padStart(2, '0')}:${String(qrCountdownSeconds % 60).padStart(2, '0')}`
-                              })}
-                            </span>
-                            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.25rem' }}>
-                              {t('attendance.refCode', { code: tempQrData.referenceCode })}
+                        if (todayAttendanceRecord) {
+                          return (
+                            <div className="animate-scale-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '1rem 0', width: '100%' }}>
+                              <div style={{ width: '90px', height: '90px', borderRadius: '50%', background: 'rgba(16,185,129,0.12)', border: '3px solid #10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(16,185,129,0.25)' }}>
+                                <CheckCheck size={48} color="#10b981" />
+                              </div>
+                              <div>
+                                <h4 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#10b981' }}>Attendance Marked Today! ✅</h4>
+                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                                  Checked In: <strong>{todayAttendanceRecord.checkInTime ? new Date(todayAttendanceRecord.checkInTime).toLocaleTimeString() : 'Recorded'}</strong>
+                                </p>
+                                {todayAttendanceRecord.checkOutTime && (
+                                  <p style={{ fontSize: '0.8rem', color: '#10b981', marginTop: '0.2rem' }}>
+                                    Checked Out: <strong>{new Date(todayAttendanceRecord.checkOutTime).toLocaleTimeString()}</strong>
+                                  </p>
+                                )}
+                              </div>
+                              <span className="badge badge-success" style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }}>Status: ACTIVE / PRESENT</span>
+                              <button className="btn btn-secondary" style={{ fontSize: '0.8rem', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={handleGenerateStudentQR}>
+                                <QrCode size={16} /> Re-generate Attendance QR
+                              </button>
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                              {t('attendance.locCode', { code: tempQrData.locationCode })}
-                            </div>
-                          </div>
+                          );
+                        }
 
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                            {t('attendance.qrValidFor', { time: '5m' })}
-                          </p>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                          <div style={{ width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <QrCode size={56} color="var(--primary)" />
+                        if (tempQrData && qrCountdownSeconds > 0) {
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
+                              {/* QR Code Container with Real Scannable QRCodeSVG */}
+                              <div style={{ background: '#ffffff', padding: '1rem', borderRadius: '16px', border: '4px solid var(--primary)', width: '210px', height: '210px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', boxShadow: '0 8px 24px rgba(99,102,241,0.25)' }}>
+                                <QRCodeSVG 
+                                  value={tempQrData.qrString || JSON.stringify(tempQrData)} 
+                                  size={180} 
+                                  level="H" 
+                                  includeMargin={false}
+                                />
+                              </div>
+
+                              {/* Countdown Timer & Reference Pill */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', alignItems: 'center' }}>
+                                <span className="badge badge-success" style={{ fontSize: '0.9rem', padding: '0.4rem 1rem', fontWeight: 800 }}>
+                                  {t('attendance.qrValidFor', {
+                                    time: `${String(Math.floor(qrCountdownSeconds / 60)).padStart(2, '0')}:${String(qrCountdownSeconds % 60).padStart(2, '0')}`
+                                  })}
+                                </span>
+                                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.25rem' }}>
+                                  {t('attendance.refCode', { code: tempQrData.referenceCode })}
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                  {t('attendance.locCode', { code: tempQrData.locationCode })}
+                                </div>
+                              </div>
+
+                              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                                {t('attendance.qrValidFor', { time: '5m' })}
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                            <div style={{ width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <QrCode size={56} color="var(--primary)" />
+                            </div>
+                            {qrCountdownSeconds === 0 && tempQrData && (
+                              <span className="badge badge-danger">{t('attendance.qrExpired')}</span>
+                            )}
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                              {tempQrData ? t('attendance.qrExpiredMsg') : t('attendance.generateQr')}
+                            </p>
+                            <button className="btn btn-primary" style={{ width: '100%', padding: '0.75rem 1.5rem', fontSize: '0.9rem' }} onClick={handleGenerateStudentQR}>
+                              <QrCode size={18} /> {t('attendance.generateQr')}
+                            </button>
                           </div>
-                          {qrCountdownSeconds === 0 && tempQrData && (
-                            <span className="badge badge-danger">{t('attendance.qrExpired')}</span>
-                          )}
-                          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                            {tempQrData ? t('attendance.qrExpiredMsg') : t('attendance.generateQr')}
-                          </p>
-                          <button className="btn btn-primary" style={{ width: '100%', padding: '0.75rem 1.5rem', fontSize: '0.9rem' }} onClick={handleGenerateStudentQR}>
-                            <QrCode size={18} /> {t('attendance.generateQr')}
-                          </button>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </div>
 
                     {/* Student Right Card: logs */}
