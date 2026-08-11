@@ -430,6 +430,7 @@ export default function App() {
   // Form states
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [loginTab, setLoginTab] = useState<'STUDENT' | 'WARDEN' | 'WORKER' | 'SUPER_ADMIN'>('STUDENT');
 
   // Register Form states
   const [regRole, setRegRole] = useState<UserRole>('STUDENT');
@@ -2975,74 +2976,161 @@ export default function App() {
             </div>
           )}
 
-          {/* LOGIN VIEW */}
+          {/* LOGIN VIEW WITH DISTINCT ROLE PORTALS */}
           {view === 'login' && (
-            <div className="glass-panel animate-slide-up" style={{ maxWidth: '440px', margin: '3rem auto', padding: '2.5rem' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>{t('auth.welcomeBack')}</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.25rem' }}>{t('auth.loginTitle')}</p>
+            <div className="glass-panel animate-slide-up" style={{ maxWidth: '500px', margin: '3rem auto', padding: '2.5rem', borderRadius: '20px' }}>
+              <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '0.25rem', textAlign: 'center' }}>Portal Sign In</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>Select your portal role to sign in</p>
 
-              {/* Role Selection Tabs for quick login selection */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '1.5rem', background: 'rgba(255, 255, 255, 0.05)', padding: '0.35rem', borderRadius: '10px' }}>
+              {/* 4 Distinct Role Selection Tabs */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem', marginBottom: '1.5rem', background: 'rgba(255, 255, 255, 0.05)', padding: '0.35rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                 <button
                   type="button"
                   style={{
-                    padding: '0.5rem',
+                    padding: '0.6rem 0.2rem',
                     fontSize: '0.75rem',
-                    fontWeight: 700,
-                    borderRadius: '6px',
+                    fontWeight: 800,
+                    borderRadius: '8px',
                     border: 'none',
                     cursor: 'pointer',
-                    background: loginEmail.includes('student') || (!loginEmail.includes('worker') && !loginEmail.includes('admin') && !loginEmail.includes('warden')) ? 'var(--primary)' : 'transparent',
-                    color: '#fff'
+                    background: loginTab === 'STUDENT' ? 'var(--primary)' : 'transparent',
+                    color: loginTab === 'STUDENT' ? '#fff' : 'var(--text-muted)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '0.2rem',
+                    transition: 'all 0.2s ease'
                   }}
-                  onClick={() => { setLoginEmail('student@user'); setLoginPassword('password123'); }}
+                  onClick={() => {
+                    setLoginTab('STUDENT');
+                    setLoginEmail('student@user');
+                    setLoginPassword('password123');
+                  }}
                 >
-                  🎓 Student
+                  <span style={{ fontSize: '1.1rem' }}>🎓</span>
+                  <span>Student</span>
                 </button>
+
                 <button
                   type="button"
                   style={{
-                    padding: '0.5rem',
+                    padding: '0.6rem 0.2rem',
                     fontSize: '0.75rem',
-                    fontWeight: 700,
-                    borderRadius: '6px',
+                    fontWeight: 800,
+                    borderRadius: '8px',
                     border: 'none',
                     cursor: 'pointer',
-                    background: loginEmail.includes('worker') ? 'var(--primary)' : 'transparent',
-                    color: '#fff'
+                    background: loginTab === 'WARDEN' ? 'var(--primary)' : 'transparent',
+                    color: loginTab === 'WARDEN' ? '#fff' : 'var(--text-muted)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '0.2rem',
+                    transition: 'all 0.2s ease'
                   }}
-                  onClick={() => { setLoginEmail('worker@user'); setLoginPassword('password123'); }}
+                  onClick={() => {
+                    setLoginTab('WARDEN');
+                    setLoginEmail('admin@user');
+                    setLoginPassword('password123');
+                  }}
                 >
-                  👷 Worker
+                  <span style={{ fontSize: '1.1rem' }}>🛡️</span>
+                  <span>Warden</span>
                 </button>
+
                 <button
                   type="button"
                   style={{
-                    padding: '0.5rem',
+                    padding: '0.6rem 0.2rem',
                     fontSize: '0.75rem',
-                    fontWeight: 700,
-                    borderRadius: '6px',
+                    fontWeight: 800,
+                    borderRadius: '8px',
                     border: 'none',
                     cursor: 'pointer',
-                    background: loginEmail.includes('admin') || loginEmail.includes('warden') ? 'var(--primary)' : 'transparent',
-                    color: '#fff'
+                    background: loginTab === 'WORKER' ? 'var(--primary)' : 'transparent',
+                    color: loginTab === 'WORKER' ? '#fff' : 'var(--text-muted)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '0.2rem',
+                    transition: 'all 0.2s ease'
                   }}
-                  onClick={() => { setLoginEmail('admin@user'); setLoginPassword('password123'); }}
+                  onClick={() => {
+                    setLoginTab('WORKER');
+                    setLoginEmail('worker@user');
+                    setLoginPassword('password123');
+                  }}
                 >
-                  🛡️ Admin
+                  <span style={{ fontSize: '1.1rem' }}>👷</span>
+                  <span>Staff/Worker</span>
                 </button>
+
+                <button
+                  type="button"
+                  style={{
+                    padding: '0.6rem 0.2rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 800,
+                    borderRadius: '8px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: loginTab === 'SUPER_ADMIN' ? 'var(--primary)' : 'transparent',
+                    color: loginTab === 'SUPER_ADMIN' ? '#fff' : 'var(--text-muted)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '0.2rem',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onClick={() => {
+                    setLoginTab('SUPER_ADMIN');
+                    setLoginEmail('superadmin@user');
+                    setLoginPassword('password123');
+                  }}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>⚡</span>
+                  <span>Super Admin</span>
+                </button>
+              </div>
+
+              {/* Dynamic Banner based on selected login tab */}
+              <div style={{ padding: '0.75rem 1rem', background: 'rgba(99,102,241,0.08)', borderRadius: '10px', marginBottom: '1.25rem', borderLeft: '4px solid var(--primary)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ fontSize: '1.5rem' }}>
+                  {loginTab === 'STUDENT' && '🎓'}
+                  {loginTab === 'WARDEN' && '🛡️'}
+                  {loginTab === 'WORKER' && '👷'}
+                  {loginTab === 'SUPER_ADMIN' && '⚡'}
+                </div>
+                <div>
+                  <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)', display: 'block' }}>
+                    {loginTab === 'STUDENT' && 'Student Portal Sign In'}
+                    {loginTab === 'WARDEN' && 'Warden & Hostel Admin Sign In'}
+                    {loginTab === 'WORKER' && 'Staff & Maintenance Service Sign In'}
+                    {loginTab === 'SUPER_ADMIN' && 'Super Admin System Portal'}
+                  </strong>
+                  <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                    {loginTab === 'STUDENT' && 'Student account access for attendance & room details'}
+                    {loginTab === 'WARDEN' && 'Warden & Hostel Admin access for attendance & approvals'}
+                    {loginTab === 'WORKER' && 'Security, maintenance, mess, laundry & staff tasks'}
+                    {loginTab === 'SUPER_ADMIN' && 'Global system settings, hostels & full permissions'}
+                  </span>
+                </div>
               </div>
 
               <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.email')}</label>
-                  <input className="form-input" type="text" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="email@user" required />
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
+                    {loginTab === 'STUDENT' ? 'Student Email / Register No.' : loginTab === 'WARDEN' ? 'Warden Official Email' : loginTab === 'WORKER' ? 'Staff ID / Email' : 'Super Admin Email'}
+                  </label>
+                  <input className="form-input" type="text" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="email@example.com" required />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.password')}</label>
                   <input className="form-input" type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••" required />
                 </div>
-                <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.75rem' }}>{t('auth.signIn')}</button>
+                <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.8rem', fontSize: '0.9rem', fontWeight: 700 }}>
+                  Sign In to {loginTab === 'STUDENT' ? 'Student Portal' : loginTab === 'WARDEN' ? 'Warden Portal' : loginTab === 'WORKER' ? 'Staff Portal' : 'Admin Portal'}
+                </button>
               </form>
             </div>
           )}
