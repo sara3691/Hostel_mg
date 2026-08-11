@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   Shield,
   User,
@@ -3407,9 +3408,14 @@ export default function App() {
 
                       {tempQrData && qrCountdownSeconds > 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
-                          {/* QR Code Container */}
-                          <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '16px', border: '4px solid var(--primary)', width: '200px', height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', boxShadow: '0 8px 24px rgba(99,102,241,0.25)' }}>
-                            <QrCode size={150} color="#000000" />
+                          {/* QR Code Container with Real Scannable QRCodeSVG */}
+                          <div style={{ background: '#ffffff', padding: '1rem', borderRadius: '16px', border: '4px solid var(--primary)', width: '210px', height: '210px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', boxShadow: '0 8px 24px rgba(99,102,241,0.25)' }}>
+                            <QRCodeSVG 
+                              value={tempQrData.qrString || JSON.stringify(tempQrData)} 
+                              size={180} 
+                              level="H" 
+                              includeMargin={false}
+                            />
                           </div>
 
                           {/* Countdown Timer & Reference Pill */}
@@ -5520,8 +5526,12 @@ export default function App() {
           <div className="glass-panel" style={{ maxWidth: '420px', width: '100%', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)' }}>Visitor Entry Pass</h3>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Gate Pass ID: {activeVisitorForQR.id}</span>
-            <div style={{ margin: '0 auto', background: '#ffffff', padding: '1rem', borderRadius: '12px', width: '160px', height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <QrCode size={120} color="#000000" />
+            <div style={{ margin: '0 auto', background: '#ffffff', padding: '0.75rem', borderRadius: '12px', width: '160px', height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <QRCodeSVG 
+                value={JSON.stringify({ type: 'visitor_pass', id: activeVisitorForQR.id, name: activeVisitorForQR.name, date: activeVisitorForQR.visitDate })} 
+                size={140} 
+                level="M"
+              />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem', textAlign: 'left', background: 'rgba(255,255,255,0.01)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <div><strong style={{ color: 'var(--text-muted)' }}>Visitor:</strong> {activeVisitorForQR.name}</div>
