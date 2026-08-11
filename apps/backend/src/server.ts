@@ -175,10 +175,12 @@ app.get('/api/auth/me', authMiddleware, async (req: AuthRequest, res) => {
 // Admin management endpoints
 app.get('/api/admin/pending-approvals', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN']), async (req: AuthRequest, res) => {
   try {
-    const whereClause: any = { status: 'PENDING' };
+    const whereClause: any = { status: { in: ['PENDING', 'VERIFIED'] } };
     if ((req.user?.role === 'HOSTEL_ADMIN' || req.user?.role === 'ASSISTANT_WARDEN') && req.user.hostelId) {
-      whereClause.hostelId = req.user.hostelId;
-      whereClause.role = 'STUDENT'; // Hostel admins approve students for their hostel
+      whereClause.OR = [
+        { hostelId: req.user.hostelId },
+        { hostelId: null }
+      ];
     }
 
     const pending = await prisma.user.findMany({
@@ -188,12 +190,14 @@ app.get('/api/admin/pending-approvals', authMiddleware, requireRole(['SUPER_ADMI
         fullName: true,
         email: true,
         role: true,
+        status: true,
         mobileNumber: true,
         createdAt: true,
         collegeName: true,
         department: true,
         registerNumber: true,
-        staffType: true
+        staffType: true,
+        hostelId: true
       }
     });
     res.json({ success: true, data: pending });

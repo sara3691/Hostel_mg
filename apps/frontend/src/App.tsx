@@ -408,6 +408,13 @@ export default function App() {
   const [qrPortalEmail, setQrPortalEmail] = useState('');
   const [qrPortalPassword, setQrPortalPassword] = useState('');
   const [scannerActive, setScannerActive] = useState(true);
+
+  useEffect(() => {
+    if (isQrScannerPortal) {
+      startCameraStream();
+      setScannerActive(true);
+    }
+  }, [isQrScannerPortal]);
   const [selectedCamera, setSelectedCamera] = useState('Primary Webcam');
   const [scannerStatus, setScannerStatus] = useState<'Ready' | 'Scanning' | 'Processing' | 'Success' | 'Error' | 'Idle'>('Ready');
   const [lastScannedStudent, setLastScannedStudent] = useState<any | null>(null);
@@ -2411,13 +2418,13 @@ export default function App() {
             <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'center' }}>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 700, alignSelf: 'flex-start' }}>Active Scanner Viewfinder</h3>
               
-              {/* Scan Box */}
+              {/* Scan Box with Real Live Video Camera Stream */}
               <div style={{
                 width: '100%',
                 maxWidth: '300px',
                 height: '240px',
-                background: scannerActive ? '#000000' : 'rgba(255,255,255,0.01)',
-                border: scannerActive ? '3px solid var(--primary)' : '2px dashed var(--border-color)',
+                background: '#000000',
+                border: (cameraActive || scannerActive) ? '3px solid var(--primary)' : '2px dashed var(--border-color)',
                 borderRadius: '16px',
                 position: 'relative',
                 overflow: 'hidden',
@@ -2426,9 +2433,27 @@ export default function App() {
                 justifyContent: 'center',
                 transition: 'all 0.3s ease'
               }}>
-                {scannerActive ? (
+                <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline 
+                  muted 
+                  style={{ 
+                    width: '100%', 
+                    height: '100%', 
+                    objectFit: 'cover', 
+                    display: (cameraActive || scannerActive) ? 'block' : 'none' 
+                  }} 
+                />
+                {!(cameraActive || scannerActive) && (
+                  <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>
+                    <QrCode size={48} style={{ opacity: 0.2, marginBottom: '0.5rem' }} />
+                    <p style={{ fontSize: '0.85rem' }}>{cameraError || 'Camera Stream Suspended'}</p>
+                    <p style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '0.25rem' }}>Tap "Start Stream" below to open live camera</p>
+                  </div>
+                )}
+                {(cameraActive || scannerActive) && (
                   <>
-                    <QrCode size={100} color="var(--primary)" style={{ opacity: 0.4 }} />
                     {/* Viewfinder Scanning Grid Overlay */}
                     <div style={{
                       position: 'absolute',
@@ -2440,44 +2465,53 @@ export default function App() {
                       boxShadow: '0 0 12px var(--primary)',
                       animation: 'slideUp 2.5s linear infinite alternate'
                     }} />
-                    <span style={{ position: 'absolute', bottom: '10px', fontSize: '0.75rem', color: '#10b981', background: 'rgba(0,0,0,0.6)', padding: '0.25rem 0.5rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span style={{ position: 'absolute', bottom: '10px', fontSize: '0.75rem', color: '#10b981', background: 'rgba(0,0,0,0.7)', padding: '0.25rem 0.5rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.35rem', zIndex: 10 }}>
                       <span style={{ width: '6px', height: '6px', background: '#10b981', borderRadius: '50%', display: 'inline-block' }} /> Live Scanner Active
                     </span>
                   </>
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>
-                    <QrCode size={48} style={{ opacity: 0.2, marginBottom: '0.5rem' }} />
-                    <p style={{ fontSize: '0.85rem' }}>Camera Stream Suspended</p>
-                  </div>
                 )}
               </div>
 
               {/* Viewfinder Actions */}
               <div style={{ display: 'flex', gap: '0.5rem', width: '100%', maxWidth: '300px' }}>
                 <button 
-                  className={`btn ${scannerActive ? 'btn-secondary' : 'btn-primary'}`} 
-                  style={{ flex: 1 }} 
+                  className={`btn ${(cameraActive || scannerActive) ? 'btn-secondary' : 'btn-primary'}`} 
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }} 
                   onClick={() => {
-                    setScannerActive(prev => !prev);
-                    setScannerStatus(scannerActive ? 'Idle' : 'Ready');
+                    if (cameraActive || scannerActive) {
+                      stopCameraStream();
+                      setScannerActive(false);
+                      setScannerStatus('Idle');
+                    } else {
+                      startCameraStream();
+                      setScannerActive(true);
+                      setScannerStatus('Ready');
+                    }
                   }}
                 >
-                  {scannerActive ? 'Stop Stream' : 'Start Stream'}
+                  <Camera size={16} />
+                  {(cameraActive || scannerActive) ? 'Stop Stream' : 'Start Stream'}
                 </button>
                 <button 
                   className="btn btn-secondary" 
                   style={{ flex: 1 }}
-                  onClick={() => showToast('info', 'Not Supported', 'Flashlight is not supported by your current webcam device hardware.')}
-                  disabled={!scannerActive}
+                  onClick={() => {
+                    const nextMode = facingMode === 'environment' ? 'user' : 'environment';
+                    setFacingMode(nextMode);
+                    if (cameraActive || scannerActive) {
+                      stopCameraStream();
+                      setTimeout(() => startCameraStream(), 200);
+                    }
+                  }}
                 >
-                  Toggle Flashlight
+                  Switch Cam ({facingMode === 'environment' ? 'Rear' : 'Front'})
                 </button>
               </div>
 
               {/* Device Selection */}
               <div style={{ width: '100%', maxWidth: '300px' }}>
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Input Capture Device</label>
-                <select className="form-input" value={selectedCamera} onChange={e => setSelectedCamera(e.target.value)} disabled={!scannerActive}>
+                <select className="form-input" value={selectedCamera} onChange={e => setSelectedCamera(e.target.value)}>
                   <option value="Primary Webcam">Webcam HD (Integrated)</option>
                   <option value="Secondary Cam">Rear Camera (USB Video)</option>
                   <option value="Virtual Device">OBS Virtual Camera</option>
@@ -3031,6 +3065,8 @@ export default function App() {
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.role')}</label>
                     <select className="form-input" value={regRole} onChange={e => setRegRole(e.target.value as UserRole)}>
                       <option value="STUDENT">Student</option>
+                      <option value="WARDEN">Warden</option>
+                      <option value="WORKER">Worker</option>
                       <option value="SUPER_ADMIN">Super Admin</option>
                       <option value="HOSTEL_ADMIN">Hostel Admin</option>
                       <option value="ASSISTANT_WARDEN">Assistant Warden</option>
@@ -3038,6 +3074,7 @@ export default function App() {
                       <option value="SECURITY">Security</option>
                       <option value="MAINTENANCE">Maintenance</option>
                       <option value="ACCOUNTANT">Accountant</option>
+                      <option value="STAFF">Staff</option>
                     </select>
                   </div>
                   <div>
@@ -3441,65 +3478,88 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Warden controls: Manual mark and live logs */}
-                {(currentUser.role === 'WARDEN' || currentUser.role === 'SUPER_ADMIN') && (
-                  <div className="responsive-grid-1-2">
-                    {/* Manual Form */}
-                    <div className="glass-panel" style={{ padding: '2rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('attendance.title')}</h3>
-                      <form onSubmit={handleManualAttendance} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('students.studentName')}</label>
-                          <input className="form-input" type="text" placeholder="Enter student email" value={manualStudentId} onChange={e => setManualStudentId(e.target.value)} required />
+                {/* Warden / Admin controls: QR scanner launcher, manual mark and live logs */}
+                {['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'WARDEN', 'SECURITY'].includes(currentUser.role) && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    {/* QR Scanner Quick Action Banner */}
+                    <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(168,85,247,0.12))', border: '1px solid var(--primary)', borderRadius: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <QrCode size={24} color="#ffffff" />
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('tables.date')}</label>
-                          <input className="form-input" type="date" value={manualDate} onChange={e => setManualDate(e.target.value)} required />
+                          <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>Student Attendance QR Scanner</h3>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Scan student QR codes live via camera or open the dedicated Security Gate Portal</p>
                         </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('tables.status')}</label>
-                          <select className="form-input" value={manualIsPresent ? 'present' : 'absent'} onChange={e => setManualIsPresent(e.target.value === 'present')}>
-                            <option value="present">{t('common.active')}</option>
-                            <option value="absent">{t('common.inactive')}</option>
-                          </select>
-                        </div>
-                        <button className="btn btn-primary" type="submit" style={{ width: '100%' }}>{t('common.submit')}</button>
-                      </form>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <button className="btn btn-primary" onClick={() => { setShowQRScanner(true); startCameraStream(); }} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Camera size={18} /> Open Live Camera Scanner
+                        </button>
+                        <button className="btn btn-secondary" onClick={() => setIsQrScannerPortal(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <QrCode size={18} /> Full Gate Scanner Portal
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Live logs */}
-                    <div className="glass-panel" style={{ padding: '2rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('attendance.historyTitle')}</h3>
-                      <div style={{ maxHeight: '380px', overflowY: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                          <thead>
-                            <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                              <th style={{ padding: '0.75rem' }}>{t('tables.name')}</th>
-                              <th>{t('tables.date')}</th>
-                              <th>{t('tables.status')}</th>
-                              <th>{t('attendance.checkIn')}</th>
-                              <th>{t('attendance.checkOut')}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {attendanceHistory.map(log => (
-                              <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
-                                <td style={{ padding: '0.75rem', fontWeight: 600 }}>{log.user?.fullName || 'Anonymous student'}</td>
-                                <td>{new Date(log.date).toLocaleDateString()}</td>
-                                <td><span className={`badge ${log.isPresent ? 'badge-success' : 'badge-danger'}`}>{log.isPresent ? t('common.active') : t('common.inactive')}</span></td>
-                                <td>{log.checkInTime ? new Date(log.checkInTime).toLocaleTimeString() : '-'}</td>
-                                <td>{log.checkOutTime ? new Date(log.checkOutTime).toLocaleTimeString() : '-'}</td>
+                    <div className="responsive-grid-1-2">
+                      {/* Manual Form */}
+                      <div className="glass-panel" style={{ padding: '2rem' }}>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('attendance.title')}</h3>
+                        <form onSubmit={handleManualAttendance} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('students.studentName')}</label>
+                            <input className="form-input" type="text" placeholder="Enter student email" value={manualStudentId} onChange={e => setManualStudentId(e.target.value)} required />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('tables.date')}</label>
+                            <input className="form-input" type="date" value={manualDate} onChange={e => setManualDate(e.target.value)} required />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('tables.status')}</label>
+                            <select className="form-input" value={manualIsPresent ? 'present' : 'absent'} onChange={e => setManualIsPresent(e.target.value === 'present')}>
+                              <option value="present">{t('common.active')}</option>
+                              <option value="absent">{t('common.inactive')}</option>
+                            </select>
+                          </div>
+                          <button className="btn btn-primary" type="submit" style={{ width: '100%' }}>{t('common.submit')}</button>
+                        </form>
+                      </div>
+
+                      {/* Live logs */}
+                      <div className="glass-panel" style={{ padding: '2rem' }}>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('attendance.historyTitle')}</h3>
+                        <div style={{ maxHeight: '380px', overflowY: 'auto' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                            <thead>
+                              <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                                <th style={{ padding: '0.75rem' }}>{t('tables.name')}</th>
+                                <th>{t('tables.date')}</th>
+                                <th>{t('tables.status')}</th>
+                                <th>{t('attendance.checkIn')}</th>
+                                <th>{t('attendance.checkOut')}</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {attendanceHistory.map(log => (
+                                <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
+                                  <td style={{ padding: '0.75rem', fontWeight: 600 }}>{log.user?.fullName || 'Anonymous student'}</td>
+                                  <td>{new Date(log.date).toLocaleDateString()}</td>
+                                  <td><span className={`badge ${log.isPresent ? 'badge-success' : 'badge-danger'}`}>{log.isPresent ? t('common.active') : t('common.inactive')}</span></td>
+                                  <td>{log.checkInTime ? new Date(log.checkInTime).toLocaleTimeString() : '-'}</td>
+                                  <td>{log.checkOutTime ? new Date(log.checkOutTime).toLocaleTimeString() : '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* SUPER ADMIN OR WARDEN: Settings and Sessions Controls */}
-                {currentUser && (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'WARDEN') && (
+                {/* SUPER ADMIN OR WARDEN / ADMIN: Settings and Sessions Controls */}
+                {currentUser && ['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'WARDEN'].includes(currentUser.role) && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', marginTop: '2rem' }} className="animate-slide-up">
                     
                     {/* Settings Panel */}
@@ -4213,13 +4273,15 @@ export default function App() {
                                     <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }} onClick={() => {
                                       axios.get(`/api/students/${u.id}/documents`).then(res => {
                                         if (res.data?.success && res.data.data.length > 0) {
-                                          showToast('info', `Documents for ${u.fullName}`, `${res.data.data.length} document(s) on file. Check the student profile for details.`);
+                                          showToast('info', `Documents for ${u.fullName}`, `${res.data.data.length} document(s) on file.`);
                                         } else {
-                                          showToast('info', 'Notice', '');
+                                          showToast('info', 'Notice', 'No documents uploaded yet.');
                                         }
                                       });
                                     }}>View Docs</button>
                                     <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }} onClick={() => handleStudentStatusUpdate(u.id, 'VERIFIED')}>Verify & Pass</button>
+                                    <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', background: '#10b981' }} onClick={() => handleApprove(u.id)}>Direct Approve</button>
+                                    <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', color: '#ef4444' }} onClick={() => handleReject(u.id)}>Reject</button>
                                   </>
                                 ) : (
                                   <>
