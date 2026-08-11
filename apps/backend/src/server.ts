@@ -1,5 +1,5 @@
 import express from 'express';
-
+import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import * as argon2 from 'argon2';
 import { config } from './core/config';
@@ -10,7 +10,10 @@ import erpRouter from './core/erp.routes';
 
 const app = express();
 
-
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(express.json());
 app.use(cookieParser());
 

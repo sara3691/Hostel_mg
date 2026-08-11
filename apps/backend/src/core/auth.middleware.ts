@@ -3,13 +3,19 @@ import { sessionStore } from './sessionStore';
 import { prisma } from './prisma';
 import { Role } from '@prisma/client';
 
+declare global {
+  namespace Express {
+    interface User {
+      id: string;
+      email: string;
+      role: string;
+      hostelId: string | null;
+    }
+  }
+}
+
 export interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    role: string;
-    hostelId: string | null;
-  };
+  user?: Express.User;
 }
 
 // Session-based authentication middleware (Development Mode: No JWT)
