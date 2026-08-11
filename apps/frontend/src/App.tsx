@@ -55,6 +55,14 @@ import { useTranslation, languages } from './i18n';
 axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 axios.defaults.withCredentials = true;
 
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 type UserRole = 'SUPER_ADMIN' | 'HOSTEL_ADMIN' | 'ASSISTANT_WARDEN' | 'MESS_MANAGER' | 'SECURITY' | 'MAINTENANCE' | 'ACCOUNTANT' | 'STUDENT' | 'WARDEN' | 'STAFF' | 'WORKER';
 
 interface Hostel {
@@ -1221,6 +1229,9 @@ export default function App() {
         password: loginPassword
       });
       if (res.data?.success) {
+        if (res.data.token) {
+          localStorage.setItem('access_token', res.data.token);
+        }
         setCurrentUser(res.data.data);
         setView('dashboard');
         setSubView('dashboard');
@@ -1240,6 +1251,9 @@ export default function App() {
         password: qrPortalPassword
       });
       if (res.data?.success) {
+        if (res.data.token) {
+          localStorage.setItem('access_token', res.data.token);
+        }
         const user = res.data.data as UserProfile;
         if (user.role !== 'SUPER_ADMIN' && user.role !== 'WARDEN') {
           showToast('info', 'Notice', '');
@@ -1286,14 +1300,15 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    localStorage.removeItem('access_token');
     try {
       await axios.post('/api/auth/logout');
-      setCurrentUser(null);
-      setView('home');
-      setSubView('dashboard');
     } catch (err) {
       console.error('Logout request failed');
     }
+    setCurrentUser(null);
+    setView('home');
+    setSubView('dashboard');
   };
 
   const handleApprove = async (userId: string) => {
