@@ -63,6 +63,143 @@ axios.interceptors.request.use((config) => {
   return config;
 });
 
+// ── Live Camera Capture Modal Component (STRICTLY NO FILE UPLOAD) ──
+const CameraCaptureModal = ({
+  onCapture,
+  onClose
+}: {
+  onCapture: (base64Image: string) => void;
+  onClose: () => void;
+}) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
+  const startCamera = async () => {
+    setCameraError(null);
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (err: any) {
+      setCameraError(err.message || 'Camera permission denied or camera unavailable.');
+    }
+  };
+
+  useEffect(() => {
+    startCamera();
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  const handleCapture = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        setCapturedPhoto(dataUrl);
+      }
+    }
+  };
+
+  const handleRetake = () => {
+    setCapturedPhoto(null);
+  };
+
+  const handleUsePhoto = () => {
+    if (capturedPhoto) {
+      onCapture(capturedPhoto);
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      onClose();
+    }
+  };
+
+  const handleClose = () => {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    onClose();
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0, 0, 0, 0.85)',
+      zIndex: 9999,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '1rem'
+    }}>
+      <div className="glass-panel" style={{
+        maxWidth: '520px',
+        width: '100%',
+        padding: '1.5rem',
+        borderRadius: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1rem'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Camera size={20} color="var(--primary)" /> Live Camera Evidence Capture
+          </h3>
+          <button className="btn btn-secondary" onClick={handleClose} style={{ padding: '0.25rem 0.5rem' }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {cameraError ? (
+          <div style={{ padding: '2rem 1rem', textAlign: 'center', color: '#ef4444' }}>
+            <AlertTriangle size={36} style={{ marginBottom: '0.5rem' }} />
+            <p style={{ fontWeight: 600 }}>{cameraError}</p>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+              Please allow camera permissions in your browser or mobile settings to capture evidence photos.
+            </p>
+          </div>
+        ) : capturedPhoto ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+            <img src={capturedPhoto} alt="Captured Evidence" style={{ width: '100%', maxHeight: '320px', objectFit: 'cover', borderRadius: '12px', border: '2px solid var(--primary)' }} />
+            <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+              <button className="btn btn-secondary" onClick={handleRetake} style={{ flex: 1 }}>Retake Photo</button>
+              <button className="btn btn-primary" onClick={handleUsePhoto} style={{ flex: 1 }}>Use Captured Photo</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+            <div style={{ width: '100%', height: '280px', background: '#000', borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
+              <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
+            <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+              <button className="btn btn-secondary" onClick={handleClose} style={{ flex: 1 }}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleCapture} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                <Camera size={18} /> Capture Photo
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 type UserRole = 'SUPER_ADMIN' | 'HOSTEL_ADMIN' | 'ASSISTANT_WARDEN' | 'MESS_MANAGER' | 'SECURITY' | 'MAINTENANCE' | 'ACCOUNTANT' | 'STUDENT' | 'WARDEN' | 'STAFF' | 'WORKER';
 
 interface Hostel {
@@ -300,6 +437,11 @@ export default function App() {
   const [regParentName, setRegParentName] = useState('');
   const [regParentMobile, setRegParentMobile] = useState('');
   const [regAddress, setRegAddress] = useState('');
+
+  // Complaint creation & Live Camera state
+  const [showCameraCaptureModal, setShowCameraCaptureModal] = useState(false);
+  const [compEvidencePhoto, setCompEvidencePhoto] = useState<string | null>(null);
+
 
   // Loaded data
   const [hostels, setHostels] = useState<Hostel[]>([]);
@@ -1495,18 +1637,21 @@ export default function App() {
         title: compTitle,
         description: compDesc,
         category: compCategory,
-        priority: compPriority
+        priority: compPriority,
+        resolutionImage: compEvidencePhoto
       });
       if (res.data?.success) {
-        showToast('success', 'Done', '');
+        showToast('success', 'Complaint Submitted Successfully!', 'Your maintenance ticket is recorded.');
         setCompTitle('');
         setCompDesc('');
+        setCompEvidencePhoto(null);
         if (currentUser) loadDashboardData(currentUser);
       }
-    } catch (err) {
-      showToast('info', 'Notice', '');
+    } catch (err: any) {
+      showToast('error', 'Error Submitting Complaint', err.response?.data?.error || 'Please try again.');
     }
   };
+
 
 
 
@@ -2779,13 +2924,66 @@ export default function App() {
 
           {/* LOGIN VIEW */}
           {view === 'login' && (
-            <div className="glass-panel animate-slide-up" style={{ maxWidth: '420px', margin: '3rem auto', padding: '2.5rem' }}>
+            <div className="glass-panel animate-slide-up" style={{ maxWidth: '440px', margin: '3rem auto', padding: '2.5rem' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>{t('auth.welcomeBack')}</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>{t('auth.loginTitle')}</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.25rem' }}>{t('auth.loginTitle')}</p>
+
+              {/* Role Selection Tabs for quick login selection */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '1.5rem', background: 'rgba(255, 255, 255, 0.05)', padding: '0.35rem', borderRadius: '10px' }}>
+                <button
+                  type="button"
+                  style={{
+                    padding: '0.5rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: loginEmail.includes('student') || (!loginEmail.includes('worker') && !loginEmail.includes('admin') && !loginEmail.includes('warden')) ? 'var(--primary)' : 'transparent',
+                    color: '#fff'
+                  }}
+                  onClick={() => { setLoginEmail('student@user'); setLoginPassword('password123'); }}
+                >
+                  🎓 Student
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    padding: '0.5rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: loginEmail.includes('worker') ? 'var(--primary)' : 'transparent',
+                    color: '#fff'
+                  }}
+                  onClick={() => { setLoginEmail('worker@user'); setLoginPassword('password123'); }}
+                >
+                  👷 Worker
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    padding: '0.5rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: loginEmail.includes('admin') || loginEmail.includes('warden') ? 'var(--primary)' : 'transparent',
+                    color: '#fff'
+                  }}
+                  onClick={() => { setLoginEmail('admin@user'); setLoginPassword('password123'); }}
+                >
+                  🛡️ Admin
+                </button>
+              </div>
+
               <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.email')}</label>
-                  <input className="form-input" type="text" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="admin@user" required />
+                  <input className="form-input" type="text" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="email@user" required />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.password')}</label>
@@ -2795,6 +2993,7 @@ export default function App() {
               </form>
             </div>
           )}
+
 
           {/* QR ATTENDANCE LOGIN VIEW */}
           {view === 'qr_login' && (
@@ -3587,35 +3786,64 @@ export default function App() {
                 {currentUser.role === 'STUDENT' && (
                   <div className="glass-panel" style={{ padding: '2rem' }}>
                     <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Raise a Maintenance Complaint</h3>
-                    <form onSubmit={handleCreateComplaint} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                      <input className="form-input" type="text" value={compTitle} onChange={e => setCompTitle(e.target.value)} placeholder="Title (e.g. Broken Water Pipe)" required />
-                      <input className="form-input" type="text" value={compDesc} onChange={e => setCompDesc(e.target.value)} placeholder="Describe details..." required />
-                      <select className="form-input" value={compCategory} onChange={e => setCompCategory(e.target.value)}>
-                        {workerCategories.length > 0 ? (
-                          workerCategories.map((cat: any) => (
-                            <option key={cat.id} value={cat.name}>{cat.name}</option>
-                          ))
+                    <form onSubmit={handleCreateComplaint} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                        <input className="form-input" type="text" value={compTitle} onChange={e => setCompTitle(e.target.value)} placeholder="Title (e.g. Broken Water Pipe)" required />
+                        <select className="form-input" value={compCategory} onChange={e => setCompCategory(e.target.value)}>
+                          {workerCategories.length > 0 ? (
+                            workerCategories.map((cat: any) => (
+                              <option key={cat.id} value={cat.name}>{cat.name}</option>
+                            ))
+                          ) : (
+                            <>
+                              <option value="Plumbing">Plumbing</option>
+                              <option value="Electrical">Electrical</option>
+                              <option value="Carpentry">Carpentry</option>
+                              <option value="Cleaning">Cleaning</option>
+                              <option value="AC Technician">AC Technician</option>
+                              <option value="Internet">Internet</option>
+                              <option value="Other">Other</option>
+                            </>
+                          )}
+                        </select>
+                        <select className="form-input" value={compPriority} onChange={e => setCompPriority(e.target.value)}>
+                          <option value="LOW">Low Priority</option>
+                          <option value="MEDIUM">Medium Priority</option>
+                          <option value="HIGH">High Priority</option>
+                        </select>
+                      </div>
+
+                      <textarea className="form-input" rows={3} value={compDesc} onChange={e => setCompDesc(e.target.value)} placeholder="Describe problem details..." required />
+
+                      {/* LIVE CAMERA CAPTURE ONLY FOR COMPLAINT EVIDENCE */}
+                      <div style={{ padding: '1rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '12px', border: '1px dashed var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Camera size={16} color="var(--primary)" /> Evidence Photo (Live Camera Only)
+                        </label>
+                        {compEvidencePhoto ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                            <img src={compEvidencePhoto} alt="Captured Evidence" style={{ width: '120px', height: '90px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--primary)' }} />
+                            <button type="button" className="btn btn-secondary" onClick={() => setShowCameraCaptureModal(true)} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
+                              <Camera size={14} /> Retake Photo
+                            </button>
+                          </div>
                         ) : (
-                          <>
-                            <option value="Plumbing">Plumbing</option>
-                            <option value="Electrical">Electrical</option>
-                            <option value="Carpentry">Carpentry</option>
-                            <option value="Cleaning">Cleaning</option>
-                            <option value="AC Technician">AC Technician</option>
-                            <option value="Internet">Internet</option>
-                            <option value="Other">Other</option>
-                          </>
+                          <div>
+                            <button type="button" className="btn btn-secondary" onClick={() => setShowCameraCaptureModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <Camera size={18} color="var(--primary)" /> Open Live Camera
+                            </button>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.35rem' }}>
+                              * Security Policy: Gallery and file uploads are disabled. Live camera capture is required.
+                            </span>
+                          </div>
                         )}
-                      </select>
-                      <select className="form-input" value={compPriority} onChange={e => setCompPriority(e.target.value)}>
-                        <option value="LOW">Low Priority</option>
-                        <option value="MEDIUM">Medium Priority</option>
-                        <option value="HIGH">High Priority</option>
-                      </select>
-                      <button className="btn btn-primary" type="submit" style={{ gridColumn: '1 / -1' }}>File Grievance</button>
+                      </div>
+
+                      <button className="btn btn-primary" type="submit" style={{ padding: '0.75rem' }}>Submit Complaint</button>
                     </form>
                   </div>
                 )}
+
 
                 {/* Grievance list */}
                 <div className="glass-panel" style={{ padding: '2rem' }}>
@@ -4966,7 +5194,7 @@ export default function App() {
 
                           {/* Action Buttons */}
                           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
-                            {c.status === 'ASSIGNED' && (
+                            {(c.status === 'PENDING' || c.status === 'ASSIGNED') && (
                               <>
                                 <button className="btn btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem' }} onClick={() => handleAcceptWorkerJob(c.id)}>
                                   <Check size={14} /> {t('worker.accept')}
@@ -4976,6 +5204,7 @@ export default function App() {
                                 </button>
                               </>
                             )}
+
 
                             {c.status === 'ACCEPTED' && (
                               <button className="btn btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem' }} onClick={() => handleStartWorkerJob(c.id)}>
@@ -6054,7 +6283,16 @@ export default function App() {
         </div>
       )}
 
+      {/* LIVE CAMERA CAPTURE MODAL */}
+      {showCameraCaptureModal && (
+        <CameraCaptureModal
+          onCapture={(imgDataUrl) => setCompEvidencePhoto(imgDataUrl)}
+          onClose={() => setShowCameraCaptureModal(false)}
+        />
+      )}
+
       {/* Footer */}
+
       <footer style={{
         height: '48px',
         borderTop: '1px solid var(--border-color)',

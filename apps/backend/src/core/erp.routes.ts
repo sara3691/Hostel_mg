@@ -906,8 +906,27 @@ router.get('/worker/dashboard', authMiddleware, async (req: AuthRequest, res: Re
       include: { category: true }
     });
 
+    const categoryName = profile?.category?.name;
+    const workerHostelId = profile?.hostelId || user.hostelId;
+
+    const whereCondition: any = {
+      isDeleted: false,
+      OR: [
+        { workerId: user.id },
+        { staffId: user.id }
+      ]
+    };
+
+    if (categoryName) {
+      whereCondition.OR.push({
+        workerId: null,
+        category: { equals: categoryName, mode: 'insensitive' },
+        ...(workerHostelId ? { hostelId: workerHostelId } : {})
+      });
+    }
+
     const complaints = await prisma.complaint.findMany({
-      where: { workerId: user.id, isDeleted: false },
+      where: whereCondition,
       include: {
         student: { select: { fullName: true, mobileNumber: true, registerNumber: true, room: true } },
         hostel: { select: { name: true } },
@@ -917,7 +936,7 @@ router.get('/worker/dashboard', authMiddleware, async (req: AuthRequest, res: Re
     });
 
     const assignedCount = complaints.length;
-    const pendingAcceptance = complaints.filter(c => c.status === 'ASSIGNED').length;
+    const pendingAcceptance = complaints.filter(c => c.status === 'PENDING' || c.status === 'ASSIGNED').length;
     const inProgress = complaints.filter(c => c.status === 'ACCEPTED' || c.status === 'IN_PROGRESS').length;
     const completed = complaints.filter(c => c.status === 'COMPLETED' || c.status === 'RESOLVED' || c.status === 'VERIFIED').length;
 
@@ -940,6 +959,8 @@ router.post('/worker/complaints/:id/accept', authMiddleware, async (req: AuthReq
     const complaint = await prisma.complaint.update({
       where: { id },
       data: {
+        workerId: user.id,
+        staffId: user.id,
         status: 'ACCEPTED',
         acceptedAt: new Date(),
         timeline: {
@@ -966,6 +987,7 @@ router.post('/worker/complaints/:id/accept', authMiddleware, async (req: AuthReq
     res.json({ success: true, data: complaint });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
+
 
 router.post('/worker/complaints/:id/reject', authMiddleware, async (req: AuthRequest, res: Response) => {
   const { id } = req.params;

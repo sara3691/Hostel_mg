@@ -305,27 +305,72 @@ app.get('/api/complaints', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 app.post('/api/complaints', authMiddleware, async (req: AuthRequest, res) => {
-  const { title, description, category, priority } = req.body;
+  const { title, description, category, priority, resolutionImage } = req.body;
   if (!req.user || !req.user.hostelId) {
     res.status(400).json({ success: false, error: 'Student must belong to a hostel to file a complaint' });
     return;
   }
   try {
+    const studentUser = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      include: { room: true }
+    });
+
     const complaint = await prisma.complaint.create({
       data: {
         title,
         description,
         category,
-        priority,
+        priority: priority || 'MEDIUM',
+        resolutionImage: resolutionImage || null,
         studentId: req.user.id,
-        hostelId: req.user.hostelId
-      }
+        hostelId: req.user.hostelId,
+        timeline: {
+          create: {
+            event: 'CREATED',
+            title: 'Complaint Created',
+            description: `Filed by ${studentUser?.fullName || 'Student'} (Room: ${studentUser?.room?.block || ''}-${studentUser?.room?.roomNumber || 'N/A'})`,
+            actorName: studentUser?.fullName || req.user.email,
+            actorRole: 'STUDENT'
+          }
+        }
+      },
+      include: { timeline: true }
     });
+
+    // Find matching workers by category and notify them
+    try {
+      const matchingCategory = await prisma.workerCategory.findFirst({
+        where: { name: { equals: category, mode: 'insensitive' } }
+      });
+
+      if (matchingCategory) {
+        const workers = await prisma.workerProfile.findMany({
+          where: { categoryId: matchingCategory.id },
+          select: { userId: true }
+        });
+
+        for (const w of workers) {
+          await prisma.notification.create({
+            data: {
+              userId: w.userId,
+              type: 'NEW_JOB_AVAILABLE',
+              title: `New ${category} Complaint`,
+              message: `A new complaint "${title}" in Room ${studentUser?.room?.block || ''}-${studentUser?.room?.roomNumber || ''} is ready for processing.`
+            }
+          });
+        }
+      }
+    } catch (notifErr) {
+      console.error('Error notifying workers:', notifErr);
+    }
+
     res.status(201).json({ success: true, data: complaint });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 app.patch('/api/complaints/:id', authMiddleware, async (req: AuthRequest, res) => {
   const { id } = req.params;
@@ -893,7 +938,7 @@ app.post('/api/attendance/generate-qr', authMiddleware, async (req: AuthRequest,
 });
 
 // 7b. Scan QR Token & Mark Attendance (with 5-meter GPS Location Validation)
-app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SUPER_ADMIN']), async (req: AuthRequest, res) => {
+app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SUPER_ADMIN', 'SECURITY', 'WARDEN', 'STAFF', 'WORKER']), async (req: AuthRequest, res) => {
   const { qrToken, device, latitude, longitude, accuracy } = req.body;
   if (!qrToken) {
     res.status(400).json({ success: false, error: 'QR Token is required' });
