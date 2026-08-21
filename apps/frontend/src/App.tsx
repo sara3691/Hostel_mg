@@ -8,6 +8,7 @@ import {
   Home,
   PlusCircle,
   CheckCircle,
+  CheckCircle2,
   LogOut,
   Moon,
   Sun,
@@ -16,7 +17,6 @@ import {
   Grid,
   Clipboard,
   Calendar,
-  Sparkles,
   ArrowRight,
   Bell,
   Search,
@@ -47,7 +47,9 @@ import {
   Wrench,
   ShieldAlert,
   Play,
-  Check
+  Check,
+  Key,
+  Bot
 } from 'lucide-react';
 import { useTranslation, languages } from './i18n';
 
@@ -135,63 +137,43 @@ const CameraCaptureModal = ({
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0, 0, 0, 0.85)',
-      zIndex: 9999,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '1rem'
-    }}>
-      <div className="glass-panel" style={{
-        maxWidth: '520px',
-        width: '100%',
-        padding: '1.5rem',
-        borderRadius: '16px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1rem'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Camera size={20} color="var(--primary)" /> Live Camera Evidence Capture
+    <div className="modal-backdrop">
+      <div className="modal-container" style={{ maxWidth: '500px', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)' }}>
+            <Camera size={18} color="var(--primary)" /> Live Camera Evidence Capture
           </h3>
-          <button className="btn btn-secondary" onClick={handleClose} style={{ padding: '0.25rem 0.5rem' }}>
-            <X size={18} />
+          <button className="btn btn-ghost" onClick={handleClose} style={{ padding: '0.35rem' }}>
+            <X size={16} />
           </button>
         </div>
 
         {cameraError ? (
-          <div style={{ padding: '2rem 1rem', textAlign: 'center', color: '#ef4444' }}>
-            <AlertTriangle size={36} style={{ marginBottom: '0.5rem' }} />
-            <p style={{ fontWeight: 600 }}>{cameraError}</p>
+          <div style={{ padding: '1.5rem 1rem', textAlign: 'center', color: 'var(--danger)' }}>
+            <AlertTriangle size={32} style={{ marginBottom: '0.5rem' }} />
+            <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{cameraError}</p>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-              Please allow camera permissions in your browser or mobile settings to capture evidence photos.
+              Please allow camera permissions in your browser settings to capture evidence photos.
             </p>
           </div>
         ) : capturedPhoto ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
-            <img src={capturedPhoto} alt="Captured Evidence" style={{ width: '100%', maxHeight: '320px', objectFit: 'cover', borderRadius: '12px', border: '2px solid var(--primary)' }} />
-            <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+            <img src={capturedPhoto} alt="Captured Evidence" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }} />
+            <div style={{ display: 'flex', gap: '0.75rem', width: '100%' }}>
               <button className="btn btn-secondary" onClick={handleRetake} style={{ flex: 1 }}>Retake Photo</button>
               <button className="btn btn-primary" onClick={handleUsePhoto} style={{ flex: 1 }}>Use Captured Photo</button>
             </div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
-            <div style={{ width: '100%', height: '280px', background: '#000', borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ width: '100%', height: '260px', background: '#000', borderRadius: 'var(--radius-md)', overflow: 'hidden', position: 'relative', border: '1px solid var(--border-color)' }}>
               <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
             <canvas ref={canvasRef} style={{ display: 'none' }} />
-            <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', width: '100%' }}>
               <button className="btn btn-secondary" onClick={handleClose} style={{ flex: 1 }}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleCapture} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                <Camera size={18} /> Capture Photo
+              <button className="btn btn-primary" onClick={handleCapture} style={{ flex: 1 }}>
+                <Camera size={16} /> Capture Photo
               </button>
             </div>
           </div>
@@ -234,8 +216,8 @@ interface UserProfile {
 // Attendance circular ring component
 const AttendanceRing = ({ percentage }: { percentage: number }) => {
   const { t } = useTranslation();
-  const radius = 60;
-  const stroke = 8;
+  const radius = 56;
+  const stroke = 7;
   const normalizedRadius = radius - stroke * 2;
   const circumference = normalizedRadius * 2 * Math.PI;
   const strokeDashoffset = circumference - (Math.min(percentage, 100) / 100) * circumference;
@@ -256,7 +238,7 @@ const AttendanceRing = ({ percentage }: { percentage: number }) => {
           fill="transparent"
           strokeWidth={stroke}
           strokeDasharray={circumference + ' ' + circumference}
-          style={{ strokeDashoffset, transition: 'stroke-dashoffset 0.35s', transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }}
+          style={{ strokeDashoffset, transition: 'stroke-dashoffset 0.35s ease', transform: 'rotate(-90deg)', transformOrigin: '50% 50%', strokeLinecap: 'round' }}
           r={normalizedRadius}
           cx={radius}
           cy={radius}
@@ -267,13 +249,13 @@ const AttendanceRing = ({ percentage }: { percentage: number }) => {
           textAnchor="middle"
           dy=".3em"
           fill="var(--text-main)"
-          fontSize="1.1rem"
-          fontWeight="800"
+          fontSize="1rem"
+          fontWeight="700"
         >
           {percentage}%
         </text>
       </svg>
-      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dashboard.overallAttendance')}</span>
+      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>{t('dashboard.overallAttendance')}</span>
     </div>
   );
 };
@@ -282,19 +264,20 @@ const AttendanceRing = ({ percentage }: { percentage: number }) => {
 const SimpleBarChart = ({ data }: { data: { name: string; value: number }[] }) => {
   const maxValue = Math.max(...data.map(d => d.value), 1);
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '140px', padding: '10px', background: 'rgba(255,255,255,0.01)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '140px', padding: '0.75rem', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
       {data.map((item, idx) => {
         const heightPercent = (item.value / maxValue) * 100;
         return (
-          <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '6px' }}>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700 }}>{item.value}</div>
+          <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '4px' }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>{item.value}</div>
             <div style={{
-              width: '24px',
-              height: `${Math.max(heightPercent, 5)}px`,
+              width: '20px',
+              height: `${Math.max(heightPercent, 4)}px`,
               background: 'var(--primary)',
-              borderRadius: '4px 4px 0 0'
+              borderRadius: 'var(--radius-xs) var(--radius-xs) 0 0',
+              transition: 'height 0.3s ease'
             }} />
-            <div style={{ fontSize: '9px', color: 'var(--text-muted)', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', width: '50px', textAlign: 'center', fontWeight: 600 }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', width: '55px', textAlign: 'center', fontWeight: 500 }}>
               {item.name}
             </div>
           </div>
@@ -1074,7 +1057,7 @@ export default function App() {
         message: emergencyMessageInput
       });
       if (res.data?.success) {
-        showToast('error', `🚨 ${t('emergency.sendAlert')}`, `${t('emergency.active')}`);
+        showToast('error', t('emergency.sendAlert'), t('emergency.active'));
         setShowEmergencyModal(false);
         setEmergencyMessageInput('');
         loadEmergencyAlerts();
@@ -1741,7 +1724,7 @@ export default function App() {
       // === ATTENDANCE ===
       if (q.includes('attendance') || q.includes('percent') || q.includes('present') || q.includes('absent')) {
         const pct = attendanceStats.percentage;
-        const status = pct >= 75 ? '✅ Good standing' : pct >= 60 ? '⚠️ Below target' : '🔴 Critical – at risk';
+        const status = pct >= 75 ? 'Good standing' : pct >= 60 ? 'Below target' : 'Critical – at risk';
         aiText = `Your current attendance is **${pct}%** (${attendanceStats.present} present, ${attendanceStats.absent} absent). Status: ${status}. The minimum required is 75%.`;
         if (pct < 75) aiText += ` You need to attend more sessions to avoid academic penalties.`;
       }
@@ -2316,7 +2299,7 @@ export default function App() {
         { id: 'gate_pass', label: t('nav.gatePass'), icon: Shield },
         { id: 'notices', label: t('nav.noticeBoard'), icon: Bell },
         { id: 'notifications', label: t('nav.notifications'), icon: Bell },
-        { id: 'ai_assistant', label: t('nav.aiAssistant'), icon: Sparkles },
+        { id: 'ai_assistant', label: t('nav.aiAssistant'), icon: Bot },
         { id: 'profile', label: t('nav.profile'), icon: User }
       );
     } else {
@@ -2340,13 +2323,13 @@ export default function App() {
                 setMobileMenuOpen(false);
               }}
             >
-              <Icon size={18} />
+              <Icon size={16} />
               <span>{item.label}</span>
             </button>
           );
         })}
-        <button className="sidebar-item" onClick={handleLogout} style={{ marginTop: 'auto', color: '#ef4444' }}>
-          <LogOut size={18} />
+        <button className="sidebar-item" onClick={handleLogout} style={{ marginTop: 'auto', color: 'var(--danger)' }}>
+          <LogOut size={16} />
           <span>Logout</span>
         </button>
       </>
@@ -2390,70 +2373,62 @@ export default function App() {
     const duplicateScans = scanHistory.filter(h => h.status === 'ALREADY_MARKED').length;
     
     return (
-      <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', width: '100%' }}>
+      <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
         {/* Top Portal Header */}
-        <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderLeft: '4px solid var(--primary)' }}>
+        <div className="glass-panel" style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <QrCode size={24} color="var(--primary)" />
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 800 }}>QR Security Gate Portal</h1>
+              <QrCode size={20} color="var(--primary)" />
+              <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>{t('qrTerminal.title')}</h1>
             </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-              Logged in as: <strong style={{ color: 'var(--text-main)' }}>{currentUser.email}</strong> ({currentUser.role}) Â· Terminal Device: Web Viewfinder
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.2rem' }}>
+              {t('common.active')}: <strong style={{ color: 'var(--text-main)' }}>{currentUser.email}</strong> ({currentUser.role})
             </p>
           </div>
-          <button className="btn btn-secondary" style={{ color: '#ef4444', borderColor: '#ef4444' }} onClick={handleLogout}>
-            <LogOut size={16} /> Exit Gate Portal
+          <button className="btn btn-secondary" style={{ color: 'var(--danger)', borderColor: 'var(--danger-border)' }} onClick={handleLogout}>
+            <LogOut size={15} /> {t('nav.logout')}
           </button>
         </div>
 
         {/* Attendance Stats Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-          <div className="glass-panel" style={{ padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>TODAY'S TOTAL SCANS</span>
-            <span style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.25rem' }}>{totalScans}</span>
+          <div className="stat-card">
+            <span className="stat-card-title">{t('attendance.today')}</span>
+            <div className="stat-card-value">{totalScans}</div>
           </div>
-          <div className="glass-panel" style={{ padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>SUCCESSFUL MARKINGS</span>
-            <span style={{ fontSize: '1.75rem', fontWeight: 800, color: '#10b981', marginTop: '0.25rem' }}>{successScans}</span>
+          <div className="stat-card">
+            <span className="stat-card-title">{t('qrTerminal.successfulMarkings')}</span>
+            <div className="stat-card-value" style={{ color: 'var(--success)' }}>{successScans}</div>
           </div>
-          <div className="glass-panel" style={{ padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>DUPLICATE DETECTIONS</span>
-            <span style={{ fontSize: '1.75rem', fontWeight: 800, color: '#f59e0b', marginTop: '0.25rem' }}>{duplicateScans}</span>
+          <div className="stat-card">
+            <span className="stat-card-title">{t('qrTerminal.duplicateDetections')}</span>
+            <div className="stat-card-value" style={{ color: 'var(--warning)' }}>{duplicateScans}</div>
           </div>
-          <div className="glass-panel" style={{ padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>SCANNER EFFICIENCY</span>
-            <span style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.25rem' }}>
+          <div className="stat-card">
+            <span className="stat-card-title">{t('qrTerminal.scannerEfficiency')}</span>
+            <div className="stat-card-value" style={{ color: 'var(--primary)' }}>
               {totalScans > 0 ? `${Math.round((successScans / totalScans) * 100)}%` : '100%'}
-            </span>
+            </div>
           </div>
         </div>
 
         {/* 2-Column Splitter */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
           
           {/* Left Column: Viewfinder & Settings */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             
             {/* Viewfinder Panel */}
-            <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, alignSelf: 'flex-start' }}>Active Scanner Viewfinder</h3>
+            <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 600 }}>{t('qrTerminal.activeViewfinder')}</h3>
+                <span className={`badge ${cameraActive || scannerActive ? 'badge-success' : 'badge-neutral'}`}>
+                  {cameraActive || scannerActive ? t('common.active') : t('common.inactive')}
+                </span>
+              </div>
               
               {/* Scan Box with Real Live Video Camera Stream */}
-              <div style={{
-                width: '100%',
-                maxWidth: '300px',
-                height: '240px',
-                background: '#000000',
-                border: (cameraActive || scannerActive) ? '3px solid var(--primary)' : '2px dashed var(--border-color)',
-                borderRadius: '16px',
-                position: 'relative',
-                overflow: 'hidden',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.3s ease'
-              }}>
+              <div className={`viewfinder-frame ${cameraActive || scannerActive ? 'active' : ''}`}>
                 <video 
                   ref={videoRef} 
                   autoPlay 
@@ -2468,39 +2443,24 @@ export default function App() {
                 />
                 {!(cameraActive || scannerActive) && (
                   <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>
-                    <QrCode size={48} style={{ opacity: 0.2, marginBottom: '0.5rem' }} />
-                    <p style={{ fontSize: '0.85rem' }}>{cameraError || 'Camera Stream Suspended'}</p>
-                    <p style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '0.25rem' }}>Tap "Start Stream" below to open live camera</p>
+                    <QrCode size={40} style={{ opacity: 0.25, marginBottom: '0.5rem' }} />
+                    <p style={{ fontSize: '0.8rem' }}>{cameraError || t('camera.unavailable')}</p>
+                    <p style={{ fontSize: '0.72rem', opacity: 0.7, marginTop: '0.2rem' }}>{t('qrTerminal.qrScanInstruction')}</p>
                   </div>
                 )}
                 {(cameraActive || scannerActive) && (
-                  <>
-                    {/* Viewfinder Scanning Grid Overlay */}
-                    <div style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: '4px',
-                      background: 'var(--primary)',
-                      boxShadow: '0 0 12px var(--primary)',
-                      animation: 'slideUp 2.5s linear infinite alternate'
-                    }} />
-                    <span style={{ position: 'absolute', bottom: '10px', fontSize: '0.75rem', color: '#10b981', background: 'rgba(0,0,0,0.7)', padding: '0.25rem 0.5rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.35rem', zIndex: 10 }}>
-                      <span style={{ width: '6px', height: '6px', background: '#10b981', borderRadius: '50%', display: 'inline-block' }} /> Live Scanner Active
-                    </span>
-                  </>
+                  <div className="viewfinder-guide-corners" />
                 )}
               </div>
 
               {/* Viewfinder Actions */}
-              <div style={{ display: 'flex', gap: '0.5rem', width: '100%', maxWidth: '300px' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', width: '100%', maxWidth: '320px' }}>
                 <button 
                   className={`btn ${(cameraActive || scannerActive) ? 'btn-secondary' : 'btn-primary'}`} 
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }} 
+                  style={{ flex: 1 }} 
                   onClick={() => {
                     if (cameraActive || scannerActive) {
-                      stopCameraStream();
+                       stopCameraStream();
                       setScannerActive(false);
                       setScannerStatus('Idle');
                     } else {
@@ -2510,8 +2470,8 @@ export default function App() {
                     }
                   }}
                 >
-                  <Camera size={16} />
-                  {(cameraActive || scannerActive) ? 'Stop Stream' : 'Start Stream'}
+                  <Camera size={15} />
+                  {(cameraActive || scannerActive) ? t('common.cancel') : t('camera.openCamera')}
                 </button>
                 <button 
                   className="btn btn-secondary" 
@@ -2525,13 +2485,13 @@ export default function App() {
                     }
                   }}
                 >
-                  Switch Cam ({facingMode === 'environment' ? 'Rear' : 'Front'})
+                  {facingMode === 'environment' ? 'Rear Cam' : 'Front Cam'}
                 </button>
               </div>
 
               {/* Device Selection */}
-              <div style={{ width: '100%', maxWidth: '300px' }}>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Input Capture Device</label>
+              <div style={{ width: '100%', maxWidth: '320px' }}>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('camera.openCamera')}</label>
                 <select className="form-input" value={selectedCamera} onChange={e => setSelectedCamera(e.target.value)}>
                   <option value="Primary Webcam">Webcam HD (Integrated)</option>
                   <option value="Secondary Cam">Rear Camera (USB Video)</option>
@@ -2541,37 +2501,37 @@ export default function App() {
             </div>
 
             {/* Attendance Session / Date Overrides Settings */}
-            <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Attendance Settings Override</h3>
+            <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 600 }}>{t('qrTerminal.sessionOverride')}</h3>
               
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Date Capture Mode</label>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.4rem' }}>{t('filters.date')}</label>
+                <div style={{ display: 'flex', gap: '1.25rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.82rem', cursor: 'pointer' }}>
                     <input 
                       type="radio" 
                       name="dateMode" 
                       checked={attendanceSettings ? !attendanceSettings.manualDateMode : true}
                       onChange={() => updateAttendanceSettings({ manualDateMode: false, autoDateDetection: true })}
                     />
-                    Automatic System Date
+                    {t('attendance.today')}
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.82rem', cursor: 'pointer' }}>
                     <input 
                       type="radio" 
                       name="dateMode" 
                       checked={attendanceSettings ? attendanceSettings.manualDateMode : false}
                       onChange={() => updateAttendanceSettings({ manualDateMode: true, autoDateDetection: false })}
                     />
-                    Manual Selection
+                    {t('qrTerminal.manualOverride')}
                   </label>
                 </div>
               </div>
 
               {attendanceSettings?.manualDateMode && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }} className="animate-slide-up">
+                <div className="responsive-grid animate-slide-up">
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Target Date</label>
+                    <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.35rem', fontWeight: 600 }}>{t('filters.date')}</label>
                     <input 
                       type="date" 
                       className="form-input" 
@@ -2580,7 +2540,7 @@ export default function App() {
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Active Session</label>
+                    <label style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.35rem', fontWeight: 600 }}>{t('attendance.session')}</label>
                     <select 
                       className="form-input"
                       value={attendanceSettings?.manualSession || 'Morning'}
@@ -2597,12 +2557,12 @@ export default function App() {
           </div>
 
           {/* Right Column: Scan Simulator & Scanner Status / Logs */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             
             {/* Last Scanned Student View */}
-            <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', minHeight: '260px', justifyContent: 'center' }}>
+            <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', minHeight: '240px', justifyContent: 'center' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Scanned Student Display</h3>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 600 }}>{t('qrTerminal.lastScannedResult')}</h3>
                 <span className={`badge ${
                   scannerStatus === 'Success' ? 'badge-success' : 
                   scannerStatus === 'Error' ? 'badge-warning' : 'badge-info'
@@ -2612,19 +2572,19 @@ export default function App() {
               </div>
 
               {lastScannedStudent ? (
-                <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }} className="animate-slide-up">
-                  <div style={{ width: '80px', height: '80px', borderRadius: '12px', overflow: 'hidden', border: '2px solid var(--border-color)', background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img src={lastScannedStudent.avatar} alt="Avatar" width="80" height="80" />
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }} className="animate-slide-up">
+                  <div style={{ width: '70px', height: '70px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)', background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img src={lastScannedStudent.avatar} alt="Avatar" width="70" height="70" />
                   </div>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <strong style={{ fontSize: '1.1rem' }}>{lastScannedStudent.fullName}</strong>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Reg No: {lastScannedStudent.registerNumber}</span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Hostel: {lastScannedStudent.hostelName} | Room: {lastScannedStudent.roomNumber}</span>
-                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span className={`badge ${lastScannedStudent.status === 'PRESENT' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: '0.7rem' }}>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                    <strong style={{ fontSize: '1rem', color: 'var(--text-main)' }}>{lastScannedStudent.fullName}</strong>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{t('auth.registerNumber')}: {lastScannedStudent.registerNumber}</span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{t('hostel.name')}: {lastScannedStudent.hostelName} | {t('rooms.roomNumber')}: {lastScannedStudent.roomNumber}</span>
+                    <div style={{ marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className={`badge ${lastScannedStudent.status === 'PRESENT' ? 'badge-success' : 'badge-warning'}`}>
                         {lastScannedStudent.status}
                       </span>
-                      <span style={{ fontSize: '0.75rem', color: lastScannedStudent.status === 'PRESENT' ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
+                      <span style={{ fontSize: '0.75rem', color: lastScannedStudent.status === 'PRESENT' ? 'var(--success)' : 'var(--warning)', fontWeight: 500 }}>
                         {lastScannedStudent.message}
                       </span>
                     </div>
@@ -2632,38 +2592,36 @@ export default function App() {
                 </div>
               ) : (
                 <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)' }}>
-                  <User size={36} style={{ opacity: 0.15, marginBottom: '0.5rem' }} />
-                  <p style={{ fontSize: '0.85rem' }}>Awaiting card swipe verification...</p>
+                  <User size={32} style={{ opacity: 0.2, marginBottom: '0.5rem' }} />
+                  <p style={{ fontSize: '0.82rem' }}>{t('qrTerminal.noScanYet')}</p>
                 </div>
               )}
             </div>
 
             {/* Mock Card Swipe Scanner Simulation Block */}
-            <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Security Card Simulator</h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Simulate swiping a student's digital ID card to verify gate logs, duplicate detectors, and synthesized audio bells.
+            <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 600 }}>{t('qrTerminal.tokenSimulator')}</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                {t('qrTerminal.qrScanInstruction')}
               </p>
               
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <input 
                   type="text" 
                   className="form-input" 
-                  style={{ height: '40px' }}
-                  placeholder="Enter Student QR Token (e.g. qr-student-...)"
+                  placeholder={t('qrTerminal.tokenPlaceholder')}
                   value={manualScanInput}
                   onChange={e => setManualScanInput(e.target.value)}
                 />
                 <button 
                   className="btn btn-primary" 
-                  style={{ whiteSpace: 'nowrap' }} 
                   onClick={() => {
                     handleQRScan(manualScanInput);
                     setManualScanInput('');
                   }}
                   disabled={!scannerActive}
                 >
-                  Verify QR
+                  {t('qrTerminal.simulateScan')}
                 </button>
               </div>
             </div>
@@ -2672,42 +2630,42 @@ export default function App() {
 
         {/* Scan Log History Table */}
         <div className="glass-panel" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Gate Pass Scans Registry ({scanHistory.length})</h3>
-            <button className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem' }} onClick={exportHistoryToCSV}>
-              Export to CSV Log
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>{t('attendance.historyTitle')} ({scanHistory.length})</h3>
+            <button className="btn btn-secondary" style={{ padding: '0.35rem 0.85rem', fontSize: '0.78rem' }} onClick={exportHistoryToCSV}>
+              <Download size={14} /> {t('common.export')} CSV
             </button>
           </div>
           {scanHistory.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '1.5rem 0' }}>No scan history recorded in this session yet.</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', textAlign: 'center', padding: '1.5rem 0' }}>{t('common.noData')}</p>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+            <div className="table-wrapper">
+              <table className="table">
                 <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', color: 'var(--text-muted)' }}>
-                    <th style={{ padding: '0.75rem' }}>Student Name</th>
-                    <th style={{ padding: '0.75rem' }}>Room</th>
-                    <th style={{ padding: '0.75rem' }}>Session</th>
-                    <th style={{ padding: '0.75rem' }}>Time</th>
-                    <th style={{ padding: '0.75rem' }}>Status</th>
-                    <th style={{ padding: '0.75rem' }}>Verified By</th>
-                    <th style={{ padding: '0.75rem' }}>Device</th>
+                  <tr>
+                    <th>Student Name</th>
+                    <th>Room</th>
+                    <th>Session</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Verified By</th>
+                    <th>Device</th>
                   </tr>
                 </thead>
                 <tbody>
                   {scanHistory.map((h, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: '0.75rem', fontWeight: 600 }}>{h.studentName}</td>
-                      <td style={{ padding: '0.75rem' }}>{h.roomNumber}</td>
-                      <td style={{ padding: '0.75rem' }}>{h.session}</td>
-                      <td style={{ padding: '0.75rem' }}>{h.time}</td>
-                      <td style={{ padding: '0.75rem' }}>
+                    <tr key={i}>
+                      <td style={{ fontWeight: 600 }}>{h.studentName}</td>
+                      <td>{h.roomNumber}</td>
+                      <td>{h.session}</td>
+                      <td>{h.time}</td>
+                      <td>
                         <span className={`badge ${h.status === 'PRESENT' ? 'badge-success' : 'badge-warning'}`}>
                           {h.status}
                         </span>
                       </td>
-                      <td style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>{h.scannedBy}</td>
-                      <td style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>{h.scannerDevice}</td>
+                      <td style={{ color: 'var(--text-muted)' }}>{h.scannedBy}</td>
+                      <td style={{ color: 'var(--text-muted)' }}>{h.scannerDevice}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -2757,14 +2715,15 @@ export default function App() {
       )}
 
       {/* Header / Navbar */}
+      {/* Header / Navbar */}
       <header style={{
-        height: '64px',
+        height: '56px',
         borderBottom: '1px solid var(--border-color)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0 1.5rem',
-        background: 'var(--bg-card)',
+        padding: '0 1.25rem',
+        background: 'var(--bg-surface)',
         position: 'sticky',
         top: 0,
         zIndex: 50
@@ -2772,29 +2731,31 @@ export default function App() {
         {/* Logo and Collapsible Side Menu Icon on Mobile */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <button
-            className="btn btn-secondary"
-            style={{ display: 'none', padding: '0.5rem', border: 'none' }}
+            className="btn btn-ghost"
+            style={{ display: 'none', padding: '0.4rem' }}
             onClick={() => setMobileMenuOpen(true)}
             id="mobile-drawer-toggle"
           >
-            <Menu size={20} />
+            <Menu size={18} />
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }} onClick={() => setView(currentUser ? 'dashboard' : 'home')}>
-            <Shield size={24} color="var(--primary)" />
-            <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-              SmartHostel <span style={{ color: 'var(--primary)' }}>AI</span>
+            <div style={{ width: '30px', height: '30px', borderRadius: 'var(--radius-md)', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Building2 size={18} color="var(--primary-contrast)" />
+            </div>
+            <span style={{ fontSize: '1.05rem', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-main)' }}>
+              SmartHostel <span style={{ color: 'var(--primary)', fontSize: '0.85rem', fontWeight: 600, border: '1px solid var(--primary-border)', padding: '0.1rem 0.35rem', borderRadius: 'var(--radius-sm)', background: 'var(--primary-soft)' }}>ERP</span>
             </span>
           </div>
         </div>
 
         {/* Global Search Bar (Only shown when logged in) */}
         {currentUser && (
-          <div style={{ position: 'relative', width: '300px', display: 'flex', alignItems: 'center' }} className="hide-mobile">
-            <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '10px' }} />
+          <div style={{ position: 'relative', width: '280px', display: 'flex', alignItems: 'center' }} className="hide-mobile">
+            <Search size={15} color="var(--text-subtle)" style={{ position: 'absolute', left: '10px' }} />
             <input
               type="text"
               className="form-input"
-              style={{ paddingLeft: '2.25rem', height: '36px', fontSize: '0.875rem' }}
+              style={{ paddingLeft: '2.1rem', height: '34px', fontSize: '0.82rem' }}
               placeholder={t('common.search')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
@@ -2803,29 +2764,61 @@ export default function App() {
         )}
 
         {/* Header Right Widgets */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {(view === 'home' || view === 'login' || view === 'register' || view === 'qr_login') && (
-            <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }} onClick={() => setView('home')}>{t('nav.dashboard')}</button>
-              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }} onClick={() => setView('login')}>{t('auth.signIn')}</button>
-              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontWeight: 600, cursor: 'pointer' }} onClick={() => setView('qr_login')}>{t('nav.qrPortal')}</button>
-              <button className="btn btn-primary" onClick={() => setView('register')}>{t('nav.register')}</button>
+            <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button className="btn btn-ghost" style={{ fontSize: '0.82rem' }} onClick={() => setView('home')}>{t('nav.dashboard')}</button>
+              <button className="btn btn-ghost" style={{ fontSize: '0.82rem' }} onClick={() => setView('login')}>{t('auth.signIn')}</button>
+              <button className="btn btn-ghost" style={{ fontSize: '0.82rem' }} onClick={() => setView('qr_login')}>{t('nav.qrPortal')}</button>
+              <button className="btn btn-primary" style={{ padding: '0.4rem 0.85rem', fontSize: '0.82rem' }} onClick={() => setView('register')}>{t('nav.register')}</button>
             </div>
           )}
 
           {currentUser && (
             <>
-              <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setSubView('notifications')}>
-                <Bell size={18} color="var(--text-muted)" />
+              <div 
+                style={{ 
+                  position: 'relative', 
+                  cursor: 'pointer', 
+                  padding: '0.45rem', 
+                  borderRadius: 'var(--radius-md)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  background: 'var(--bg-subtle)' 
+                }} 
+                onClick={() => setSubView('notifications')}
+              >
+                <Bell size={16} color="var(--text-muted)" />
                 {unreadCount > 0 && (
-                  <span style={{ position: 'absolute', top: '-4px', right: '-4px', minWidth: '16px', height: '16px', background: '#ef4444', borderRadius: '50%', fontSize: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, padding: '0 2px' }}>
+                  <span style={{ 
+                    position: 'absolute', 
+                    top: '-2px', 
+                    right: '-2px', 
+                    minWidth: '15px', 
+                    height: '15px', 
+                    background: 'var(--danger)', 
+                    borderRadius: '50%', 
+                    fontSize: '0.62rem', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    color: '#fff', 
+                    fontWeight: 700, 
+                    padding: '0 2px' 
+                  }}>
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </div>
-              <div className="hide-mobile" style={{ display: 'flex', flexDirection: 'column', textAlign: 'right' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{currentUser.fullName}</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--primary)', textTransform: 'uppercase', fontWeight: 800 }}>{currentUser.role.replace('_', ' ')}</span>
+              <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0.6rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface)' }}>
+                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--primary-soft)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 700 }}>
+                  {currentUser.fullName.charAt(0).toUpperCase()}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.15 }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)' }}>{currentUser.fullName}</span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{currentUser.role.replace('_', ' ')}</span>
+                </div>
               </div>
             </>
           )}
@@ -2835,11 +2828,11 @@ export default function App() {
             <button
               type="button"
               className="btn btn-secondary"
-              style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
               onClick={() => setLangDropdownOpen(!langDropdownOpen)}
               id="language-selector-btn"
             >
-              <Globe size={16} color="var(--primary)" />
+              <Globe size={14} color="var(--primary)" />
               <span>{languages.find(l => l.code === lang)?.nativeName || 'English'}</span>
             </button>
 
@@ -2847,18 +2840,18 @@ export default function App() {
               <div
                 style={{
                   position: 'absolute',
-                  top: 'calc(100% + 8px)',
+                  top: 'calc(100% + 6px)',
                   right: 0,
-                  background: 'var(--bg-card)',
+                  background: 'var(--bg-surface)',
                   border: '1px solid var(--border-color)',
-                  borderRadius: '12px',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-                  padding: '0.5rem',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-md)',
+                  padding: '0.35rem',
                   zIndex: 200,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '0.25rem',
-                  minWidth: '130px'
+                  gap: '0.2rem',
+                  minWidth: '140px'
                 }}
               >
                 {languages.map(l => (
@@ -2869,15 +2862,16 @@ export default function App() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.5rem',
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '8px',
+                      padding: '0.45rem 0.65rem',
+                      borderRadius: 'var(--radius-sm)',
                       border: 'none',
                       background: lang === l.code ? 'var(--primary-soft)' : 'transparent',
                       color: lang === l.code ? 'var(--primary)' : 'var(--text-main)',
-                      fontWeight: lang === l.code ? 700 : 500,
+                      fontWeight: lang === l.code ? 600 : 400,
                       cursor: 'pointer',
-                      fontSize: '0.85rem',
-                      textAlign: 'left'
+                      fontSize: '0.82rem',
+                      textAlign: 'left',
+                      fontFamily: 'inherit'
                     }}
                     onClick={() => {
                       changeLanguage(l.code);
@@ -2885,56 +2879,56 @@ export default function App() {
                     }}
                   >
                     <span>{l.flag}</span>
-                    <span>{l.nativeName}</span>
+                    <span style={{ flex: 1 }}>{l.nativeName}</span>
+                    {lang === l.code && <Check size={14} color="var(--primary)" />}
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          <button className="btn btn-secondary" style={{ padding: '0.5rem', borderRadius: '50%' }} onClick={toggleTheme}>
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          <button className="btn btn-secondary" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)' }} onClick={toggleTheme} title="Toggle Theme">
+            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
           </button>
         </div>
       </header>
 
-
       {/* Mobile Drawer (Collapsible) */}
       <div className={`drawer-overlay ${mobileMenuOpen ? 'active' : ''}`} onClick={() => setMobileMenuOpen(false)}>
         <div className={`drawer-content ${mobileMenuOpen ? 'active' : ''}`} onClick={e => e.stopPropagation()}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-            <span style={{ fontWeight: 800, fontSize: '1.1rem' }}>{currentUser ? t('common.all') : t('common.notice')}</span>
-            <button className="btn btn-secondary" style={{ padding: '0.25rem' }} onClick={() => setMobileMenuOpen(false)}>
-              <X size={18} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+            <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{currentUser ? t('common.all') : 'SmartHostel Navigation'}</span>
+            <button className="btn btn-ghost" style={{ padding: '0.35rem' }} onClick={() => setMobileMenuOpen(false)}>
+              <X size={16} />
             </button>
           </div>
           {currentUser ? renderSidebarContent() : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
               <button 
                 className="sidebar-item" 
                 onClick={() => { setView('home'); setMobileMenuOpen(false); }}
-                style={{ justifyContent: 'flex-start' }}
               >
-                {t('nav.dashboard')}
+                <Grid size={16} />
+                <span>{t('nav.dashboard')}</span>
               </button>
               <button 
                 className="sidebar-item" 
                 onClick={() => { setView('login'); setMobileMenuOpen(false); }}
-                style={{ justifyContent: 'flex-start' }}
               >
-                {t('auth.signIn')}
+                <User size={16} />
+                <span>{t('auth.signIn')}</span>
               </button>
               <button 
                 className="sidebar-item" 
                 onClick={() => { setView('qr_login'); setMobileMenuOpen(false); }}
-                style={{ justifyContent: 'flex-start' }}
               >
-                {t('nav.qrPortal')}
+                <QrCode size={16} />
+                <span>{t('nav.qrPortal')}</span>
               </button>
               <button 
                 className="btn btn-primary" 
                 onClick={() => { setView('register'); setMobileMenuOpen(false); }}
-                style={{ width: '100%', marginTop: '1rem' }}
+                style={{ width: '100%', marginTop: '0.75rem' }}
               >
                 {t('nav.register')}
               </button>
@@ -2946,20 +2940,23 @@ export default function App() {
       {/* Main Core Layout */}
       {view === 'home' || view === 'login' || view === 'register' || view === 'qr_login' ? (
         // Non-authenticated Content Shell
-        <main style={{ flex: 1, padding: '2rem' }}>
+        <main style={{ flex: 1, padding: '2rem 1.25rem' }}>
           {error && (
             <div style={{
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              color: '#fca5a5',
-              padding: '1rem',
-              borderRadius: '12px',
+              background: 'var(--danger-soft)',
+              border: '1px solid var(--danger-border)',
+              color: 'var(--danger)',
+              padding: '0.75rem 1rem',
+              borderRadius: 'var(--radius-md)',
               marginBottom: '1.5rem',
+              maxWidth: '640px',
+              margin: '0 auto 1.5rem auto',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem'
+              gap: '0.5rem',
+              fontSize: '0.85rem'
             }}>
-              <AlertTriangle size={18} color="#ef4444" />
+              <AlertTriangle size={16} color="var(--danger)" />
               <span>{error}</span>
             </div>
           )}
@@ -2967,39 +2964,110 @@ export default function App() {
           {/* HOME LANDING VIEW */}
           {view === 'home' && (
             <div className="animate-slide-up hero-container">
-              <h1 className="hero-title" style={{ fontWeight: 800, marginBottom: '1rem', lineHeight: '1.1' }}>{t('common.appName')}</h1>
-              <p style={{ fontSize: '1.125rem', color: 'var(--text-muted)', marginBottom: '2.5rem' }}>{t('common.subTitle')}</p>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.25rem 0.75rem', background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--primary)', marginBottom: '1.25rem' }}>
+                <Building2 size={13} /> {t('landing.badge')}
+              </div>
+              <h1 className="hero-title">{t('common.appName')}</h1>
+              <p className="hero-subtitle">{t('common.subTitle')}</p>
+              
               <div className="hero-buttons">
-                <button className="btn btn-primary" style={{ padding: '1rem 2rem', fontSize: '1rem' }} onClick={() => setView('register')}>{t('auth.registerBtn')} <ArrowRight size={18} /></button>
-                <button className="btn btn-secondary" style={{ padding: '1rem 2rem', fontSize: '1rem' }} onClick={() => setView('login')}>{t('auth.signIn')}</button>
+                <button className="btn btn-primary" style={{ padding: '0.65rem 1.5rem', fontSize: '0.9rem' }} onClick={() => setView('login')}>
+                  {t('auth.signIn')} <ArrowRight size={16} />
+                </button>
+                <button className="btn btn-secondary" style={{ padding: '0.65rem 1.25rem', fontSize: '0.9rem' }} onClick={() => setView('qr_login')}>
+                  <QrCode size={16} /> {t('nav.qrPortal')}
+                </button>
+              </div>
+
+              {/* Feature Highlights Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginTop: '3.5rem', textAlign: 'left' }}>
+                <div className="glass-panel" style={{ padding: '1.25rem' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-md)', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                    <QrCode size={18} color="var(--primary)" />
+                  </div>
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.35rem' }}>{t('landing.qrFeatureTitle')}</h3>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                    {t('landing.qrFeatureDesc')}
+                  </p>
+                </div>
+
+                <div className="glass-panel" style={{ padding: '1.25rem' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-md)', background: 'var(--info-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                    <Calendar size={18} color="var(--info)" />
+                  </div>
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.35rem' }}>{t('landing.leaveFeatureTitle')}</h3>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                    {t('landing.leaveFeatureDesc')}
+                  </p>
+                </div>
+
+                <div className="glass-panel" style={{ padding: '1.25rem' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-md)', background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                    <BookOpen size={18} color="var(--success)" />
+                  </div>
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.35rem' }}>{t('landing.messFeatureTitle')}</h3>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                    {t('landing.messFeatureDesc')}
+                  </p>
+                </div>
+
+                <div className="glass-panel" style={{ padding: '1.25rem' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-md)', background: 'var(--warning-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                    <Shield size={18} color="var(--warning)" />
+                  </div>
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.35rem' }}>{t('landing.securityFeatureTitle')}</h3>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                    {t('landing.securityFeatureDesc')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Trust Metrics Row */}
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginTop: '3rem', flexWrap: 'wrap', borderTop: '1px solid var(--border-color)', paddingTop: '1.75rem' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>{t('landing.trustRbac')}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('landing.trustRbacDesc')}</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>{t('landing.trustQr')}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('landing.trustQrDesc')}</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>{t('landing.trustPwa')}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('landing.trustPwaDesc')}</div>
+                </div>
               </div>
             </div>
           )}
 
           {/* LOGIN VIEW WITH DISTINCT ROLE PORTALS */}
           {view === 'login' && (
-            <div className="glass-panel animate-slide-up" style={{ maxWidth: '500px', margin: '3rem auto', padding: '2.5rem', borderRadius: '20px' }}>
-              <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '0.25rem', textAlign: 'center' }}>Portal Sign In</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center' }}>Select your portal role to sign in</p>
+            <div className="glass-panel animate-slide-up" style={{ maxWidth: '460px', margin: '2rem auto', padding: '2rem' }}>
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-main)' }}>{t('loginPortal.title')}</h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '0.2rem' }}>{t('loginPortal.subtitle')}</p>
+              </div>
 
               {/* 4 Distinct Role Selection Tabs */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem', marginBottom: '1.5rem', background: 'rgba(255, 255, 255, 0.05)', padding: '0.35rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.3rem', marginBottom: '1.25rem', background: 'var(--bg-subtle)', padding: '0.3rem', borderRadius: 'var(--radius-md)' }}>
                 <button
                   type="button"
                   style={{
-                    padding: '0.6rem 0.2rem',
-                    fontSize: '0.75rem',
-                    fontWeight: 800,
-                    borderRadius: '8px',
+                    padding: '0.5rem 0.25rem',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-sm)',
                     border: 'none',
                     cursor: 'pointer',
-                    background: loginTab === 'STUDENT' ? 'var(--primary)' : 'transparent',
-                    color: loginTab === 'STUDENT' ? '#fff' : 'var(--text-muted)',
+                    background: loginTab === 'STUDENT' ? 'var(--bg-card)' : 'transparent',
+                    color: loginTab === 'STUDENT' ? 'var(--primary)' : 'var(--text-muted)',
+                    boxShadow: loginTab === 'STUDENT' ? 'var(--shadow-xs)' : 'none',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '0.2rem',
-                    transition: 'all 0.2s ease'
+                    gap: '0.25rem',
+                    transition: 'all 0.15s ease',
+                    fontFamily: 'inherit'
                   }}
                   onClick={() => {
                     setLoginTab('STUDENT');
@@ -3007,26 +3075,28 @@ export default function App() {
                     setLoginPassword('password123');
                   }}
                 >
-                  <span style={{ fontSize: '1.1rem' }}>🎓</span>
-                  <span>Student</span>
+                  <GraduationCap size={16} />
+                  <span>{t('loginPortal.studentRole')}</span>
                 </button>
 
                 <button
                   type="button"
                   style={{
-                    padding: '0.6rem 0.2rem',
-                    fontSize: '0.75rem',
-                    fontWeight: 800,
-                    borderRadius: '8px',
+                    padding: '0.5rem 0.25rem',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-sm)',
                     border: 'none',
                     cursor: 'pointer',
-                    background: loginTab === 'WARDEN' ? 'var(--primary)' : 'transparent',
-                    color: loginTab === 'WARDEN' ? '#fff' : 'var(--text-muted)',
+                    background: loginTab === 'WARDEN' ? 'var(--bg-card)' : 'transparent',
+                    color: loginTab === 'WARDEN' ? 'var(--primary)' : 'var(--text-muted)',
+                    boxShadow: loginTab === 'WARDEN' ? 'var(--shadow-xs)' : 'none',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '0.2rem',
-                    transition: 'all 0.2s ease'
+                    gap: '0.25rem',
+                    transition: 'all 0.15s ease',
+                    fontFamily: 'inherit'
                   }}
                   onClick={() => {
                     setLoginTab('WARDEN');
@@ -3034,26 +3104,28 @@ export default function App() {
                     setLoginPassword('password123');
                   }}
                 >
-                  <span style={{ fontSize: '1.1rem' }}>🛡️</span>
-                  <span>Warden</span>
+                  <Shield size={16} />
+                  <span>{t('loginPortal.wardenRole')}</span>
                 </button>
 
                 <button
                   type="button"
                   style={{
-                    padding: '0.6rem 0.2rem',
-                    fontSize: '0.75rem',
-                    fontWeight: 800,
-                    borderRadius: '8px',
+                    padding: '0.5rem 0.25rem',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-sm)',
                     border: 'none',
                     cursor: 'pointer',
-                    background: loginTab === 'WORKER' ? 'var(--primary)' : 'transparent',
-                    color: loginTab === 'WORKER' ? '#fff' : 'var(--text-muted)',
+                    background: loginTab === 'WORKER' ? 'var(--bg-card)' : 'transparent',
+                    color: loginTab === 'WORKER' ? 'var(--primary)' : 'var(--text-muted)',
+                    boxShadow: loginTab === 'WORKER' ? 'var(--shadow-xs)' : 'none',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '0.2rem',
-                    transition: 'all 0.2s ease'
+                    gap: '0.25rem',
+                    transition: 'all 0.15s ease',
+                    fontFamily: 'inherit'
                   }}
                   onClick={() => {
                     setLoginTab('WORKER');
@@ -3061,26 +3133,28 @@ export default function App() {
                     setLoginPassword('password123');
                   }}
                 >
-                  <span style={{ fontSize: '1.1rem' }}>👷</span>
-                  <span>Staff/Worker</span>
+                  <Wrench size={16} />
+                  <span>{t('loginPortal.staffRole')}</span>
                 </button>
 
                 <button
                   type="button"
                   style={{
-                    padding: '0.6rem 0.2rem',
-                    fontSize: '0.75rem',
-                    fontWeight: 800,
-                    borderRadius: '8px',
+                    padding: '0.5rem 0.25rem',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-sm)',
                     border: 'none',
                     cursor: 'pointer',
-                    background: loginTab === 'SUPER_ADMIN' ? 'var(--primary)' : 'transparent',
-                    color: loginTab === 'SUPER_ADMIN' ? '#fff' : 'var(--text-muted)',
+                    background: loginTab === 'SUPER_ADMIN' ? 'var(--bg-card)' : 'transparent',
+                    color: loginTab === 'SUPER_ADMIN' ? 'var(--primary)' : 'var(--text-muted)',
+                    boxShadow: loginTab === 'SUPER_ADMIN' ? 'var(--shadow-xs)' : 'none',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '0.2rem',
-                    transition: 'all 0.2s ease'
+                    gap: '0.25rem',
+                    transition: 'all 0.15s ease',
+                    fontFamily: 'inherit'
                   }}
                   onClick={() => {
                     setLoginTab('SUPER_ADMIN');
@@ -3088,73 +3162,72 @@ export default function App() {
                     setLoginPassword('password123');
                   }}
                 >
-                  <span style={{ fontSize: '1.1rem' }}>⚡</span>
-                  <span>Super Admin</span>
+                  <Key size={16} />
+                  <span>{t('loginPortal.adminRole')}</span>
                 </button>
               </div>
 
-              {/* Dynamic Banner based on selected login tab */}
-              <div style={{ padding: '0.75rem 1rem', background: 'rgba(99,102,241,0.08)', borderRadius: '10px', marginBottom: '1.25rem', borderLeft: '4px solid var(--primary)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div style={{ fontSize: '1.5rem' }}>
-                  {loginTab === 'STUDENT' && '🎓'}
-                  {loginTab === 'WARDEN' && '🛡️'}
-                  {loginTab === 'WORKER' && '👷'}
-                  {loginTab === 'SUPER_ADMIN' && '⚡'}
+              {/* Dynamic Helper callout based on selected login tab */}
+              <div style={{ padding: '0.65rem 0.85rem', background: 'var(--primary-soft)', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem', border: '1px solid var(--primary-border)', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div style={{ color: 'var(--primary)', flexShrink: 0 }}>
+                  {loginTab === 'STUDENT' && <GraduationCap size={18} />}
+                  {loginTab === 'WARDEN' && <Shield size={18} />}
+                  {loginTab === 'WORKER' && <Wrench size={18} />}
+                  {loginTab === 'SUPER_ADMIN' && <Key size={18} />}
                 </div>
                 <div>
-                  <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)', display: 'block' }}>
-                    {loginTab === 'STUDENT' && 'Student Portal Sign In'}
-                    {loginTab === 'WARDEN' && 'Warden & Hostel Admin Sign In'}
-                    {loginTab === 'WORKER' && 'Staff & Maintenance Service Sign In'}
-                    {loginTab === 'SUPER_ADMIN' && 'Super Admin System Portal'}
+                  <strong style={{ fontSize: '0.8rem', color: 'var(--text-main)', display: 'block' }}>
+                    {loginTab === 'STUDENT' && t('loginPortal.studentBannerTitle')}
+                    {loginTab === 'WARDEN' && t('loginPortal.wardenBannerTitle')}
+                    {loginTab === 'WORKER' && t('loginPortal.staffBannerTitle')}
+                    {loginTab === 'SUPER_ADMIN' && t('loginPortal.adminBannerTitle')}
                   </strong>
-                  <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
-                    {loginTab === 'STUDENT' && 'Student account access for attendance & room details'}
-                    {loginTab === 'WARDEN' && 'Warden & Hostel Admin access for attendance & approvals'}
-                    {loginTab === 'WORKER' && 'Security, maintenance, mess, laundry & staff tasks'}
-                    {loginTab === 'SUPER_ADMIN' && 'Global system settings, hostels & full permissions'}
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {loginTab === 'STUDENT' && t('loginPortal.studentBannerDesc')}
+                    {loginTab === 'WARDEN' && t('loginPortal.wardenBannerDesc')}
+                    {loginTab === 'WORKER' && t('loginPortal.staffBannerDesc')}
+                    {loginTab === 'SUPER_ADMIN' && t('loginPortal.adminBannerDesc')}
                   </span>
                 </div>
               </div>
 
-              <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
-                    {loginTab === 'STUDENT' ? 'Student Email / Register No.' : loginTab === 'WARDEN' ? 'Warden Official Email' : loginTab === 'WORKER' ? 'Staff ID / Email' : 'Super Admin Email'}
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
+                    {loginTab === 'STUDENT' ? t('loginPortal.studentEmailLabel') : loginTab === 'WARDEN' ? t('loginPortal.wardenEmailLabel') : loginTab === 'WORKER' ? t('loginPortal.staffEmailLabel') : t('loginPortal.adminEmailLabel')}
                   </label>
                   <input className="form-input" type="text" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="email@example.com" required />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.password')}</label>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.password')}</label>
                   <input className="form-input" type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••" required />
                 </div>
-                <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.8rem', fontSize: '0.9rem', fontWeight: 700 }}>
-                  Sign In to {loginTab === 'STUDENT' ? 'Student Portal' : loginTab === 'WARDEN' ? 'Warden Portal' : loginTab === 'WORKER' ? 'Staff Portal' : 'Admin Portal'}
+                <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.65rem', fontSize: '0.88rem', fontWeight: 600, marginTop: '0.25rem' }}>
+                  {t('auth.signIn')} ({loginTab === 'STUDENT' ? t('loginPortal.studentRole') : loginTab === 'WARDEN' ? t('loginPortal.wardenRole') : loginTab === 'WORKER' ? t('loginPortal.staffRole') : t('loginPortal.adminRole')})
                 </button>
               </form>
             </div>
           )}
 
-
           {/* QR ATTENDANCE LOGIN VIEW */}
           {view === 'qr_login' && (
-            <div className="glass-panel animate-slide-up" style={{ maxWidth: '420px', margin: '3rem auto', padding: '2.5rem', border: '1px dashed var(--primary)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                <QrCode size={28} color="var(--primary)" />
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('nav.qrPortal')}</h2>
+            <div className="glass-panel animate-slide-up" style={{ maxWidth: '420px', margin: '2.5rem auto', padding: '2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <QrCode size={22} color="var(--primary)" />
+                <h2 style={{ fontSize: '1.35rem', fontWeight: 700 }}>{t('nav.qrPortal')}</h2>
               </div>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>{t('auth.loginTitle')}</p>
-              <form onSubmit={handleQRLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '1.25rem' }}>{t('auth.loginTitle')}</p>
+              <form onSubmit={handleQRLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.email')}</label>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.email')}</label>
                   <input className="form-input" type="text" value={qrPortalEmail} onChange={e => setQrPortalEmail(e.target.value)} placeholder="warden@user or admin@user" required />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.password')}</label>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.password')}</label>
                   <input className="form-input" type="password" value={qrPortalPassword} onChange={e => setQrPortalPassword(e.target.value)} placeholder="••••••••" required />
                 </div>
-                <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.75rem', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                  <Shield size={18} /> {t('auth.signIn')}
+                <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.65rem' }}>
+                  <Shield size={16} /> {t('auth.signIn')}
                 </button>
               </form>
             </div>
@@ -3162,14 +3235,14 @@ export default function App() {
 
           {/* REGISTER VIEW */}
           {view === 'register' && (
-            <div className="glass-panel animate-slide-up" style={{ maxWidth: '640px', margin: '2rem auto', padding: '2.5rem' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>{t('auth.registerBtn')}</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>{t('auth.pendingApproval')}</p>
+            <div className="glass-panel animate-slide-up" style={{ maxWidth: '640px', margin: '1.5rem auto', padding: '2rem' }}>
+              <h2 style={{ fontSize: '1.35rem', fontWeight: 700, marginBottom: '0.25rem' }}>{t('auth.registerBtn')}</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '1.25rem' }}>{t('auth.pendingApproval')}</p>
 
-              <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div className="responsive-grid">
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.role')}</label>
+                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.role')}</label>
                     <select className="form-input" value={regRole} onChange={e => setRegRole(e.target.value as UserRole)}>
                       <option value="STUDENT">Student</option>
                       <option value="WARDEN">Warden</option>
@@ -3185,29 +3258,29 @@ export default function App() {
                     </select>
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.fullName')}</label>
+                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.fullName')}</label>
                     <input className="form-input" type="text" value={regFullName} onChange={e => setRegFullName(e.target.value)} placeholder="John Doe" required />
                   </div>
                 </div>
 
                 <div className="responsive-grid">
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.email')}</label>
+                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.email')}</label>
                     <input className="form-input" type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} placeholder="john@example.com" required />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.password')}</label>
+                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.password')}</label>
                     <input className="form-input" type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)} placeholder="Minimum 8 characters" required />
                   </div>
                 </div>
 
                 <div className="responsive-grid">
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.mobile')}</label>
+                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.mobile')}</label>
                     <input className="form-input" type="tel" value={regMobile} onChange={e => setRegMobile(e.target.value)} placeholder="10 Digit Number" required />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.selectHostel')}</label>
+                    <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.selectHostel')}</label>
                     <select className="form-input" value={regHostelId} onChange={e => setRegHostelId(e.target.value)}>
                       <option value="">No Hostel (Platform Admin)</option>
                       {hostels.map(h => (
@@ -3221,15 +3294,15 @@ export default function App() {
                   <>
                     <div className="responsive-grid-3">
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.college')}</label>
+                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.college')}</label>
                         <input className="form-input" type="text" value={regCollege} onChange={e => setRegCollege(e.target.value)} placeholder="College name" />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.department')}</label>
+                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.department')}</label>
                         <input className="form-input" type="text" value={regDept} onChange={e => setRegDept(e.target.value)} placeholder="CSE, ECE etc" />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.year')}</label>
+                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.year')}</label>
                         <select className="form-input" value={regYear} onChange={e => setRegYear(e.target.value)}>
                           <option value="1st Year">1st Year</option>
                           <option value="2nd Year">2nd Year</option>
@@ -3241,15 +3314,15 @@ export default function App() {
 
                     <div className="responsive-grid-3">
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.registerNumber')}</label>
+                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.registerNumber')}</label>
                         <input className="form-input" type="text" value={regNumber} onChange={e => setRegNumber(e.target.value)} placeholder="Reg No" />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.parentName')}</label>
+                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.parentName')}</label>
                         <input className="form-input" type="text" value={regParentName} onChange={e => setRegParentName(e.target.value)} placeholder="Parent's Name" />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.parentMobile')}</label>
+                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.parentMobile')}</label>
                         <input className="form-input" type="tel" value={regParentMobile} onChange={e => setRegParentMobile(e.target.value)} placeholder="Parent's Mobile" />
                       </div>
                     </div>
@@ -3257,11 +3330,11 @@ export default function App() {
                 )}
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.address')}</label>
+                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.address')}</label>
                   <textarea className="form-input" value={regAddress} onChange={e => setRegAddress(e.target.value)} placeholder="Full street address..." rows={2}></textarea>
                 </div>
 
-                <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.75rem' }}>{t('auth.registerBtn')}</button>
+                <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.65rem' }}>{t('auth.registerBtn')}</button>
               </form>
             </div>
           )}
@@ -3288,21 +3361,21 @@ export default function App() {
 
             {/* Active Emergency Alert Banner Overlay */}
             {emergencyAlertsList.filter(a => a.status === 'ACTIVE').length > 0 && (
-              <div style={{ background: 'rgba(239,68,68,0.15)', border: '2px solid #ef4444', borderRadius: '12px', padding: '1rem 1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+              <div style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger-border)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <ShieldAlert size={28} color="#ef4444" style={{ animation: 'pulse 1s infinite' }} />
+                  <ShieldAlert size={22} color="var(--danger)" />
                   <div>
-                    <h4 style={{ fontWeight: 800, color: '#ef4444', fontSize: '1rem' }}>
-                      🚨 {t('emergency.activeAlerts')} ({emergencyAlertsList.filter(a => a.status === 'ACTIVE').length})
+                    <h4 style={{ fontWeight: 700, color: 'var(--danger)', fontSize: '0.9rem' }}>
+                      {t('emergency.activeAlerts')} ({emergencyAlertsList.filter(a => a.status === 'ACTIVE').length})
                     </h4>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                       {emergencyAlertsList.find(a => a.status === 'ACTIVE')?.type} emergency reported in {emergencyAlertsList.find(a => a.status === 'ACTIVE')?.hostel?.name || 'Hostel'} (Room {emergencyAlertsList.find(a => a.status === 'ACTIVE')?.roomNumber || 'N/A'})
                     </p>
                   </div>
                 </div>
                 {currentUser && ['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SECURITY'].includes(currentUser.role) && (
-                  <button className="btn btn-secondary" style={{ fontSize: '0.8rem', borderColor: '#ef4444', color: '#ef4444' }} onClick={() => setSubView('emergencies')}>
-                    View Emergency Details
+                  <button className="btn btn-secondary" style={{ fontSize: '0.75rem', borderColor: 'var(--danger-border)', color: 'var(--danger)', padding: '0.35rem 0.75rem' }} onClick={() => setSubView('emergencies')}>
+                    View Details
                   </button>
                 )}
               </div>
@@ -3310,22 +3383,22 @@ export default function App() {
 
             {/* Floating Student Emergency Trigger Button */}
             {currentUser && currentUser.role === 'STUDENT' && (
-              <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 900 }}>
+              <div style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 900 }}>
                 <button
                   className="btn btn-danger"
                   style={{
-                    padding: '0.85rem 1.5rem',
-                    fontSize: '0.9rem',
-                    fontWeight: 800,
-                    borderRadius: '999px',
-                    boxShadow: '0 8px 24px rgba(239,68,68,0.4)',
+                    padding: '0.6rem 1.1rem',
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: 'var(--shadow-md)',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.5rem'
+                    gap: '0.4rem'
                   }}
                   onClick={() => setShowEmergencyModal(true)}
                 >
-                  <ShieldAlert size={20} /> 🚨 {t('emergency.sendAlert')}
+                  <ShieldAlert size={16} /> {t('emergency.sendAlert')}
                 </button>
               </div>
             )}
@@ -3509,8 +3582,8 @@ export default function App() {
                 {currentUser.role === 'STUDENT' && (
                   <div className="responsive-grid-1-2">
                     {/* Student Left Card: 5-Minute Temporary Attendance QR Generator */}
-                    <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.25rem', textAlign: 'center' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>{t('attendance.generateQr')}</h3>
+                    <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', textAlign: 'center' }}>
+                      <h3 style={{ fontSize: '0.95rem', fontWeight: 600 }}>{t('attendance.generateQr')}</h3>
 
                       {(() => {
                         const todayAttendanceRecord = attendanceHistory.find(a => 
@@ -3521,24 +3594,24 @@ export default function App() {
 
                         if (todayAttendanceRecord) {
                           return (
-                            <div className="animate-scale-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '1rem 0', width: '100%' }}>
-                              <div style={{ width: '90px', height: '90px', borderRadius: '50%', background: 'rgba(16,185,129,0.12)', border: '3px solid #10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(16,185,129,0.25)' }}>
-                                <CheckCheck size={48} color="#10b981" />
+                            <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem', padding: '0.75rem 0', width: '100%' }}>
+                              <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--success-soft)', border: '1px solid var(--success-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <CheckCircle2 size={32} color="var(--success)" />
                               </div>
                               <div>
-                                <h4 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#10b981' }}>Attendance Marked Today! ✅</h4>
-                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                                  Checked In: <strong>{todayAttendanceRecord.checkInTime ? new Date(todayAttendanceRecord.checkInTime).toLocaleTimeString() : 'Recorded'}</strong>
+                                <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--success)' }}>{t('attendance.todayStatus')}</h4>
+                                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                                  {t('attendance.checkIn')}: <strong style={{ color: 'var(--text-main)' }}>{todayAttendanceRecord.checkInTime ? new Date(todayAttendanceRecord.checkInTime).toLocaleTimeString() : t('common.completed')}</strong>
                                 </p>
                                 {todayAttendanceRecord.checkOutTime && (
-                                  <p style={{ fontSize: '0.8rem', color: '#10b981', marginTop: '0.2rem' }}>
-                                    Checked Out: <strong>{new Date(todayAttendanceRecord.checkOutTime).toLocaleTimeString()}</strong>
+                                  <p style={{ fontSize: '0.78rem', color: 'var(--success)', marginTop: '0.15rem' }}>
+                                    {t('attendance.checkOut')}: <strong>{new Date(todayAttendanceRecord.checkOutTime).toLocaleTimeString()}</strong>
                                   </p>
                                 )}
                               </div>
-                              <span className="badge badge-success" style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }}>Status: ACTIVE / PRESENT</span>
-                              <button className="btn btn-secondary" style={{ fontSize: '0.8rem', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={handleGenerateStudentQR}>
-                                <QrCode size={16} /> Re-generate Attendance QR
+                              <span className="badge badge-success">{t('tables.status')}: {t('common.active')}</span>
+                              <button className="btn btn-secondary" style={{ fontSize: '0.8rem', marginTop: '0.35rem' }} onClick={handleGenerateStudentQR}>
+                                <QrCode size={14} /> {t('attendance.generateQr')}
                               </button>
                             </div>
                           );
@@ -3546,33 +3619,33 @@ export default function App() {
 
                         if (tempQrData && qrCountdownSeconds > 0) {
                           return (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem', width: '100%' }}>
                               {/* QR Code Container with Real Scannable QRCodeSVG */}
-                              <div style={{ background: '#ffffff', padding: '1rem', borderRadius: '16px', border: '4px solid var(--primary)', width: '210px', height: '210px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', boxShadow: '0 8px 24px rgba(99,102,241,0.25)' }}>
+                              <div style={{ background: '#ffffff', padding: '0.85rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', width: '190px', height: '190px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', boxShadow: 'var(--shadow-xs)' }}>
                                 <QRCodeSVG 
                                   value={tempQrData.qrString || JSON.stringify(tempQrData)} 
-                                  size={180} 
+                                  size={165} 
                                   level="H" 
                                   includeMargin={false}
                                 />
                               </div>
 
                               {/* Countdown Timer & Reference Pill */}
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', alignItems: 'center' }}>
-                                <span className="badge badge-success" style={{ fontSize: '0.9rem', padding: '0.4rem 1rem', fontWeight: 800 }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'center' }}>
+                                <span className="badge badge-success" style={{ fontSize: '0.82rem', padding: '0.3rem 0.75rem' }}>
                                   {t('attendance.qrValidFor', {
                                     time: `${String(Math.floor(qrCountdownSeconds / 60)).padStart(2, '0')}:${String(qrCountdownSeconds % 60).padStart(2, '0')}`
                                   })}
                                 </span>
-                                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.25rem' }}>
+                                <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-main)', marginTop: '0.2rem' }}>
                                   {t('attendance.refCode', { code: tempQrData.referenceCode })}
                                 </div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                                   {t('attendance.locCode', { code: tempQrData.locationCode })}
                                 </div>
                               </div>
 
-                              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                                 {t('attendance.qrValidFor', { time: '5m' })}
                               </p>
                             </div>
@@ -3580,18 +3653,18 @@ export default function App() {
                         }
 
                         return (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                            <div style={{ width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <QrCode size={56} color="var(--primary)" />
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem' }}>
+                            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <QrCode size={36} color="var(--primary)" />
                             </div>
                             {qrCountdownSeconds === 0 && tempQrData && (
                               <span className="badge badge-danger">{t('attendance.qrExpired')}</span>
                             )}
-                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                               {tempQrData ? t('attendance.qrExpiredMsg') : t('attendance.generateQr')}
                             </p>
-                            <button className="btn btn-primary" style={{ width: '100%', padding: '0.75rem 1.5rem', fontSize: '0.9rem' }} onClick={handleGenerateStudentQR}>
-                              <QrCode size={18} /> {t('attendance.generateQr')}
+                            <button className="btn btn-primary" style={{ width: '100%', padding: '0.6rem 1.25rem', fontSize: '0.85rem' }} onClick={handleGenerateStudentQR}>
+                              <QrCode size={16} /> {t('attendance.generateQr')}
                             </button>
                           </div>
                         );
@@ -3599,13 +3672,13 @@ export default function App() {
                     </div>
 
                     {/* Student Right Card: logs */}
-                    <div className="glass-panel" style={{ padding: '2rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('attendance.historyTitle')}</h3>
-                      <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                      <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '1rem' }}>{t('attendance.historyTitle')}</h3>
+                      <div className="table-wrapper" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                        <table className="table">
                           <thead>
-                            <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                              <th style={{ padding: '0.75rem 0' }}>{t('tables.date')}</th>
+                            <tr>
+                              <th>{t('tables.date')}</th>
                               <th>{t('tables.status')}</th>
                               <th>{t('attendance.checkIn')}</th>
                               <th>{t('attendance.checkOut')}</th>
@@ -3613,8 +3686,8 @@ export default function App() {
                           </thead>
                           <tbody>
                             {attendanceHistory.map(log => (
-                              <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
-                                <td style={{ padding: '0.75rem 0' }}>{new Date(log.date).toLocaleDateString()}</td>
+                              <tr key={log.id}>
+                                <td>{new Date(log.date).toLocaleDateString()}</td>
                                 <td><span className={`badge ${log.isPresent ? 'badge-success' : 'badge-danger'}`}>{log.isPresent ? t('common.active') : t('common.inactive')}</span></td>
                                 <td>{log.checkInTime ? new Date(log.checkInTime).toLocaleTimeString() : '-'}</td>
                                 <td>{log.checkOutTime ? new Date(log.checkOutTime).toLocaleTimeString() : '-'}</td>
@@ -3629,24 +3702,24 @@ export default function App() {
 
                 {/* Warden / Admin controls: QR scanner launcher, manual mark and live logs */}
                 {['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'WARDEN', 'SECURITY'].includes(currentUser.role) && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     {/* QR Scanner Quick Action Banner */}
-                    <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(168,85,247,0.12))', border: '1px solid var(--primary)', borderRadius: '16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <QrCode size={24} color="#ffffff" />
+                    <div className="glass-panel" style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderLeft: '3px solid var(--primary)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                        <div style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-md)', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <QrCode size={20} color="var(--primary)" />
                         </div>
                         <div>
-                          <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>Student Attendance QR Scanner</h3>
-                          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Scan student QR codes live via camera or open the dedicated Security Gate Portal</p>
+                          <h3 style={{ fontSize: '0.95rem', fontWeight: 600 }}>{t('qrTerminal.title')}</h3>
+                          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{t('qrTerminal.qrScanInstruction')}</p>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                        <button className="btn btn-primary" onClick={() => { setShowQRScanner(true); startCameraStream(); }} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <Camera size={18} /> Open Live Camera Scanner
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <button className="btn btn-primary" onClick={() => { setShowQRScanner(true); startCameraStream(); }}>
+                          <Camera size={15} /> {t('attendance.scanQr')}
                         </button>
-                        <button className="btn btn-secondary" onClick={() => setIsQrScannerPortal(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <QrCode size={18} /> Full Gate Scanner Portal
+                        <button className="btn btn-secondary" onClick={() => setIsQrScannerPortal(true)}>
+                          <QrCode size={15} /> {t('nav.qrPortal')}
                         </button>
                       </div>
                     </div>
@@ -3654,11 +3727,11 @@ export default function App() {
                     <div className="responsive-grid-1-2">
                       {/* Manual Form */}
                       <div className="glass-panel" style={{ padding: '2rem' }}>
-                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('attendance.title')}</h3>
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('attendance.markManual')}</h3>
                         <form onSubmit={handleManualAttendance} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                           <div>
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('students.studentName')}</label>
-                            <input className="form-input" type="text" placeholder="Enter student email" value={manualStudentId} onChange={e => setManualStudentId(e.target.value)} required />
+                            <input className="form-input" type="text" placeholder={t('auth.email')} value={manualStudentId} onChange={e => setManualStudentId(e.target.value)} required />
                           </div>
                           <div>
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('tables.date')}</label>
@@ -3713,7 +3786,7 @@ export default function App() {
                     
                     {/* Settings Panel */}
                     <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>System Attendance Settings</h3>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>{t('settings.title')}</h3>
                       {attendanceSettings ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
@@ -3722,7 +3795,7 @@ export default function App() {
                               checked={attendanceSettings.enableQrAttendance} 
                               onChange={e => updateAttendanceSettings({ enableQrAttendance: e.target.checked })} 
                             />
-                            Enable QR Attendance System
+                            {t('attendance.title')}
                           </label>
                           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
                             <input 
@@ -3730,7 +3803,7 @@ export default function App() {
                               checked={attendanceSettings.enableCheckIn} 
                               onChange={e => updateAttendanceSettings({ enableCheckIn: e.target.checked })} 
                             />
-                            Enable Scan Check-In
+                            {t('attendance.checkIn')}
                           </label>
                           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
                             <input 
@@ -3738,7 +3811,7 @@ export default function App() {
                               checked={attendanceSettings.enableCheckOut} 
                               onChange={e => updateAttendanceSettings({ enableCheckOut: e.target.checked })} 
                             />
-                            Enable Scan Check-Out
+                            {t('attendance.checkOut')}
                           </label>
                           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
                             <input 
@@ -3746,7 +3819,7 @@ export default function App() {
                               checked={attendanceSettings.allowMultipleSessions} 
                               onChange={e => updateAttendanceSettings({ allowMultipleSessions: e.target.checked })} 
                             />
-                            Allow Multi-Session Markings
+                            {t('attendance.session')}
                           </label>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                             <div>
@@ -3773,13 +3846,13 @@ export default function App() {
                           </div>
                         </div>
                       ) : (
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading system settings...</p>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{t('common.loading')}</p>
                       )}
                     </div>
 
                     {/* Sessions CRUD Panel */}
                     <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Attendance Shifts / Sessions</h3>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>{t('attendance.session')}</h3>
                       
                       {/* Create Form */}
                       {currentUser.role === 'SUPER_ADMIN' && (
@@ -3787,12 +3860,12 @@ export default function App() {
                           <input 
                             type="text" 
                             className="form-input" 
-                            placeholder="Add session (e.g. Night)" 
+                            placeholder={t('attendance.session')} 
                             value={newSessionName} 
                             onChange={e => setNewSessionName(e.target.value)} 
                             required 
                           />
-                          <button className="btn btn-primary" type="submit">Add</button>
+                          <button className="btn btn-primary" type="submit">{t('common.add')}</button>
                         </form>
                       )}
 
@@ -3809,15 +3882,15 @@ export default function App() {
                                   value={editingSessionName} 
                                   onChange={e => setEditingSessionName(e.target.value)} 
                                 />
-                                <button className="btn btn-primary" style={{ padding: '0 0.5rem', fontSize: '0.75rem' }} onClick={() => handleUpdateSession(s.id, editingSessionName, s.isActive)}>Save</button>
-                                <button className="btn btn-secondary" style={{ padding: '0 0.5rem', fontSize: '0.75rem' }} onClick={() => setEditingSessionId(null)}>Cancel</button>
+                                <button className="btn btn-primary" style={{ padding: '0 0.5rem', fontSize: '0.75rem' }} onClick={() => handleUpdateSession(s.id, editingSessionName, s.isActive)}>{t('common.save')}</button>
+                                <button className="btn btn-secondary" style={{ padding: '0 0.5rem', fontSize: '0.75rem' }} onClick={() => setEditingSessionId(null)}>{t('common.cancel')}</button>
                               </div>
                             ) : (
                               <>
                                 <div>
                                   <strong style={{ fontSize: '0.85rem' }}>{s.name}</strong>
                                   <span style={{ fontSize: '0.7rem', color: s.isActive ? '#10b981' : '#ef4444', marginLeft: '0.5rem' }}>
-                                    {s.isActive ? 'Active' : 'Disabled'}
+                                    {s.isActive ? t('common.active') : t('common.inactive')}
                                   </span>
                                 </div>
                                 {currentUser.role === 'SUPER_ADMIN' && (
@@ -3827,14 +3900,14 @@ export default function App() {
                                       style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem' }} 
                                       onClick={() => { setEditingSessionId(s.id); setEditingSessionName(s.name); }}
                                     >
-                                      Edit
+                                      {t('common.edit')}
                                     </button>
                                     <button 
                                       className="btn btn-secondary" 
                                       style={{ padding: '0.25rem 0.5rem', fontSize: '0.7rem', color: '#ef4444' }} 
                                       onClick={() => handleDeleteSession(s.id)}
                                     >
-                                      Delete
+                                      {t('common.delete')}
                                     </button>
                                   </div>
                                 )}
@@ -3852,42 +3925,42 @@ export default function App() {
             {/* 3. LEAVE MANAGEMENT MODULE */}
             {subView === 'leave' && currentUser && (
               <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Leave Requests Hub</h2>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('leaves.title')}</h2>
 
                 {currentUser.role === 'STUDENT' && (
                   <div className="responsive-grid-1-2">
                     {/* Apply Form */}
                     <div className="glass-panel" style={{ padding: '2rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>Apply for Leave Pass</h3>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('leaves.applyLeave')}</h3>
                       <form onSubmit={handleApplyLeave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Start Date</label>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('leaves.startDate')}</label>
                           <input className="form-input" type="date" value={leaveStartDate} onChange={e => setLeaveStartDate(e.target.value)} required />
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>End Date</label>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('leaves.endDate')}</label>
                           <input className="form-input" type="date" value={leaveEndDate} onChange={e => setLeaveEndDate(e.target.value)} required />
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Reason for Leave</label>
-                          <textarea className="form-input" placeholder="Explain your reason (e.g. visiting parents, medical)" value={leaveReason} onChange={e => setLeaveReason(e.target.value)} required rows={3}></textarea>
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('leaves.reason')}</label>
+                          <textarea className="form-input" placeholder={t('leaves.reason')} value={leaveReason} onChange={e => setLeaveReason(e.target.value)} required rows={3}></textarea>
                         </div>
-                        <button className="btn btn-primary" type="submit" style={{ width: '100%' }}>Submit Leave Request</button>
+                        <button className="btn btn-primary" type="submit" style={{ width: '100%' }}>{t('leaves.submitRequest')}</button>
                       </form>
                     </div>
 
                     {/* Leave History */}
                     <div className="glass-panel" style={{ padding: '2rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>My Leave Cycle History</h3>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('leaves.history')}</h3>
                       <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                           <thead>
                             <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                              <th style={{ padding: '0.75rem 0' }}>Duration</th>
-                              <th>Reason</th>
-                              <th>Status</th>
-                              <th>Warden Remarks</th>
-                              <th>Action</th>
+                              <th style={{ padding: '0.75rem 0' }}>{t('tables.date')}</th>
+                              <th>{t('leaves.reason')}</th>
+                              <th>{t('tables.status')}</th>
+                              <th>{t('leaves.remarks')}</th>
+                              <th>{t('tables.actions')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -3907,7 +3980,7 @@ export default function App() {
                                 <td>
                                   {leave.status === 'PENDING' && (
                                     <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: '#ef4444' }} onClick={() => handleCancelLeave(leave.id)}>
-                                      Cancel
+                                      {t('common.cancel')}
                                     </button>
                                   )}
                                 </td>
@@ -3923,17 +3996,17 @@ export default function App() {
                 {/* Warden/Admin leave approval view */}
                 {(currentUser.role === 'WARDEN' || currentUser.role === 'SUPER_ADMIN') && (
                   <div className="glass-panel" style={{ padding: '2rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>Warden Leave Approvals Hub</h3>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('leaves.pending')}</h3>
                     <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
                           <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                            <th style={{ padding: '0.75rem' }}>Student Name</th>
-                            <th>Dates</th>
-                            <th>Reason</th>
-                            <th>Status</th>
-                            <th>Remarks</th>
-                            <th>Actions</th>
+                            <th style={{ padding: '0.75rem' }}>{t('tables.name')}</th>
+                            <th>{t('tables.date')}</th>
+                            <th>{t('leaves.reason')}</th>
+                            <th>{t('tables.status')}</th>
+                            <th>{t('leaves.remarks')}</th>
+                            <th>{t('tables.actions')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -3956,7 +4029,7 @@ export default function App() {
                                       type="text"
                                       className="form-input"
                                       style={{ height: '28px', fontSize: '0.75rem', padding: '2px 6px' }}
-                                      placeholder="Remarks"
+                                      placeholder={t('leaves.remarks')}
                                       value={activeLeaveIdForRemarks === leave.id ? remarksText : ''}
                                       onChange={e => {
                                         setActiveLeaveIdForRemarks(leave.id);
@@ -3965,15 +4038,15 @@ export default function App() {
                                     />
                                     <div style={{ display: 'flex', gap: '0.25rem' }}>
                                       <button className="btn btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => handleUpdateLeaveStatus(leave.id, 'APPROVED')}>
-                                        Approve
+                                        {t('common.approved')}
                                       </button>
                                       <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: '#ef4444' }} onClick={() => handleUpdateLeaveStatus(leave.id, 'REJECTED')}>
-                                        Reject
+                                        {t('common.rejected')}
                                       </button>
                                     </div>
                                   </div>
                                 ) : (
-                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Completed</span>
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('common.completed')}</span>
                                 )}
                               </td>
                             </tr>
@@ -3989,15 +4062,15 @@ export default function App() {
             {/* 4. COMPLAINTS MODULE */}
             {subView === 'complaints' && currentUser && (
               <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Hostel Grievance Redressal (Complaints)</h2>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('complaints.title')}</h2>
 
                 {/* Complaint form (For Students) */}
                 {currentUser.role === 'STUDENT' && (
                   <div className="glass-panel" style={{ padding: '2rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Raise a Maintenance Complaint</h3>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>{t('complaints.raiseComplaint')}</h3>
                     <form onSubmit={handleCreateComplaint} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                        <input className="form-input" type="text" value={compTitle} onChange={e => setCompTitle(e.target.value)} placeholder="Title (e.g. Broken Water Pipe)" required />
+                        <input className="form-input" type="text" value={compTitle} onChange={e => setCompTitle(e.target.value)} placeholder={t('complaints.complaintTitle')} required />
                         <select className="form-input" value={compCategory} onChange={e => setCompCategory(e.target.value)}>
                           {workerCategories.length > 0 ? (
                             workerCategories.map((cat: any) => (
@@ -4005,50 +4078,50 @@ export default function App() {
                             ))
                           ) : (
                             <>
-                              <option value="Plumbing">Plumbing</option>
-                              <option value="Electrical">Electrical</option>
-                              <option value="Carpentry">Carpentry</option>
-                              <option value="Cleaning">Cleaning</option>
+                              <option value="Plumbing">{t('complaints.plumbing')}</option>
+                              <option value="Electrical">{t('complaints.electrical')}</option>
+                              <option value="Carpentry">{t('complaints.carpentry')}</option>
+                              <option value="Cleaning">{t('complaints.cleaning')}</option>
                               <option value="AC Technician">AC Technician</option>
-                              <option value="Internet">Internet</option>
-                              <option value="Other">Other</option>
+                              <option value="Internet">{t('complaints.wifi')}</option>
+                              <option value="Other">{t('emergency.other')}</option>
                             </>
                           )}
                         </select>
                         <select className="form-input" value={compPriority} onChange={e => setCompPriority(e.target.value)}>
-                          <option value="LOW">Low Priority</option>
-                          <option value="MEDIUM">Medium Priority</option>
-                          <option value="HIGH">High Priority</option>
+                          <option value="LOW">{t('complaints.low')}</option>
+                          <option value="MEDIUM">{t('complaints.medium')}</option>
+                          <option value="HIGH">{t('complaints.high')}</option>
                         </select>
                       </div>
 
-                      <textarea className="form-input" rows={3} value={compDesc} onChange={e => setCompDesc(e.target.value)} placeholder="Describe problem details..." required />
+                      <textarea className="form-input" rows={3} value={compDesc} onChange={e => setCompDesc(e.target.value)} placeholder={t('complaints.description')} required />
 
                       {/* LIVE CAMERA CAPTURE ONLY FOR COMPLAINT EVIDENCE */}
                       <div style={{ padding: '1rem', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '12px', border: '1px dashed var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <Camera size={16} color="var(--primary)" /> Evidence Photo (Live Camera Only)
+                          <Camera size={16} color="var(--primary)" /> {t('complaints.evidence')}
                         </label>
                         {compEvidencePhoto ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                             <img src={compEvidencePhoto} alt="Captured Evidence" style={{ width: '120px', height: '90px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--primary)' }} />
                             <button type="button" className="btn btn-secondary" onClick={() => setShowCameraCaptureModal(true)} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
-                              <Camera size={14} /> Retake Photo
+                              <Camera size={14} /> {t('camera.retake')}
                             </button>
                           </div>
                         ) : (
                           <div>
                             <button type="button" className="btn btn-secondary" onClick={() => setShowCameraCaptureModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <Camera size={18} color="var(--primary)" /> Open Live Camera
+                              <Camera size={18} color="var(--primary)" /> {t('camera.openCamera')}
                             </button>
                             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.35rem' }}>
-                              * Security Policy: Gallery and file uploads are disabled. Live camera capture is required.
+                              * Security Policy: Live camera capture is required for verified maintenance requests.
                             </span>
                           </div>
                         )}
                       </div>
 
-                      <button className="btn btn-primary" type="submit" style={{ padding: '0.75rem' }}>Submit Complaint</button>
+                      <button className="btn btn-primary" type="submit" style={{ padding: '0.75rem' }}>{t('complaints.submit')}</button>
                     </form>
                   </div>
                 )}
@@ -4056,10 +4129,10 @@ export default function App() {
 
                 {/* Grievance list */}
                 <div className="glass-panel" style={{ padding: '2rem' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>Active Grievance Log List</h3>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('complaints.title')}</h3>
                   <div style={{ display: 'grid', gap: '1.5rem' }}>
                     {filteredComplaints.length === 0 ? (
-                      <p style={{ color: 'var(--text-muted)' }}>No complaints found matching filters.</p>
+                      <p style={{ color: 'var(--text-muted)' }}>{t('common.noData')}</p>
                     ) : (
                       filteredComplaints.map(c => (
                         <div key={c.id} style={{
@@ -4080,7 +4153,7 @@ export default function App() {
                               <span className={`badge ${
                                 c.priority === 'HIGH' ? 'badge-danger' :
                                 c.priority === 'MEDIUM' ? 'badge-warning' : 'badge-info'
-                              }`}>{c.priority} Priority</span>
+                              }`}>{c.priority}</span>
                               <span className="badge badge-info">{c.category}</span>
                               <span className={`badge ${
                                 c.status === 'RESOLVED' || c.status === 'COMPLETED' ? 'badge-success' :
@@ -4093,9 +4166,9 @@ export default function App() {
                           {/* Worker Completion Banner */}
                           {c.status === 'COMPLETED' && (
                             <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid #10b981', padding: '0.75rem 1rem', borderRadius: '8px', fontSize: '0.85rem' }}>
-                              <div style={{ fontWeight: 700, color: '#10b981' }}>✓ Work Completed by Worker</div>
-                              <div style={{ marginTop: '0.2rem', color: 'var(--text-main)' }}>Notes: {c.completionNotes || 'Work completed'}</div>
-                              {c.materialsUsed && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Materials Used: {c.materialsUsed}</div>}
+                              <div style={{ fontWeight: 700, color: '#10b981' }}>✓ {t('worker.completeWork')}</div>
+                              <div style={{ marginTop: '0.2rem', color: 'var(--text-main)' }}>{t('worker.workDone')}: {c.completionNotes || t('common.completed')}</div>
+                              {c.materialsUsed && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('worker.materialsUsed')}: {c.materialsUsed}</div>}
                             </div>
                           )}
 
@@ -4103,23 +4176,23 @@ export default function App() {
                           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
                             {['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN'].includes(currentUser.role) && (c.status === 'PENDING' || c.status === 'REJECTED') && (
                               <button className="btn btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }} onClick={() => { setSelectedComplaintForAssign(c); setShowAssignWorkerModal(true); }}>
-                                👷 Assign Worker
+                                <Wrench size={13} /> {t('complaints.assignWorker')}
                               </button>
                             )}
 
                             {currentUser.role === 'STUDENT' && c.status === 'COMPLETED' && (
                               <>
-                                <button className="btn btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', background: '#10b981' }} onClick={() => { setSelectedComplaintForConfirm(c); setShowConfirmResolutionModal(true); }}>
-                                  ✓ Confirm Resolution
+                                <button className="btn btn-primary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', background: 'var(--success)' }} onClick={() => { setSelectedComplaintForConfirm(c); setShowConfirmResolutionModal(true); }}>
+                                  <Check size={13} /> {t('complaints.confirm')}
                                 </button>
-                                <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', color: '#f59e0b' }} onClick={() => { setSelectedComplaintForReopen(c); setShowReopenModal(true); }}>
-                                  ⚠️ Report Issue / Reopen
+                                <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', color: 'var(--warning)' }} onClick={() => { setSelectedComplaintForReopen(c); setShowReopenModal(true); }}>
+                                  <AlertTriangle size={13} /> {t('common.reopened')}
                                 </button>
                               </>
                             )}
 
                             <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }} onClick={() => { setSelectedComplaintTimeline(c); setShowTimelineModal(true); }}>
-                              <Clock size={14} /> View Timeline
+                              <Clock size={14} /> {t('complaints.timeline')}
                             </button>
                           </div>
                         </div>
@@ -4133,39 +4206,39 @@ export default function App() {
             {/* 5. VISITORS PASS MODULE */}
             {subView === 'visitors' && currentUser && (
               <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Visitor Pass Management</h2>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('visitors.title')}</h2>
 
                 {currentUser.role === 'STUDENT' && (
                   <div className="responsive-grid-1-2">
                     {/* Request Form */}
                     <div className="glass-panel" style={{ padding: '2rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>Request Visitor Security Pass</h3>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('visitors.createRequest')}</h3>
                       <form onSubmit={handleCreateVisitor} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Visitor Name</label>
-                          <input className="form-input" type="text" placeholder="John Doe Sr" value={visName} onChange={e => setVisName(e.target.value)} required />
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('visitors.visitorName')}</label>
+                          <input className="form-input" type="text" placeholder={t('visitors.name')} value={visName} onChange={e => setVisName(e.target.value)} required />
                         </div>
                         <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Purpose of Visit</label>
-                          <input className="form-input" type="text" placeholder="Delivering luggage, parent visit" value={visPurpose} onChange={e => setVisPurpose(e.target.value)} required />
+                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('visitors.purpose')}</label>
+                          <input className="form-input" type="text" placeholder={t('visitors.purpose')} value={visPurpose} onChange={e => setVisPurpose(e.target.value)} required />
                         </div>
                         <div className="responsive-grid">
                           <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Visit Date</label>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('visitors.visitDate')}</label>
                             <input className="form-input" type="date" value={visDate} onChange={e => setVisDate(e.target.value)} required />
                           </div>
                           <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Arrival Time</label>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('visitors.expectedArrival')}</label>
                             <input className="form-input" type="time" value={visitorExpectedArrival} onChange={e => setVisitorExpectedArrival(e.target.value)} />
                           </div>
                         </div>
-                        <button className="btn btn-primary" type="submit" style={{ width: '100%' }}>Generate Pass Request</button>
+                        <button className="btn btn-primary" type="submit" style={{ width: '100%' }}>{t('visitors.registerVisitor')}</button>
                       </form>
                     </div>
 
                     {/* Student Passes List */}
                     <div className="glass-panel" style={{ padding: '2rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>Registered Visitor Pass Cycles</h3>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('visitors.history')}</h3>
                       <div style={{ display: 'grid', gap: '1rem', maxHeight: '350px', overflowY: 'auto' }}>
                         {filteredVisitors.map(v => (
                           <div key={v.id} className="flex-responsive-between" style={{
@@ -4176,9 +4249,9 @@ export default function App() {
                             alignItems: 'center'
                           }}>
                             <div>
-                              <h4 style={{ fontWeight: 700 }}>Visitor: {v.name}</h4>
-                              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>Purpose: {v.purpose} | Expected Date: {new Date(v.visitDate).toLocaleDateString()}</p>
-                              {v.expectedArrivalTime && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Estimated Arrival: {new Date(v.expectedArrivalTime).toLocaleTimeString()}</p>}
+                              <h4 style={{ fontWeight: 700 }}>{v.name}</h4>
+                              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>{t('visitors.purpose')}: {v.purpose} | {new Date(v.visitDate).toLocaleDateString()}</p>
+                              {v.expectedArrivalTime && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('visitors.expectedArrival')}: {new Date(v.expectedArrivalTime).toLocaleTimeString()}</p>}
                               <div style={{ marginTop: '0.5rem' }}>
                                 <span className={`badge ${
                                   v.status === 'APPROVED' ? 'badge-success' :
@@ -4201,16 +4274,16 @@ export default function App() {
                 {/* Warden approving and check-in / check-out logs */}
                 {(currentUser.role === 'WARDEN' || currentUser.role === 'SUPER_ADMIN') && (
                   <div className="glass-panel" style={{ padding: '2rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>Security Desk - Active Visitor Log Approvals</h3>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('visitors.title')}</h3>
                     <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
                           <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                            <th style={{ padding: '0.75rem' }}>Visitor Name</th>
-                            <th>Purpose</th>
-                            <th>Status</th>
-                            <th>Arrival Date</th>
-                            <th>Actions</th>
+                            <th style={{ padding: '0.75rem' }}>{t('visitors.visitorName')}</th>
+                            <th>{t('visitors.purpose')}</th>
+                            <th>{t('tables.status')}</th>
+                            <th>{t('visitors.visitDate')}</th>
+                            <th>{t('tables.actions')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -4229,28 +4302,28 @@ export default function App() {
                                 {v.status === 'PENDING' ? (
                                   <div style={{ display: 'flex', gap: '0.25rem' }}>
                                     <button className="btn btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => handleUpdateVisitorStatus(v.id, 'APPROVED')}>
-                                      Approve
+                                      {t('common.approved')}
                                     </button>
                                     <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: '#ef4444' }} onClick={() => handleUpdateVisitorStatus(v.id, 'REJECTED')}>
-                                      Reject
+                                      {t('common.rejected')}
                                     </button>
                                   </div>
                                 ) : v.status === 'APPROVED' ? (
                                   <div style={{ display: 'flex', gap: '0.25rem' }}>
                                     {!v.checkInTime ? (
                                       <button className="btn btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => handleUpdateVisitorStatus(v.id, 'APPROVED', true, false)}>
-                                        Check In
+                                        {t('visitors.checkIn')}
                                       </button>
                                     ) : !v.checkOutTime ? (
                                       <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: '#ef4444' }} onClick={() => handleUpdateVisitorStatus(v.id, 'APPROVED', false, true)}>
-                                        Check Out
+                                        {t('visitors.checkOut')}
                                       </button>
                                     ) : (
-                                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Checked Out</span>
+                                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('common.completed')}</span>
                                     )}
                                   </div>
                                 ) : (
-                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Rejected</span>
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('common.rejected')}</span>
                                 )}
                               </td>
                             </tr>
@@ -4267,14 +4340,20 @@ export default function App() {
             {subView === 'ai_assistant' && (
               <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '680px', margin: '0 auto', width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Sparkles size={24} color="var(--primary)" />
-                  <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>SmartHostel AI Concierge</h2>
+                  <Bot size={22} color="var(--primary)" />
+                  <h2 style={{ fontSize: '1.35rem', fontWeight: 700 }}>{t('ai.title')}</h2>
                 </div>
 
                 {/* Quick Question Chips */}
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {["What's my attendance?", "Today's mess menu?", "My leave status", "Any pending fees?", "My room info"].map(q => (
-                    <button key={q} className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '0.3rem 0.75rem', borderRadius: '999px' }}
+                  {[
+                    t('ai.askAttendance'),
+                    t('ai.askMenu'),
+                    t('ai.askLeave'),
+                    t('ai.askFees'),
+                    t('ai.askRoom')
+                  ].map((q, idx) => (
+                    <button key={idx} className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '0.3rem 0.75rem', borderRadius: '999px' }}
                       onClick={() => { setChatInput(q); }}>
                       {q}
                     </button>
@@ -4318,11 +4397,11 @@ export default function App() {
                       type="text"
                       className="form-input"
                       style={{ height: '40px' }}
-                      placeholder="Ask about attendance, leaves, mess menu, fees..."
+                      placeholder={t('ai.placeholder')}
                       value={chatInput}
                       onChange={e => setChatInput(e.target.value)}
                     />
-                    <button className="btn btn-primary" type="submit" style={{ padding: '0 1.25rem' }} disabled={aiTyping}>Send</button>
+                    <button className="btn btn-primary" type="submit" style={{ padding: '0 1.25rem' }} disabled={aiTyping}>{t('ai.send')}</button>
                   </form>
                 </div>
               </div>
@@ -4331,23 +4410,23 @@ export default function App() {
             {/* 7. OTHER PLACEHOLDER SIDEBAR VIEWS TO PREVENT SIDEBAR CRASHES */}
             {subView === 'hostels' && currentUser?.role === 'SUPER_ADMIN' && (
               <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>Create New Hostel Facility</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>{t('hostel.addHostel')}</h3>
                 <form onSubmit={handleCreateHostel} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-                  <input className="form-input" type="text" value={newHostelName} onChange={e => setNewHostelName(e.target.value)} placeholder="Hostel Name" required />
-                  <input className="form-input" type="text" value={newHostelCode} onChange={e => setNewHostelCode(e.target.value)} placeholder="Hostel Code" required />
-                  <input className="form-input" type="text" value={newHostelCollege} onChange={e => setNewHostelCollege(e.target.value)} placeholder="College Name" required />
-                  <input className="form-input" type="text" value={newHostelAddress} onChange={e => setNewHostelAddress(e.target.value)} placeholder="Address" required />
-                  <input className="form-input" type="number" value={newHostelCapacity} onChange={e => setNewHostelCapacity(e.target.value)} placeholder="Capacity" required />
-                  <button className="btn btn-primary" type="submit">Add Hostel</button>
+                  <input className="form-input" type="text" value={newHostelName} onChange={e => setNewHostelName(e.target.value)} placeholder={t('hostel.name')} required />
+                  <input className="form-input" type="text" value={newHostelCode} onChange={e => setNewHostelCode(e.target.value)} placeholder={t('hostel.code')} required />
+                  <input className="form-input" type="text" value={newHostelCollege} onChange={e => setNewHostelCollege(e.target.value)} placeholder={t('hostel.collegeName')} required />
+                  <input className="form-input" type="text" value={newHostelAddress} onChange={e => setNewHostelAddress(e.target.value)} placeholder={t('hostel.address')} required />
+                  <input className="form-input" type="number" value={newHostelCapacity} onChange={e => setNewHostelCapacity(e.target.value)} placeholder={t('hostel.capacity')} required />
+                  <button className="btn btn-primary" type="submit">{t('hostel.add')}</button>
                 </form>
                 <div>
-                  <h4 style={{ fontWeight: 700, marginBottom: '0.75rem' }}>Registered Hostels ({hostels.length})</h4>
+                  <h4 style={{ fontWeight: 700, marginBottom: '0.75rem' }}>{t('hostel.hostels')} ({hostels.length})</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                     {hostels.map(h => (
                       <div key={h.id} style={{ padding: '1rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                         <h4 style={{ fontWeight: 700 }}>{h.name}</h4>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Code: {h.code} | Cap: {h.capacity}</p>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>College: {h.collegeName}</p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{t('hostel.code')}: {h.code} | {t('hostel.capacity')}: {h.capacity}</p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('hostel.collegeName')}: {h.collegeName}</p>
                       </div>
                     ))}
                   </div>
@@ -4357,26 +4436,26 @@ export default function App() {
 
             {subView === 'students' && currentUser && (
               <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1.5rem' }}>Student Registration Onboarding & Verification Portal</h2>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1.5rem' }}>{t('onboarding.title')}</h2>
 
                 {currentUser.role === 'STUDENT' ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                     {/* Document Upload section */}
                     <div className="glass-panel" style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.01)' }}>
-                      <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>Step 1: Upload Verification Documents</h4>
+                      <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>{t('onboarding.step1')}</h4>
                       <form onSubmit={handleUploadDocument} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                        <input className="form-input" type="text" placeholder="Document Name (e.g. Aadhar Card)" value={docName} onChange={e => setDocName(e.target.value)} required />
-                        <input className="form-input" type="text" placeholder="Document File URL" value={docUrl} onChange={e => setDocUrl(e.target.value)} required />
-                        <button className="btn btn-primary" type="submit">Upload Document</button>
+                        <input className="form-input" type="text" placeholder={t('onboarding.docType')} value={docName} onChange={e => setDocName(e.target.value)} required />
+                        <input className="form-input" type="text" placeholder="URL" value={docUrl} onChange={e => setDocUrl(e.target.value)} required />
+                        <button className="btn btn-primary" type="submit">{t('onboarding.uploadBtn')}</button>
                       </form>
                       
                       <div style={{ marginTop: '1.5rem' }}>
-                        <h5 style={{ fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)' }}>Uploaded Documents ({studentDocs.length})</h5>
+                        <h5 style={{ fontWeight: 700, marginBottom: '0.75rem', color: 'var(--primary)' }}>{t('students.profile')} ({studentDocs.length})</h5>
                         <div style={{ display: 'grid', gap: '0.5rem' }}>
                           {studentDocs.map(doc => (
                             <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
                               <span>{doc.name}</span>
-                              <a href={doc.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>View File</a>
+                              <a href={doc.fileUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>{t('common.view')}</a>
                             </div>
                           ))}
                         </div>
@@ -4385,16 +4464,16 @@ export default function App() {
 
                     {/* Status Tracker */}
                     <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center', background: 'rgba(255,255,255,0.01)' }}>
-                      <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>Step 2: Onboarding Progress Tracker</h4>
+                      <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>{t('onboarding.step2')}</h4>
                       <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginTop: '1.5rem' }}>
                         <div style={{ opacity: currentUser.status === 'PENDING' ? 1 : 0.4 }}>
-                          <span className="badge badge-warning" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>1. Pending Review</span>
+                          <span className="badge badge-warning" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>{t('onboarding.pendingReview')}</span>
                         </div>
                         <div style={{ opacity: currentUser.status === 'VERIFIED' ? 1 : 0.4 }}>
-                          <span className="badge badge-info" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>2. Documents Verified</span>
+                          <span className="badge badge-info" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>{t('onboarding.verified')}</span>
                         </div>
                         <div style={{ opacity: currentUser.status === 'APPROVED' ? 1 : 0.4 }}>
-                          <span className="badge badge-success" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>3. Fully Approved</span>
+                          <span className="badge badge-success" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}>{t('common.approved')}</span>
                         </div>
                       </div>
                     </div>
@@ -4405,16 +4484,16 @@ export default function App() {
                     
                     {/* Phase 1: Documents Verification Queue */}
                     <div>
-                      <h4 style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '1rem' }}>Phase 1: Documents Verification Queue ({pendingUsers.filter(u => u.status === 'PENDING').length})</h4>
+                      <h4 style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '1rem' }}>{t('onboarding.verifiedStatus')} ({pendingUsers.filter(u => u.status === 'PENDING').length})</h4>
                       {pendingUsers.filter(u => u.status === 'PENDING').length === 0 ? (
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No accounts awaiting document verification.</p>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{t('common.noData')}</p>
                       ) : (
                         <div style={{ display: 'grid', gap: '1rem' }}>
                           {pendingUsers.filter(u => u.status === 'PENDING').map(u => (
                             <div key={u.id} className="flex-responsive-between" style={{ padding: '1rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                               <div>
                                 <strong style={{ fontSize: '0.95rem' }}>{u.fullName}</strong> ({u.role.replace('_', ' ')})
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Email: {u.email} | Mobile: {u.mobileNumber}</p>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('auth.email')}: {u.email} | {t('auth.mobile')}: {u.mobileNumber}</p>
                               </div>
                               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                 {u.role === 'STUDENT' ? (
@@ -4427,15 +4506,15 @@ export default function App() {
                                           showToast('info', 'Notice', 'No documents uploaded yet.');
                                         }
                                       });
-                                    }}>View Docs</button>
-                                    <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }} onClick={() => handleStudentStatusUpdate(u.id, 'VERIFIED')}>Verify & Pass</button>
-                                    <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', background: '#10b981' }} onClick={() => handleApprove(u.id)}>Direct Approve</button>
-                                    <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', color: '#ef4444' }} onClick={() => handleReject(u.id)}>Reject</button>
+                                    }}>{t('common.view')}</button>
+                                    <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }} onClick={() => handleStudentStatusUpdate(u.id, 'VERIFIED')}>{t('onboarding.verified')}</button>
+                                    <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', background: '#10b981' }} onClick={() => handleApprove(u.id)}>{t('common.approved')}</button>
+                                    <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', color: '#ef4444' }} onClick={() => handleReject(u.id)}>{t('common.reject')}</button>
                                   </>
                                 ) : (
                                   <>
-                                    <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }} onClick={() => handleApprove(u.id)}>Approve</button>
-                                    <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', color: '#ef4444' }} onClick={() => handleReject(u.id)}>Reject</button>
+                                    <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }} onClick={() => handleApprove(u.id)}>{t('common.approved')}</button>
+                                    <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', color: '#ef4444' }} onClick={() => handleReject(u.id)}>{t('common.reject')}</button>
                                   </>
                                 )}
                               </div>
@@ -4447,16 +4526,16 @@ export default function App() {
 
                     {/* Phase 2: Verified Student Room Allocation */}
                     <div>
-                      <h4 style={{ fontWeight: 700, color: '#f59e0b', marginBottom: '1rem' }}>Phase 2: Room Allocation & Final Approval Queue ({pendingUsers.filter(u => u.status === 'VERIFIED' && u.role === 'STUDENT').length})</h4>
+                      <h4 style={{ fontWeight: 700, color: '#f59e0b', marginBottom: '1rem' }}>{t('rooms.assignStudent')} ({pendingUsers.filter(u => u.status === 'VERIFIED' && u.role === 'STUDENT').length})</h4>
                       {pendingUsers.filter(u => u.status === 'VERIFIED' && u.role === 'STUDENT').length === 0 ? (
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No student accounts awaiting final room allocation.</p>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{t('common.noData')}</p>
                       ) : (
                         <div style={{ display: 'grid', gap: '1rem' }}>
                           {pendingUsers.filter(u => u.status === 'VERIFIED' && u.role === 'STUDENT').map(u => (
                             <div key={u.id} className="flex-responsive-between" style={{ padding: '1rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px', alignItems: 'center' }}>
                               <div>
                                 <strong style={{ fontSize: '0.95rem' }}>{u.fullName}</strong>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>College: {u.collegeName} | Dept: {u.department} | Year: {u.year}</p>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('students.department')}: {u.department} | {t('students.year')}: {u.year}</p>
                               </div>
                               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                 <select 
@@ -4467,19 +4546,19 @@ export default function App() {
                                     setSelectedAllocatedRooms(prev => ({ ...prev, [u.id]: e.target.value }));
                                   }}
                                 >
-                                  <option value="">Select Room</option>
+                                  <option value="">{t('auth.selectRoom')}</option>
                                   {rooms.filter(r => !r.users || r.users.length < r.capacity).map(r => (
-                                    <option key={r.id} value={r.id}>{r.block} - Room {r.roomNumber} ({r.users?.length || 0}/{r.capacity})</option>
+                                    <option key={r.id} value={r.id}>{r.block} - {t('rooms.roomNumber')} {r.roomNumber} ({r.users?.length || 0}/{r.capacity})</option>
                                   ))}
                                 </select>
                                 <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }} onClick={() => {
                                   const roomId = selectedAllocatedRooms[u.id];
                                   if (!roomId) {
-                                    showToast('info', 'Notice', '');
+                                    showToast('info', 'Notice', 'Please select a room');
                                     return;
                                   }
                                   handleStudentStatusUpdate(u.id, 'APPROVED', roomId);
-                                }}>Allocate & Approve</button>
+                                }}>{t('rooms.assignStudent')}</button>
                               </div>
                             </div>
                           ))}
@@ -4493,23 +4572,23 @@ export default function App() {
 
             {subView === 'rooms' && (currentUser?.role === 'WARDEN' || currentUser?.role === 'SUPER_ADMIN') && (
               <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>Add Hostel Room</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>{t('rooms.addRoom')}</h3>
                 <form onSubmit={handleCreateRoom} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-                  <input className="form-input" type="text" value={newRoomBlock} onChange={e => setNewRoomBlock(e.target.value)} placeholder="Block (e.g. Block A)" required />
-                  <input className="form-input" type="number" value={newRoomFloor} onChange={e => setNewRoomFloor(e.target.value)} placeholder="Floor (e.g. 2)" required />
-                  <input className="form-input" type="text" value={newRoomNumber} onChange={e => setNewRoomNumber(e.target.value)} placeholder="Room Number (e.g. 204)" required />
-                  <input className="form-input" type="number" value={newRoomCapacity} onChange={e => setNewRoomCapacity(e.target.value)} placeholder="Capacity" required />
+                  <input className="form-input" type="text" value={newRoomBlock} onChange={e => setNewRoomBlock(e.target.value)} placeholder={t('rooms.block')} required />
+                  <input className="form-input" type="number" value={newRoomFloor} onChange={e => setNewRoomFloor(e.target.value)} placeholder={t('rooms.floor')} required />
+                  <input className="form-input" type="text" value={newRoomNumber} onChange={e => setNewRoomNumber(e.target.value)} placeholder={t('rooms.roomNumber')} required />
+                  <input className="form-input" type="number" value={newRoomCapacity} onChange={e => setNewRoomCapacity(e.target.value)} placeholder={t('rooms.capacity')} required />
                   <select className="form-input" value={newRoomHostelId} onChange={e => setNewRoomHostelId(e.target.value)}>
                     {hostels.map(h => (
                       <option key={h.id} value={h.id}>{h.name}</option>
                     ))}
                   </select>
-                  <button className="btn btn-primary" type="submit">Add Room</button>
+                  <button className="btn btn-primary" type="submit">{t('rooms.addRoom')}</button>
                 </form>
                 <div>
                   <div className="flex-responsive-between" style={{ marginBottom: '1rem', marginTop: '1.5rem' }}>
                     <h4 style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <Building2 size={18} color="var(--primary)" /> Registered Rooms ({rooms.length})
+                      <Building2 size={18} color="var(--primary)" /> {t('rooms.title')} ({rooms.length})
                     </h4>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       {['all', 'available', 'full'].map(filter => (
@@ -4520,7 +4599,7 @@ export default function App() {
                           style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem', textTransform: 'capitalize' }}
                           onClick={() => setRoomFilter(filter)}
                         >
-                          {filter}
+                          {filter === 'all' ? t('common.all') : filter === 'available' ? t('common.available') : t('common.occupied')}
                         </button>
                       ))}
                     </div>
@@ -4547,8 +4626,8 @@ export default function App() {
                             onClick={() => setSelectedRoom(r)}
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>Room {r.roomNumber}</span>
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Flr {r.floor}</span>
+                              <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>{t('rooms.roomNumber')} {r.roomNumber}</span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t('rooms.floor')} {r.floor}</span>
                             </div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                               {r.block}
@@ -4564,7 +4643,7 @@ export default function App() {
                               <div className={`occupancy-bar-fill ${statusClass}`} style={{ width: `${pct}%` }} />
                             </div>
                             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.4rem', textAlign: 'right' }}>
-                              {occupied}/{cap} Beds
+                              {occupied}/{cap} {t('rooms.totalBeds')}
                             </div>
                           </div>
                         );
@@ -4576,14 +4655,14 @@ export default function App() {
 
             {subView === 'laundry' && (
               <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Laundry Slot Scheduler</h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>Book washing machines and dryers in advance to avoid long wait queues.</p>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>{t('laundry.title')}</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>{t('laundry.slot')}</p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                   {['Morning 08:00 - 10:00', 'Mid-Day 11:00 - 13:00', 'Afternoon 14:00 - 16:00', 'Evening 17:00 - 19:00'].map((slot, i) => (
                     <div key={i} style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                       <span style={{ fontWeight: 700 }}>{slot}</span>
-                      <span className="badge badge-success">Available</span>
-                      <button className="btn btn-primary" style={{ padding: '0.5rem' }} onClick={() => showToast('success', 'Booked!', 'Laundry slot booking confirmed.')}>Book Slot</button>
+                      <span className="badge badge-success">{t('laundry.available')}</span>
+                      <button className="btn btn-primary" style={{ padding: '0.5rem' }} onClick={() => showToast('success', t('common.success'), t('dialogs.saveSuccess'))}>{t('laundry.bookSlot')}</button>
                     </div>
                   ))}
                 </div>
@@ -4592,24 +4671,24 @@ export default function App() {
 
             {subView === 'mess' && currentUser && (
               <div className="glass-panel animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Weekly Mess & Dining Operations</h2>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('mess.title')}</h2>
 
                 {/* Student Enrollment View */}
                 {currentUser.role === 'STUDENT' && (
                   <div className="glass-panel" style={{ padding: '2rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>My Mess Enrollment</h3>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>Select a mess plan to enroll. Swapping options takes effect from the next billing cycle.</p>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>{t('mess.currentPlan')}</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>{t('mess.menu')}</p>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                       {messes.map(m => {
                         const isEnrolled = currentUser.messId === m.id;
                         return (
                           <div key={m.id} style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{m.name}</span>
-                            <span className="badge badge-info">{m.students?.length || 0} enrolled students</span>
+                            <span className="badge badge-info">{m.students?.length || 0} {t('hostel.students')}</span>
                             {isEnrolled ? (
-                              <button className="btn btn-secondary" style={{ pointerEvents: 'none', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>Enrolled</button>
+                              <button className="btn btn-secondary" style={{ pointerEvents: 'none', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>{t('common.active')}</button>
                             ) : (
-                              <button className="btn btn-primary" onClick={() => handleEnrollMess(m.id)}>Enroll Plan</button>
+                              <button className="btn btn-primary" onClick={() => handleEnrollMess(m.id)}>{t('mess.enrollPlan')}</button>
                             )}
                           </div>
                         );
@@ -4621,10 +4700,10 @@ export default function App() {
                 {/* Mess Manager Create Mess */}
                 {['SUPER_ADMIN', 'MESS_MANAGER'].includes(currentUser.role) && (
                   <div className="glass-panel" style={{ padding: '2rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>Establish New Dining Mess</h3>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('mess.addMenu')}</h3>
                     <form onSubmit={handleCreateMess} style={{ display: 'flex', gap: '1rem' }}>
-                      <input className="form-input" style={{ flex: 1 }} type="text" placeholder="Mess Name (e.g. Veg Special Mess, South Indian Mess)" value={newMessName} onChange={e => setNewMessName(e.target.value)} required />
-                      <button className="btn btn-primary" type="submit">Create Mess</button>
+                      <input className="form-input" style={{ flex: 1 }} type="text" placeholder={t('mess.menu')} value={newMessName} onChange={e => setNewMessName(e.target.value)} required />
+                      <button className="btn btn-primary" type="submit">{t('common.create')}</button>
                     </form>
                   </div>
                 )}
@@ -4632,14 +4711,14 @@ export default function App() {
                 {/* Dining Attendance Registry */}
                 {['SUPER_ADMIN', 'MESS_MANAGER'].includes(currentUser.role) && (
                   <div className="glass-panel" style={{ padding: '2rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Dining Meal Attendance Registry</h3>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>{t('mess.title')}</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
                       {messes.map(m => (
                         <div key={m.id} style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                           <h4 style={{ fontWeight: 700, marginBottom: '1rem', color: 'var(--primary)' }}>{m.name}</h4>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             {allStudents.filter(s => s.messId === m.id).length === 0 ? (
-                              <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>No students enrolled in this mess.</p>
+                              <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{t('common.noData')}</p>
                             ) : (
                               allStudents.filter(s => s.messId === m.id).map(s => (
                                 <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
@@ -4668,7 +4747,7 @@ export default function App() {
 
                 {/* Static Weekly Menu reference */}
                 <div className="glass-panel" style={{ padding: '2rem' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Weekly Reference Menu</h3>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>{t('mess.weeklyMenu')}</h3>
                   <div style={{ display: 'grid', gap: '1rem' }}>
                     {[
                       { day: 'Monday', b: 'Idli & Sambar', l: 'Rice, Dal, Veg Salad', d: 'Chapati, Paneer Sabji' },
@@ -4679,9 +4758,9 @@ export default function App() {
                     ].map((menu, i) => (
                       <div key={i} className="mess-menu-grid" style={{ padding: '0.75rem', borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
                         <strong style={{ color: 'var(--primary)' }}>{menu.day}</strong>
-                        <span>Breakfast: {menu.b}</span>
-                        <span>Lunch: {menu.l}</span>
-                        <span>Dinner: {menu.d}</span>
+                        <span>{t('mess.breakfast')}: {menu.b}</span>
+                        <span>{t('mess.lunch')}: {menu.l}</span>
+                        <span>{t('mess.dinner')}: {menu.d}</span>
                       </div>
                     ))}
                   </div>
@@ -4691,15 +4770,15 @@ export default function App() {
 
             {subView === 'payments' && currentUser && (
               <div className="glass-panel animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Hostel Fees & Payments Ledger</h2>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('payments.title')}</h2>
 
                 {/* Accountant / Admin Fee Assignment */}
                 {['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ACCOUNTANT'].includes(currentUser.role) && (
                   <div className="glass-panel" style={{ padding: '2rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>Assign Fee Invoice to Student</h3>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('payments.feeTitle')}</h3>
                     <form onSubmit={handleCreateFee} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-                      <input className="form-input" type="text" placeholder="Fee Title (e.g. Mess Fee Jan, Rent)" value={feeTitle} onChange={e => setFeeTitle(e.target.value)} required />
-                      <input className="form-input" type="number" placeholder="Amount ($)" value={feeAmount || ''} onChange={e => setFeeAmount(Number(e.target.value))} required />
+                      <input className="form-input" type="text" placeholder={t('payments.feeTitle')} value={feeTitle} onChange={e => setFeeTitle(e.target.value)} required />
+                      <input className="form-input" type="number" placeholder={t('payments.amount')} value={feeAmount || ''} onChange={e => setFeeAmount(Number(e.target.value))} required />
                       <input className="form-input" type="date" value={feeDueDate} onChange={e => setFeeDueDate(e.target.value)} required />
                       <select 
                         className="form-input" 
@@ -4707,22 +4786,22 @@ export default function App() {
                         onChange={e => setFeeStudentId(e.target.value)}
                         required
                       >
-                        <option value="">Select Student</option>
+                        <option value="">{t('students.student')}</option>
                         {allStudents.map(s => (
                           <option key={s.id} value={s.id}>{s.fullName} ({s.registerNumber || 'No Register No'})</option>
                         ))}
                       </select>
-                      <button className="btn btn-primary" type="submit">Assign Invoice</button>
+                      <button className="btn btn-primary" type="submit">{t('common.submit')}</button>
                     </form>
                   </div>
                 )}
 
                 {/* Main Fees List */}
                 <div className="glass-panel" style={{ padding: '2rem' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>Fee Invoices Log</h3>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('payments.history')}</h3>
                   <div style={{ display: 'grid', gap: '1.25rem' }}>
                     {fees.length === 0 ? (
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No fee invoices logged.</p>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{t('common.noData')}</p>
                     ) : (
                       fees.map(f => {
                         const isStudent = currentUser.role === 'STUDENT';
@@ -4734,11 +4813,11 @@ export default function App() {
                             <div>
                               <h4 style={{ fontWeight: 700 }}>{f.title}</h4>
                               <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                Student: {f.student?.fullName || 'Warden'} | Due: {new Date(f.dueDate).toLocaleDateString()}
+                                {t('students.student')}: {f.student?.fullName || 'Warden'} | {t('payments.dueDate')}: {new Date(f.dueDate).toLocaleDateString()}
                               </p>
                               {f.payments && f.payments.length > 0 && (
                                 <div style={{ marginTop: '0.5rem', background: 'rgba(0,0,0,0.1)', padding: '0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>
-                                  <strong style={{ color: 'var(--primary)' }}>Payment Receipt:</strong> Mode: {f.payments[0].paymentMode} | Ref ID: {f.payments[0].transactionId || 'CASH'} | Date: {new Date(f.payments[0].paymentDate).toLocaleDateString()}
+                                  <strong style={{ color: 'var(--primary)' }}>{t('payments.receipt')}:</strong> Mode: {f.payments[0].paymentMode} | Ref ID: {f.payments[0].transactionId || 'CASH'} | Date: {new Date(f.payments[0].paymentDate).toLocaleDateString()}
                                 </div>
                               )}
                             </div>
@@ -4753,8 +4832,8 @@ export default function App() {
                                     <option value="CASH">Cash payment</option>
                                     <option value="CARD">Debit/Credit Card</option>
                                   </select>
-                                  <input className="form-input" style={{ height: '32px', fontSize: '0.8rem' }} type="text" placeholder="Txn Reference ID" onChange={e => setPayTxId(e.target.value)} />
-                                  <button className="btn btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => handlePayFee(f.id)}>Submit Payment</button>
+                                  <input className="form-input" style={{ height: '32px', fontSize: '0.8rem' }} type="text" placeholder={t('payments.transaction')} onChange={e => setPayTxId(e.target.value)} />
+                                  <button className="btn btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => handlePayFee(f.id)}>{t('payments.payNow')}</button>
                                 </div>
                               )}
 
@@ -4763,7 +4842,7 @@ export default function App() {
                                   setPayMode('CASH');
                                   handlePayFee(f.id);
                                 }}>
-                                  Mark as Paid (Cash)
+                                  {t('payments.paid')} (Cash)
                                 </button>
                               )}
                             </div>
@@ -4791,28 +4870,28 @@ export default function App() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.9rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Email ID</span>
+                      <span style={{ color: 'var(--text-muted)' }}>{t('auth.email')}</span>
                       <strong>{currentUser.email}</strong>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Approval Status</span>
+                      <span style={{ color: 'var(--text-muted)' }}>{t('common.status')}</span>
                       <strong style={{ color: currentUser.status === 'APPROVED' ? '#10b981' : '#f59e0b' }}>{currentUser.status}</strong>
                     </div>
                     {currentUser.registerNumber && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Register Number</span>
+                        <span style={{ color: 'var(--text-muted)' }}>{t('auth.registerNumber')}</span>
                         <strong>{currentUser.registerNumber}</strong>
                       </div>
                     )}
                     {currentUser.hostel && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Hostel Name</span>
+                        <span style={{ color: 'var(--text-muted)' }}>{t('hostel.name')}</span>
                         <strong>{currentUser.hostel.name}</strong>
                       </div>
                     )}
                     {currentUser.room && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>Room Number</span>
+                        <span style={{ color: 'var(--text-muted)' }}>{t('rooms.roomNumber')}</span>
                         <strong>{currentUser.room.roomNumber}</strong>
                       </div>
                     )}
@@ -4821,7 +4900,7 @@ export default function App() {
 
                 {/* Digital ID Card Preview & QR Code */}
                 <div className="glass-panel animate-slide-up" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'center' }}>
-                  <h4 style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-main)' }}>Digital Hostel ID Card</h4>
+                  <h4 style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-main)' }}>{t('visitors.entryPass')}</h4>
                   
                   {/* Visual ID Card Mock */}
                   <div style={{
@@ -4846,9 +4925,9 @@ export default function App() {
                       {currentUser.role}
                     </span>
                     <div style={{ textAlign: 'left', fontSize: '0.75rem', background: 'var(--bg-main)', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', border: '1px solid var(--border-color)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Register No:</span><strong>{currentUser.registerNumber || 'N/A'}</strong></div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Hostel:</span><strong>{currentUser.hostel?.name || 'Demo Hostel A'}</strong></div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Room Number:</span><strong>{currentUser.room?.roomNumber || 'Unassigned'}</strong></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>{t('auth.registerNumber')}:</span><strong>{currentUser.registerNumber || 'N/A'}</strong></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>{t('hostel.name')}:</span><strong>{currentUser.hostel?.name || 'Demo Hostel A'}</strong></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>{t('rooms.roomNumber')}:</span><strong>{currentUser.room?.roomNumber || 'Unassigned'}</strong></div>
                     </div>
                     
                     {/* QR Code Container */}
@@ -4916,7 +4995,7 @@ export default function App() {
                       }
                     }}
                   >
-                    <QrCode size={18} /> Print / Download Pass
+                    <QrCode size={18} /> {t('common.print')} / {t('common.download')} {t('visitors.pass')}
                   </button>
                 </div>
               </div>
@@ -5323,11 +5402,11 @@ export default function App() {
                   ) : laundrySlots.map(slot => (
                     <div key={slot.id} style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                       <div>
-                        <div style={{ fontWeight: 700 }}>{slot.user?.fullName || 'Student'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Room: {slot.user?.room?.roomNumber || 'N/A'}</span></div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                          📅 {new Date(slot.date).toLocaleDateString()} · ⏰ {slot.timeSlot} · 👕 {slot.clothesCount} items
+                        <div style={{ fontWeight: 600 }}>{slot.user?.fullName || 'Student'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Room: {slot.user?.room?.roomNumber || 'N/A'}</span></div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                          Date: {new Date(slot.date).toLocaleDateString()} · Slot: {slot.timeSlot} · Quantity: {slot.clothesCount} items
                         </div>
-                        {slot.notes && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Notes: {slot.notes}</div>}
+                        {slot.notes && <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Notes: {slot.notes}</div>}
                       </div>
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                         <span className={`badge ${slot.status === 'DELIVERED' ? 'badge-success' : slot.status === 'PICKED_UP' ? 'badge-info' : slot.status === 'CANCELLED' ? 'badge-danger' : 'badge-warning'}`}>{slot.status}</span>
@@ -5335,7 +5414,7 @@ export default function App() {
                           <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateLaundry(slot.id, 'PICKED_UP')}>Picked Up</button>
                         )}
                         {['LAUNDRY', 'HOSTEL_ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) && slot.status === 'PICKED_UP' && (
-                          <button className="btn btn-primary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateLaundry(slot.id, 'DELIVERED')}>✓ Delivered</button>
+                          <button className="btn btn-primary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateLaundry(slot.id, 'DELIVERED')}>Delivered</button>
                         )}
                       </div>
                     </div>
@@ -5349,8 +5428,11 @@ export default function App() {
               <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                 <div className="flex-responsive-header">
                   <div>
-                    <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>👷 {t('worker.dashboardTitle')}</h1>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                    <h1 style={{ fontSize: '1.5rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Wrench size={22} color="var(--primary)" />
+                      <span>{t('worker.dashboardTitle')}</span>
+                    </h1>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.2rem' }}>
                       Category: <strong style={{ color: 'var(--primary)' }}>{workerDashboardData?.profile?.category?.name || 'Technician'}</strong> · ID: {workerDashboardData?.profile?.workerId || 'WRK-001'}
                     </p>
                   </div>
@@ -5365,15 +5447,15 @@ export default function App() {
                   </div>
                   <div className="glass-panel stat-card" style={{ padding: '1.25rem' }}>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{t('worker.pendingAcceptance')}</span>
-                    <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#f59e0b', marginTop: '0.25rem' }}>{workerDashboardData?.metrics?.pendingAcceptance || 0}</h3>
+                    <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--warning)', marginTop: '0.25rem' }}>{workerDashboardData?.metrics?.pendingAcceptance || 0}</h3>
                   </div>
                   <div className="glass-panel stat-card" style={{ padding: '1.25rem' }}>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{t('worker.inProgress')}</span>
-                    <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#3b82f6', marginTop: '0.25rem' }}>{workerDashboardData?.metrics?.inProgress || 0}</h3>
+                    <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--info)', marginTop: '0.25rem' }}>{workerDashboardData?.metrics?.inProgress || 0}</h3>
                   </div>
                   <div className="glass-panel stat-card" style={{ padding: '1.25rem' }}>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{t('worker.completed')}</span>
-                    <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#10b981', marginTop: '0.25rem' }}>{workerDashboardData?.metrics?.completed || 0}</h3>
+                    <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.25rem' }}>{workerDashboardData?.metrics?.completed || 0}</h3>
                   </div>
                 </div>
 
@@ -5446,8 +5528,11 @@ export default function App() {
               <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                   <div>
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>👷 {t('worker.title')}</h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Configure operational categories and register hostel workers</p>
+                    <h2 style={{ fontSize: '1.35rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Wrench size={20} color="var(--primary)" />
+                      <span>{t('worker.title')}</span>
+                    </h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '0.2rem' }}>Configure operational categories and register hostel workers</p>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button className="btn btn-secondary" onClick={() => setShowAddCategoryModal(true)}>+ {t('worker.addCategory')}</button>
@@ -5513,8 +5598,11 @@ export default function App() {
               <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                   <div>
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>🚨 {t('emergency.history')}</h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Audit trail of all emergency alerts and response lifecycle</p>
+                    <h2 style={{ fontSize: '1.35rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <ShieldAlert size={20} color="var(--danger)" />
+                      <span>{t('emergency.history')}</span>
+                    </h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '0.2rem' }}>Audit trail of all emergency alerts and response lifecycle</p>
                   </div>
                   <button className="btn btn-primary" onClick={loadEmergencyAlerts}>↻ Refresh</button>
                 </div>
@@ -5525,19 +5613,19 @@ export default function App() {
                       <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>No emergency alerts recorded.</p>
                     ) : (
                       emergencyAlertsList.map((e: any) => (
-                        <div key={e.id} className="glass-panel" style={{ padding: '1.5rem', borderLeft: `4px solid ${e.status === 'ACTIVE' ? '#ef4444' : e.status === 'ACKNOWLEDGED' ? '#f59e0b' : '#10b981'}`, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div key={e.id} className="glass-panel" style={{ padding: '1.25rem 1.5rem', borderLeft: `3px solid ${e.status === 'ACTIVE' ? 'var(--danger)' : e.status === 'ACKNOWLEDGED' ? 'var(--warning)' : 'var(--success)'}`, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
                             <div>
                               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                <span className="badge badge-danger">🚨 {e.type}</span>
+                                <span className="badge badge-danger">{e.type}</span>
                                 <span className="badge badge-info">{e.level} Level</span>
-                                <h4 style={{ fontWeight: 800, fontSize: '1.05rem' }}>Location: {e.hostel?.name} - Room {e.roomNumber || 'N/A'}</h4>
+                                <h4 style={{ fontWeight: 700, fontSize: '0.95rem' }}>Location: {e.hostel?.name} - Room {e.roomNumber || 'N/A'}</h4>
                               </div>
-                              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>{e.message}</p>
+                              <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>{e.message}</p>
                               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                                <span>👤 Reported By: <strong>{e.reportedBy?.fullName || 'Student'}</strong> ({e.reportedBy?.mobileNumber || 'N/A'})</span>
-                                <span>⏰ Time: {new Date(e.createdAt).toLocaleString()}</span>
-                                {e.acknowledgedBy && <span>✓ Ack By: <strong>{e.acknowledgedBy.fullName}</strong></span>}
+                                <span>Reported By: <strong>{e.reportedBy?.fullName || 'Student'}</strong> ({e.reportedBy?.mobileNumber || 'N/A'})</span>
+                                <span>Time: {new Date(e.createdAt).toLocaleString()}</span>
+                                {e.acknowledgedBy && <span>Ack By: <strong>{e.acknowledgedBy.fullName}</strong></span>}
                               </div>
                             </div>
                             <span className={`badge ${e.status === 'ACTIVE' ? 'badge-danger' : e.status === 'ACKNOWLEDGED' ? 'badge-warning' : 'badge-success'}`}>
@@ -5620,11 +5708,11 @@ export default function App() {
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               {!cameraActive ? (
                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={startCameraStream}>
-                  <Camera size={16} /> Start Camera
+                  <Camera size={16} /> {t('camera.openCamera')}
                 </button>
               ) : (
                 <button className="btn btn-secondary" style={{ flex: 1 }} onClick={stopCameraStream}>
-                  <CameraOff size={16} /> Stop Camera
+                  <CameraOff size={16} /> {t('common.close')}
                 </button>
               )}
               <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setFacingMode(f => f === 'environment' ? 'user' : 'environment')}
@@ -5644,19 +5732,19 @@ export default function App() {
             <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Or enter QR token manually:</p>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input className="form-input" type="text" placeholder="Paste QR token here..." value={manualScanInput} onChange={e => setManualScanInput(e.target.value)}
+                <input className="form-input" type="text" placeholder={t('qrTerminal.tokenPlaceholder')} value={manualScanInput} onChange={e => setManualScanInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && manualScanInput && (handleQRScan(manualScanInput), setManualScanInput(''))} />
-                <button className="btn btn-primary" onClick={() => { if (manualScanInput) { handleQRScan(manualScanInput); setManualScanInput(''); } }}>Scan</button>
+                <button className="btn btn-primary" onClick={() => { if (manualScanInput) { handleQRScan(manualScanInput); setManualScanInput(''); } }}>{t('common.submit')}</button>
               </div>
             </div>
 
             {/* Quick mock Check-In/Out fallback for development */}
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button className="btn btn-secondary" style={{ flex: 1, fontSize: '0.8rem' }} onClick={() => handleQRCheckIn(currentUser?.hostelId || hostels[0]?.id || '')}>
-                Quick Check-In
+                {t('attendance.checkIn')}
               </button>
               <button className="btn btn-secondary" style={{ flex: 1, fontSize: '0.8rem' }} onClick={handleQRCheckOut}>
-                Quick Check-Out
+                {t('attendance.checkOut')}
               </button>
             </div>
           </div>
@@ -5667,8 +5755,8 @@ export default function App() {
       {activeVisitorForQR && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setActiveVisitorForQR(null)}>
           <div className="glass-panel" style={{ maxWidth: '420px', width: '100%', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)' }}>Visitor Entry Pass</h3>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Gate Pass ID: {activeVisitorForQR.id}</span>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)' }}>{t('visitors.entryPass')}</h3>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('tables.id')}: {activeVisitorForQR.id}</span>
             <div style={{ margin: '0 auto', background: '#ffffff', padding: '0.75rem', borderRadius: '12px', width: '160px', height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <QRCodeSVG 
                 value={JSON.stringify({ type: 'visitor_pass', id: activeVisitorForQR.id, name: activeVisitorForQR.name, date: activeVisitorForQR.visitDate })} 
@@ -5677,11 +5765,11 @@ export default function App() {
               />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem', textAlign: 'left', background: 'rgba(255,255,255,0.01)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div><strong style={{ color: 'var(--text-muted)' }}>Visitor:</strong> {activeVisitorForQR.name}</div>
-              <div><strong style={{ color: 'var(--text-muted)' }}>Purpose:</strong> {activeVisitorForQR.purpose}</div>
-              <div><strong style={{ color: 'var(--text-muted)' }}>Expected Date:</strong> {new Date(activeVisitorForQR.visitDate).toLocaleDateString()}</div>
+              <div><strong style={{ color: 'var(--text-muted)' }}>{t('visitors.name')}:</strong> {activeVisitorForQR.name}</div>
+              <div><strong style={{ color: 'var(--text-muted)' }}>{t('visitors.purpose')}:</strong> {activeVisitorForQR.purpose}</div>
+              <div><strong style={{ color: 'var(--text-muted)' }}>{t('visitors.expectedDate')}:</strong> {new Date(activeVisitorForQR.visitDate).toLocaleDateString()}</div>
             </div>
-            <button className="btn btn-secondary" onClick={() => setActiveVisitorForQR(null)}>Close Pass</button>
+            <button className="btn btn-secondary" onClick={() => setActiveVisitorForQR(null)}>{t('common.close')}</button>
           </div>
         </div>
       )}
@@ -5692,29 +5780,29 @@ export default function App() {
           <div className="glass-panel animate-slide-up" style={{ maxWidth: '460px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Room {selectedRoom.roomNumber}</h3>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Block {selectedRoom.block} · Floor {selectedRoom.floor}</p>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{t('rooms.roomNumber')} {selectedRoom.roomNumber}</h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('rooms.block')} {selectedRoom.block} · {t('rooms.floor')} {selectedRoom.floor}</p>
               </div>
               <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setSelectedRoom(null)}><X size={16} /></button>
             </div>
 
             <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
               <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Users size={16} color="var(--primary)" /> Occupants ({selectedRoom.users?.length || 0} / {selectedRoom.capacity || 4})
+                <Users size={16} color="var(--primary)" /> {t('hostel.students')} ({selectedRoom.users?.length || 0} / {selectedRoom.capacity || 4})
               </h4>
 
               {(!selectedRoom.users || selectedRoom.users.length === 0) ? (
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No students allocated to this room yet.</p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('common.noData')}</p>
               ) : (
                 <div style={{ display: 'grid', gap: '0.75rem' }}>
                   {selectedRoom.users.map((u: any) => (
                     <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
                       <div>
                         <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{u.fullName}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Reg: {u.registerNumber || 'N/A'} · Dept: {u.department || 'N/A'}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('auth.registerNumber')}: {u.registerNumber || 'N/A'} · {t('auth.department')}: {u.department || 'N/A'}</div>
                       </div>
                       <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }} onClick={() => { setSelectedRoom(null); setSelectedStudentProfile(u); }}>
-                        Profile <ChevronRight size={14} />
+                        {t('students.profile')} <ChevronRight size={14} />
                       </button>
                     </div>
                   ))}
@@ -5722,7 +5810,7 @@ export default function App() {
               )}
             </div>
 
-            <button className="btn btn-secondary" onClick={() => setSelectedRoom(null)}>Close</button>
+            <button className="btn btn-secondary" onClick={() => setSelectedRoom(null)}>{t('common.close')}</button>
           </div>
         </div>
       )}
@@ -5733,7 +5821,7 @@ export default function App() {
           <div className="glass-panel animate-slide-up" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.3rem', color: '#fff' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1.2rem', color: 'var(--primary-contrast)' }}>
                   {selectedStudentProfile.fullName?.charAt(0) || 'S'}
                 </div>
                 <div>
@@ -5742,8 +5830,8 @@ export default function App() {
                     <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>{selectedStudentProfile.status}</span>
                   </h3>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
-                    <span>Reg: {selectedStudentProfile.registerNumber || 'STU-001'}</span> ·
-                    <span>Room: {selectedStudentProfile.room?.roomNumber || 'Unassigned'}</span>
+                    <span>{t('auth.registerNumber')}: {selectedStudentProfile.registerNumber || 'STU-001'}</span> ·
+                    <span>{t('rooms.roomNumber')}: {selectedStudentProfile.room?.roomNumber || 'Unassigned'}</span>
                   </p>
                 </div>
               </div>
@@ -5766,11 +5854,11 @@ export default function App() {
             {profileTab === 'personal' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.85rem' }}>
                 <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>Email Address</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('auth.email')}</div>
                   <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.email}</div>
                 </div>
                 <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Phone size={12} /> Phone Number</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Phone size={12} /> {t('auth.mobile')}</div>
                   <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.mobileNumber || 'Not provided'}</div>
                 </div>
                 <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
@@ -5778,7 +5866,7 @@ export default function App() {
                   <div style={{ fontWeight: 600, marginTop: '0.2rem', color: '#ef4444' }}>{selectedStudentProfile.bloodGroup || 'O+'}</div>
                 </div>
                 <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)', gridColumn: 'span 2' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><MapPin size={12} /> Permanent Address</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><MapPin size={12} /> {t('auth.address')}</div>
                   <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.address || 'Address on file'}</div>
                 </div>
               </div>
@@ -5787,19 +5875,19 @@ export default function App() {
             {profileTab === 'academic' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.85rem' }}>
                 <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><GraduationCap size={12} /> College</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><GraduationCap size={12} /> {t('auth.college')}</div>
                   <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.collegeName || 'Engineering Campus'}</div>
                 </div>
                 <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>Department</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('auth.department')}</div>
                   <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.department || 'Computer Science'}</div>
                 </div>
                 <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>Academic Year</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('auth.year')}</div>
                   <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.year || '3rd Year'}</div>
                 </div>
                 <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>Register Number</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('auth.registerNumber')}</div>
                   <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.registerNumber || 'REG-2026-99'}</div>
                 </div>
               </div>
@@ -5809,20 +5897,20 @@ export default function App() {
               <div style={{ display: 'grid', gap: '1rem', fontSize: '0.85rem' }}>
                 <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>Hostel Block</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('hostel.name')}</div>
                     <div style={{ fontWeight: 700, fontSize: '1rem' }}>{selectedStudentProfile.hostel?.name || 'Main Hostel Facility'}</div>
                   </div>
                   <Building2 size={24} color="var(--primary)" />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>Assigned Room</div>
-                    <div style={{ fontWeight: 700, marginTop: '0.2rem', color: 'var(--primary)' }}>Room {selectedStudentProfile.room?.roomNumber || 'Not assigned'}</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('rooms.roomNumber')}</div>
+                    <div style={{ fontWeight: 700, marginTop: '0.2rem', color: 'var(--primary)' }}>{t('rooms.roomNumber')} {selectedStudentProfile.room?.roomNumber || 'Not assigned'}</div>
                   </div>
                   <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>QR Token Status</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>QR Token</div>
                     <div style={{ fontWeight: 600, marginTop: '0.2rem', color: selectedStudentProfile.qrToken ? '#10b981' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <CheckCheck size={14} /> {selectedStudentProfile.qrToken ? 'Active Token' : 'Pending Generation'}
+                      <CheckCheck size={14} /> {selectedStudentProfile.qrToken ? t('common.active') : t('common.pending')}
                     </div>
                   </div>
                 </div>
@@ -5832,7 +5920,7 @@ export default function App() {
             {profileTab === 'leaves' && (
               <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.85rem' }}>
                 {leavesHistory.filter((l: any) => l.userId === selectedStudentProfile.id).length === 0 ? (
-                  <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem' }}>No leave history on record for this student.</p>
+                  <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem' }}>{t('common.noData')}</p>
                 ) : (
                   leavesHistory.filter((l: any) => l.userId === selectedStudentProfile.id).map((l: any) => (
                     <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
@@ -5850,13 +5938,13 @@ export default function App() {
             {profileTab === 'complaints' && (
               <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.85rem' }}>
                 {complaints.filter((c: any) => c.userId === selectedStudentProfile.id).length === 0 ? (
-                  <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem' }}>No complaints submitted by this student.</p>
+                  <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem' }}>{t('common.noData')}</p>
                 ) : (
                   complaints.filter((c: any) => c.userId === selectedStudentProfile.id).map((c: any) => (
                     <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
                       <div>
                         <div style={{ fontWeight: 600 }}>{c.title}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Category: {c.category}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('tables.category')}: {c.category}</div>
                       </div>
                       <span className={`badge ${c.status === 'RESOLVED' ? 'badge-success' : 'badge-warning'}`}>{c.status}</span>
                     </div>
@@ -5865,7 +5953,7 @@ export default function App() {
               </div>
             )}
 
-            <button className="btn btn-secondary" onClick={() => setSelectedStudentProfile(null)}>Close Profile</button>
+            <button className="btn btn-secondary" onClick={() => setSelectedStudentProfile(null)}>{t('common.close')}</button>
           </div>
         </div>
       )}
@@ -5876,23 +5964,23 @@ export default function App() {
         <nav className="bottom-nav">
           <button className={`bottom-nav-item ${subView === 'dashboard' ? 'active' : ''}`} onClick={() => setSubView('dashboard')}>
             <Home size={20} />
-            <span>Home</span>
+            <span>{t('nav.dashboard')}</span>
           </button>
           <button className={`bottom-nav-item ${subView === 'attendance' ? 'active' : ''}`} onClick={() => setSubView('attendance')}>
             <QrCode size={20} />
-            <span>Attendance</span>
+            <span>{t('nav.attendance')}</span>
           </button>
           <button className={`bottom-nav-item ${subView === 'ai_assistant' ? 'active' : ''}`} onClick={() => setSubView('ai_assistant')}>
-            <Sparkles size={20} />
-            <span>AI Assistant</span>
+            <Bot size={20} />
+            <span>{t('nav.aiAssistant')}</span>
           </button>
           <button className={`bottom-nav-item ${subView === 'complaints' ? 'active' : ''}`} onClick={() => setSubView('complaints')}>
             <AlertTriangle size={20} />
-            <span>Complaints</span>
+            <span>{t('nav.complaints')}</span>
           </button>
           <button className="bottom-nav-item" onClick={() => setMobileMenuOpen(true)}>
             <Menu size={20} />
-            <span>More</span>
+            <span>{t('common.all')}</span>
           </button>
         </nav>
       )}
@@ -5903,49 +5991,47 @@ export default function App() {
         <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Gate Pass Management</h2>
-              <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem', fontSize: '0.875rem' }}>Student exit/entry pass with QR verification</p>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('gatePass.title')}</h2>
+              <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem', fontSize: '0.875rem' }}>{t('gatePass.subtitle')}</p>
             </div>
-            <button className="btn btn-secondary" onClick={loadGatePasses}>Refresh</button>
+            <button className="btn btn-secondary" onClick={loadGatePasses}>{t('common.refresh')}</button>
           </div>
           {currentUser.role === 'STUDENT' && (
             <div style={{ padding: '1.5rem', background: 'var(--primary-soft)', border: '1px solid var(--border-color)', borderRadius: '12px', marginBottom: '2rem' }}>
-              <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>Request Gate Pass</h4>
+              <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>{t('gatePass.requestPass')}</h4>
               <form onSubmit={handleCreateGatePass} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-                <input className="form-input" type="text" placeholder="Purpose (e.g. Medical)" value={gpPurpose} onChange={e => setGpPurpose(e.target.value)} required />
-                <input className="form-input" type="text" placeholder="Destination" value={gpDestination} onChange={e => setGpDestination(e.target.value)} required />
+                <input className="form-input" type="text" placeholder={t('gatePass.purposePlaceholder')} value={gpPurpose} onChange={e => setGpPurpose(e.target.value)} required />
+                <input className="form-input" type="text" placeholder={t('gatePass.destinationPlaceholder')} value={gpDestination} onChange={e => setGpDestination(e.target.value)} required />
                 <input className="form-input" type="datetime-local" value={gpExpectedReturn} onChange={e => setGpExpectedReturn(e.target.value)} required />
-                <button className="btn btn-primary" type="submit">Submit Request</button>
+                <button className="btn btn-primary" type="submit">{t('gatePass.submitRequest')}</button>
               </form>
             </div>
           )}
           <div style={{ display: 'grid', gap: '1rem' }}>
             {gatePasses.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}><p>No gate passes found.</p></div>
+              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}><p>{t('gatePass.noPasses')}</p></div>
             ) : gatePasses.map((gp: any) => (
-              <div key={gp.id} style={{ padding: '1.25rem', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
-                  <div>
-                    <div style={{ fontWeight: 700 }}>{gp.student?.fullName || 'Student'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>#{gp.student?.registerNumber || '-'}</span></div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>To: {gp.destination} | Purpose: {gp.purpose}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Return by: {new Date(gp.expectedReturn).toLocaleString()}</div>
-                    {gp.lateReturn && <span className="badge badge-danger">LATE RETURN</span>}
+              <div key={gp.id} style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontWeight: 600 }}>{gp.user?.fullName || gp.student?.fullName || 'Student'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('rooms.roomNumber')}: {gp.user?.room?.roomNumber || gp.student?.room?.roomNumber || 'N/A'}</span></div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                    {t('gatePass.destinationPlaceholder')}: {gp.destination} · {t('gatePass.purposePlaceholder')}: {gp.purpose} · {new Date(gp.expectedReturn).toLocaleString()}
                   </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <span className={`badge ${gp.status === 'APPROVED' ? 'badge-success' : gp.status === 'REJECTED' ? 'badge-danger' : gp.status === 'EXITED' ? 'badge-info' : gp.status === 'RETURNED' ? 'badge-success' : 'badge-warning'}`}>{gp.status}</span>
-                    {['HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SUPER_ADMIN'].includes(currentUser.role) && gp.status === 'PENDING' && (
-                      <>
-                        <button className="btn btn-primary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateGatePass(gp.id, 'APPROVED')}>Approve</button>
-                        <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateGatePass(gp.id, 'REJECTED')}>Reject</button>
-                      </>
-                    )}
-                    {['SECURITY', 'HOSTEL_ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) && gp.status === 'APPROVED' && (
-                      <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateGatePass(gp.id, 'EXITED')}>Mark Exit</button>
-                    )}
-                    {['SECURITY', 'HOSTEL_ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) && gp.status === 'EXITED' && (
-                      <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateGatePass(gp.id, 'RETURNED')}>Mark Return</button>
-                    )}
-                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <span className={`badge ${gp.status === 'APPROVED' ? 'badge-success' : gp.status === 'REJECTED' ? 'badge-danger' : 'badge-warning'}`}>{gp.status}</span>
+                  {['HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SUPER_ADMIN', 'WARDEN'].includes(currentUser.role) && gp.status === 'PENDING' && (
+                    <>
+                      <button className="btn btn-primary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateGatePass(gp.id, 'APPROVED')}>{t('common.approved')}</button>
+                      <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem', color: 'var(--danger)' }} onClick={() => handleUpdateGatePass(gp.id, 'REJECTED')}>{t('common.rejected')}</button>
+                    </>
+                  )}
+                  {['SECURITY', 'HOSTEL_ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) && gp.status === 'APPROVED' && (
+                    <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateGatePass(gp.id, 'EXITED')}>{t('gatePass.markExit')}</button>
+                  )}
+                  {['SECURITY', 'HOSTEL_ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) && gp.status === 'EXITED' && (
+                    <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateGatePass(gp.id, 'RETURNED')}>{t('gatePass.markReturn')}</button>
+                  )}
                 </div>
               </div>
             ))}
@@ -5957,55 +6043,55 @@ export default function App() {
       {subView === 'notices' && currentUser && (
         <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Notice Board</h2>
-            <button className="btn btn-secondary" onClick={loadNotices}>Refresh</button>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('notices.title')}</h2>
+            <button className="btn btn-secondary" onClick={loadNotices}>{t('common.refresh')}</button>
           </div>
           {['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN'].includes(currentUser.role) && (
             <div style={{ padding: '1.5rem', background: 'var(--primary-soft)', border: '1px solid var(--border-color)', borderRadius: '12px', marginBottom: '2rem' }}>
-              <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>Post Notice</h4>
+              <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>{t('notices.postNotice')}</h4>
               <form onSubmit={handleCreateNotice} style={{ display: 'grid', gap: '1rem' }}>
-                <input className="form-input" type="text" placeholder="Notice Title" value={noticeTitle} onChange={e => setNoticeTitle(e.target.value)} required />
-                <textarea className="form-input" rows={3} placeholder="Notice content..." value={noticeContent} onChange={e => setNoticeContent(e.target.value)} style={{ resize: 'vertical' }} required />
+                <input className="form-input" type="text" placeholder={t('notices.noticeTitle')} value={noticeTitle} onChange={e => setNoticeTitle(e.target.value)} required />
+                <textarea className="form-input" rows={3} placeholder={t('notices.noticeContentPlaceholder')} value={noticeContent} onChange={e => setNoticeContent(e.target.value)} style={{ resize: 'vertical' }} required />
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
                   <select className="form-input" style={{ width: 'auto' }} value={noticeAudience} onChange={e => setNoticeAudience(e.target.value)}>
-                    <option value="ALL">All Users</option>
-                    <option value="STUDENTS">Students Only</option>
-                    <option value="STAFF">Staff Only</option>
+                    <option value="ALL">{t('notices.allUsers')}</option>
+                    <option value="STUDENTS">{t('notices.studentsOnly')}</option>
+                    <option value="STAFF">{t('notices.staffOnly')}</option>
                   </select>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}>
                     <input type="checkbox" checked={noticeIsEmergency} onChange={e => setNoticeIsEmergency(e.target.checked)} />
-                    Emergency Alert
+                    {t('notices.emergencyAlert')}
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}>
                     <input type="checkbox" checked={noticeIsPinned} onChange={e => setNoticeIsPinned(e.target.checked)} />
-                    Pin Notice
+                    {t('notices.pinNotice')}
                   </label>
-                  <button className="btn btn-primary" type="submit">Post Notice</button>
+                  <button className="btn btn-primary" type="submit">{t('notices.postNotice')}</button>
                 </div>
               </form>
             </div>
           )}
           <div style={{ display: 'grid', gap: '1rem' }}>
             {notices.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}><p>No notices posted yet.</p></div>
+              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}><p>{t('notices.noNotices')}</p></div>
             ) : notices.map((notice: any) => (
               <div key={notice.id} style={{ padding: '1.5rem', background: notice.isEmergency ? 'rgba(201,74,74,0.06)' : 'var(--bg-card)', border: `1px solid ${notice.isEmergency ? 'rgba(201,74,74,0.3)' : notice.isPinned ? 'var(--primary)' : 'var(--border-color)'}`, borderRadius: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     {notice.isPinned && <span style={{ fontSize: '1rem' }}>📌</span>}
-                    {notice.isEmergency && <span className="badge badge-danger">Emergency</span>}
+                    {notice.isEmergency && <span className="badge badge-danger">{t('common.emergency')}</span>}
                     <h4 style={{ fontWeight: 700 }}>{notice.title}</h4>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <span className="badge badge-info">{notice.audience}</span>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(notice.createdAt).toLocaleDateString()}</span>
                     {['SUPER_ADMIN', 'HOSTEL_ADMIN'].includes(currentUser.role) && (
-                      <button style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }} onClick={() => handleDeleteNotice(notice.id)}>X</button>
+                      <button style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }} onClick={() => handleDeleteNotice(notice.id)}>✕</button>
                     )}
                   </div>
                 </div>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', lineHeight: 1.6 }}>{notice.content}</p>
-                <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>By: {notice.postedBy}</div>
+                <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('notices.postedBy', { name: notice.postedBy })}</div>
               </div>
             ))}
           </div>
@@ -6016,15 +6102,15 @@ export default function App() {
       {subView === 'notifications' && currentUser && (
         <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Notifications {unreadCount > 0 && <span className="badge badge-danger" style={{ marginLeft: '0.5rem' }}>{unreadCount}</span>}</h2>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('notifications.title')} {unreadCount > 0 && <span className="badge badge-danger" style={{ marginLeft: '0.5rem' }}>{unreadCount}</span>}</h2>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button className="btn btn-secondary" onClick={loadNotifications}>Refresh</button>
-              {unreadCount > 0 && <button className="btn btn-primary" onClick={handleMarkAllRead}>Mark All Read</button>}
+              <button className="btn btn-secondary" onClick={loadNotifications}>{t('common.refresh')}</button>
+              {unreadCount > 0 && <button className="btn btn-primary" onClick={handleMarkAllRead}>{t('notifications.markAllRead')}</button>}
             </div>
           </div>
           <div style={{ display: 'grid', gap: '0.75rem' }}>
             {notifications.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}><p>No notifications. You are all caught up!</p></div>
+              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}><p>{t('notifications.noNotifications')}</p></div>
             ) : notifications.map((notif: any) => (
               <div key={notif.id} onClick={() => !notif.isRead && handleMarkNotificationRead(notif.id)} style={{ padding: '1rem 1.25rem', background: notif.isRead ? 'var(--bg-card)' : 'var(--primary-soft)', border: `1px solid ${notif.isRead ? 'var(--border-color)' : 'var(--primary)'}`, borderRadius: '10px', cursor: notif.isRead ? 'default' : 'pointer' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
@@ -6047,7 +6133,7 @@ export default function App() {
       {subView === 'mess_menu' && currentUser && (
         <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Weekly Mess Menu</h2>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('mess.weeklyMenu')}</h2>
             <button className="btn btn-secondary" onClick={loadMessMenus}>Refresh</button>
           </div>
           {['SUPER_ADMIN', 'HOSTEL_ADMIN', 'MESS_MANAGER', 'ASSISTANT_WARDEN'].includes(currentUser.role) && (
@@ -6227,14 +6313,14 @@ export default function App() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Category Name</label>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('worker.categoryName')}</label>
                 <input className="form-input" type="text" placeholder="e.g. Plumber, Electrician" value={newCatName} onChange={e => setNewCatName(e.target.value)} required />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Description</label>
-                <textarea className="form-input" placeholder="Scope of work..." value={newCatDesc} onChange={e => setNewCatDesc(e.target.value)} rows={3}></textarea>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('worker.desc')}</label>
+                <textarea className="form-input" placeholder={t('worker.desc')} value={newCatDesc} onChange={e => setNewCatDesc(e.target.value)} rows={3}></textarea>
               </div>
-              <button className="btn btn-primary" onClick={handleCreateWorkerCategory}>Save Category</button>
+              <button className="btn btn-primary" onClick={handleCreateWorkerCategory}>{t('common.save')}</button>
             </div>
           </div>
         </div>
@@ -6250,39 +6336,39 @@ export default function App() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Full Name *</label>
-                <input className="form-input" type="text" placeholder="Ravi Kumar" value={newWorkerName} onChange={e => setNewWorkerName(e.target.value)} required />
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.fullName')} *</label>
+                <input className="form-input" type="text" placeholder={t('auth.fullName')} value={newWorkerName} onChange={e => setNewWorkerName(e.target.value)} required />
               </div>
               <div className="responsive-grid">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Email / Login ID *</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.email')} *</label>
                   <input className="form-input" type="email" placeholder="ravi@worker.com" value={newWorkerEmail} onChange={e => setNewWorkerEmail(e.target.value)} required />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Password *</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.password')} *</label>
                   <input className="form-input" type="password" placeholder="••••••••" value={newWorkerPassword} onChange={e => setNewWorkerPassword(e.target.value)} required />
                 </div>
               </div>
               <div className="responsive-grid">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Worker Category *</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('worker.category')} *</label>
                   <select className="form-input" value={newWorkerCategoryId} onChange={e => setNewWorkerCategoryId(e.target.value)} required>
-                    <option value="">-- Select Category --</option>
+                    <option value="">-- {t('worker.category')} --</option>
                     {workerCategories.map((cat: any) => (
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Mobile Number</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('auth.mobile')}</label>
                   <input className="form-input" type="tel" placeholder="9876543210" value={newWorkerMobile} onChange={e => setNewWorkerMobile(e.target.value)} />
                 </div>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Specialization Notes</label>
-                <input className="form-input" type="text" placeholder="e.g. Sanitary & tap repairs" value={newWorkerSpec} onChange={e => setNewWorkerSpec(e.target.value)} />
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('worker.specialization')}</label>
+                <input className="form-input" type="text" placeholder={t('worker.specialization')} value={newWorkerSpec} onChange={e => setNewWorkerSpec(e.target.value)} />
               </div>
-              <button className="btn btn-primary" onClick={handleCreateWorker}>Register Worker Account</button>
+              <button className="btn btn-primary" onClick={handleCreateWorker}>{t('worker.addWorker')}</button>
             </div>
           </div>
         </div>
@@ -6293,17 +6379,17 @@ export default function App() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div className="glass-panel" style={{ maxWidth: '440px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Assign Worker to Grievance</h3>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>{t('complaints.assignWorker')}</h3>
               <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowAssignWorkerModal(false)}><X size={16} /></button>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <h4 style={{ fontWeight: 700 }}>{selectedComplaintForAssign.title}</h4>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Category: <strong>{selectedComplaintForAssign.category}</strong></p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{t('tables.category')}: <strong>{selectedComplaintForAssign.category}</strong></p>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Select Available Worker</label>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('complaints.assignWorker')}</label>
               <select className="form-input" value={selectedWorkerIdForAssign} onChange={e => setSelectedWorkerIdForAssign(e.target.value)}>
-                <option value="">-- Choose Worker --</option>
+                <option value="">-- {t('tables.assignedWorker')} --</option>
                 {workersList.map((w: any) => (
                   <option key={w.id} value={w.id}>
                     {w.fullName} ({w.workerProfile?.category?.name || 'General'}) - {w.workerProfile?.availability || 'AVAILABLE'}
@@ -6311,7 +6397,7 @@ export default function App() {
                 ))}
               </select>
             </div>
-            <button className="btn btn-primary" onClick={handleAssignWorkerToComplaint}>Confirm Assignment</button>
+            <button className="btn btn-primary" onClick={handleAssignWorkerToComplaint}>{t('common.confirm')}</button>
           </div>
         </div>
       )}
@@ -6321,13 +6407,13 @@ export default function App() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div className="glass-panel" style={{ maxWidth: '420px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Reject Job Assignment</h3>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>{t('worker.rejectTask')}</h3>
               <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowRejectWorkerModal(false)}><X size={16} /></button>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Rejection Reason *</label>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('leaves.reason')} *</label>
               <select className="form-input" value={rejectReasonInput} onChange={e => setRejectReasonInput(e.target.value)}>
-                <option value="">-- Select Reason --</option>
+                <option value="">-- {t('leaves.reason')} --</option>
                 <option value="Wrong Category Assignment">Wrong Category Assignment</option>
                 <option value="Currently Unavailable / Busy">Currently Unavailable / Busy</option>
                 <option value="Requires Additional Specialist Technician">Requires Additional Specialist Technician</option>
@@ -6335,7 +6421,7 @@ export default function App() {
                 <option value="Other">Other</option>
               </select>
             </div>
-            <button className="btn btn-primary" style={{ background: '#ef4444' }} onClick={handleRejectWorkerJob}>Confirm Rejection</button>
+            <button className="btn btn-primary" style={{ background: '#ef4444' }} onClick={handleRejectWorkerJob}>{t('common.reject')}</button>
           </div>
         </div>
       )}
@@ -6345,18 +6431,18 @@ export default function App() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div className="glass-panel" style={{ maxWidth: '440px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Complete Work Task</h3>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>{t('worker.completeWork')}</h3>
               <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowCompleteWorkModal(false)}><X size={16} /></button>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Work Completion Notes *</label>
-              <textarea className="form-input" placeholder="Describe work done (e.g. Replaced leaking tap washer)..." value={completionNotesInput} onChange={e => setCompletionNotesInput(e.target.value)} rows={3} required></textarea>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('worker.workDone')} *</label>
+              <textarea className="form-input" placeholder={t('worker.workDone')} value={completionNotesInput} onChange={e => setCompletionNotesInput(e.target.value)} rows={3} required></textarea>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Materials / Spare Parts Used</label>
-              <input className="form-input" type="text" placeholder="e.g. 1 x Tap washer, Teflon tape" value={materialsUsedInput} onChange={e => setMaterialsUsedInput(e.target.value)} />
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('worker.materialsUsed')}</label>
+              <input className="form-input" type="text" placeholder={t('worker.materialsUsed')} value={materialsUsedInput} onChange={e => setMaterialsUsedInput(e.target.value)} />
             </div>
-            <button className="btn btn-primary" style={{ background: '#10b981' }} onClick={handleCompleteWorkerJob}>Submit Work Completion</button>
+            <button className="btn btn-primary" style={{ background: '#10b981' }} onClick={handleCompleteWorkerJob}>{t('worker.completeWork')}</button>
           </div>
         </div>
       )}
@@ -6367,7 +6453,7 @@ export default function App() {
           <div className="glass-panel" style={{ maxWidth: '520px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: '85vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Complaint Timeline</h3>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>{t('complaints.timeline')}</h3>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{selectedComplaintTimeline.title}</p>
               </div>
               <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowTimelineModal(false)}><X size={16} /></button>
@@ -6376,7 +6462,7 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative', paddingLeft: '1.5rem', borderLeft: '2px solid var(--border-color)', margin: '0.5rem 0' }}>
               {!selectedComplaintTimeline.timeline || selectedComplaintTimeline.timeline.length === 0 ? (
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  <div style={{ fontWeight: 700, color: '#10b981' }}>✓ Created</div>
+                  <div style={{ fontWeight: 700, color: '#10b981' }}>✓ {t('common.create')}</div>
                   <div style={{ fontSize: '0.75rem' }}>{new Date(selectedComplaintTimeline.createdAt).toLocaleString()}</div>
                 </div>
               ) : (
@@ -6399,24 +6485,24 @@ export default function App() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div className="glass-panel" style={{ maxWidth: '420px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Confirm Resolution</h3>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>{t('complaints.confirm')}</h3>
               <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowConfirmResolutionModal(false)}><X size={16} /></button>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Rating (1 - 5 Stars)</label>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('mess.rating')}</label>
               <select className="form-input" value={resolutionRatingInput} onChange={e => setResolutionRatingInput(Number(e.target.value))}>
-                <option value={5}>⭐⭐⭐⭐⭐ 5 Stars (Excellent)</option>
-                <option value={4}>⭐⭐⭐⭐ 4 Stars (Good)</option>
-                <option value={3}>⭐⭐⭐ 3 Stars (Satisfactory)</option>
-                <option value={2}>⭐⭐ 2 Stars (Poor)</option>
-                <option value={1}>⭐ 1 Star (Unsatisfactory)</option>
+                <option value={5}>⭐⭐⭐⭐⭐ 5 Stars</option>
+                <option value={4}>⭐⭐⭐⭐ 4 Stars</option>
+                <option value={3}>⭐⭐⭐ 3 Stars</option>
+                <option value={2}>⭐⭐ 2 Stars</option>
+                <option value={1}>⭐ 1 Star</option>
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Feedback Remarks</label>
-              <textarea className="form-input" placeholder="Add optional comments..." value={resolutionFeedbackInput} onChange={e => setResolutionFeedbackInput(e.target.value)} rows={3}></textarea>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('mess.feedback')}</label>
+              <textarea className="form-input" placeholder={t('mess.feedback')} value={resolutionFeedbackInput} onChange={e => setResolutionFeedbackInput(e.target.value)} rows={3}></textarea>
             </div>
-            <button className="btn btn-primary" onClick={handleConfirmComplaintResolution}>Confirm & Close Complaint</button>
+            <button className="btn btn-primary" onClick={handleConfirmComplaintResolution}>{t('complaints.confirm')}</button>
           </div>
         </div>
       )}
@@ -6426,35 +6512,35 @@ export default function App() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div className="glass-panel" style={{ maxWidth: '420px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Reopen Complaint</h3>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>{t('common.reopened')}</h3>
               <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowReopenModal(false)}><X size={16} /></button>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Reason for Reopening *</label>
-              <textarea className="form-input" placeholder="Explain why the issue persists..." value={reopenReasonInput} onChange={e => setReopenReasonInput(e.target.value)} rows={3} required></textarea>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('leaves.reason')} *</label>
+              <textarea className="form-input" placeholder={t('leaves.reason')} value={reopenReasonInput} onChange={e => setReopenReasonInput(e.target.value)} rows={3} required></textarea>
             </div>
-            <button className="btn btn-primary" style={{ background: '#f59e0b' }} onClick={handleReopenComplaint}>Reopen Complaint</button>
+            <button className="btn btn-primary" style={{ background: '#f59e0b' }} onClick={handleReopenComplaint}>{t('common.reopened')}</button>
           </div>
         </div>
       )}
 
       {/* MODAL 9: TARGETED EMERGENCY ALERT */}
       {showEmergencyModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(239,68,68,0.3)', backdropFilter: 'blur(8px)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div className="glass-panel" style={{ maxWidth: '460px', width: '100%', padding: '2rem', border: '2px solid #ef4444', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div className="modal-backdrop" onClick={() => setShowEmergencyModal(false)}>
+          <div className="glass-panel modal-container animate-scale-in" style={{ maxWidth: '440px', border: '1px solid var(--danger-border)' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <ShieldAlert size={24} color="#ef4444" />
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ef4444' }}>{t('emergency.confirmTitle')}</h3>
+                <ShieldAlert size={20} color="var(--danger)" />
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--danger)' }}>{t('emergency.confirmTitle')}</h3>
               </div>
-              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowEmergencyModal(false)}><X size={16} /></button>
+              <button className="btn btn-ghost" style={{ padding: '0.35rem' }} onClick={() => setShowEmergencyModal(false)}><X size={16} /></button>
             </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('emergency.confirmDesc')}</p>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{t('emergency.confirmDesc')}</p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('emergency.level')}</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('emergency.level')}</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.35rem' }}>
                   {(['ROOM', 'FLOOR', 'HOSTEL'] as const).map((lvl) => (
                     <button
                       key={lvl}
@@ -6470,27 +6556,28 @@ export default function App() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('emergency.type')}</label>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('emergency.type')}</label>
                 <select className="form-input" value={emergencyType} onChange={e => setEmergencyType(e.target.value)}>
-                  <option value="Fire">🔥 Fire Emergency</option>
-                  <option value="Medical">🚑 Medical Emergency</option>
-                  <option value="Electrical">⚡ Electrical Hazard</option>
-                  <option value="Security">🛡️ Security Breach / Violence</option>
-                  <option value="Gas Leak">💨 Gas Leak</option>
-                  <option value="Water Leak">💧 Water Leak / Flooding</option>
-                  <option value="Other">⚠️ Other Incident</option>
+                  <option value="Fire">{t('emergency.fire')}</option>
+                  <option value="Medical">{t('emergency.medical')}</option>
+                  <option value="Electrical">{t('emergency.electrical')}</option>
+                  <option value="Security">{t('emergency.security')}</option>
+                  <option value="Gas Leak">{t('emergency.gasLeak')}</option>
+                  <option value="Water Leak">{t('emergency.waterLeak')}</option>
+                  <option value="Other">{t('emergency.other')}</option>
                 </select>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('emergency.message')}</label>
-                <textarea className="form-input" placeholder="Brief details about location and incident..." value={emergencyMessageInput} onChange={e => setEmergencyMessageInput(e.target.value)} rows={2}></textarea>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('emergency.message')}</label>
+                <textarea className="form-input" placeholder={t('emergency.message')} value={emergencyMessageInput} onChange={e => setEmergencyMessageInput(e.target.value)} rows={2}></textarea>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
                 <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowEmergencyModal(false)}>{t('emergency.cancel')}</button>
-                <button className="btn btn-danger" style={{ flex: 1.5, background: '#ef4444', fontWeight: 800 }} onClick={handleTriggerEmergency}>
-                  🚨 {t('emergency.send')}
+                <button className="btn btn-danger" style={{ flex: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }} onClick={handleTriggerEmergency}>
+                  <ShieldAlert size={15} />
+                  <span>{t('emergency.send')}</span>
                 </button>
               </div>
             </div>
