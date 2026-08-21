@@ -49,7 +49,15 @@ import {
   Play,
   Check,
   Key,
-  Bot
+  Bot,
+  RefreshCw,
+  Sliders,
+  Languages,
+  Volume2,
+  Save,
+  Printer,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { useTranslation, languages } from './i18n';
 
@@ -204,6 +212,18 @@ interface UserProfile {
   hostelId?: string | null;
   registerNumber?: string | null;
   qrToken?: string | null;
+  mobileNumber?: string | null;
+  address?: string | null;
+  emergencyContact?: string | null;
+  bloodGroup?: string | null;
+  medicalDetails?: string | null;
+  department?: string | null;
+  year?: string | null;
+  parentName?: string | null;
+  parentMobile?: string | null;
+  guardianName?: string | null;
+  guardianMobile?: string | null;
+  collegeName?: string | null;
   room?: {
     id: string;
     roomNumber: string;
@@ -517,6 +537,9 @@ export default function App() {
   const [gpPurpose, setGpPurpose] = useState('');
   const [gpDestination, setGpDestination] = useState('');
   const [gpExpectedReturn, setGpExpectedReturn] = useState('');
+  const [gatePassFilter, setGatePassFilter] = useState('ALL');
+  const [gatePassSearch, setGatePassSearch] = useState('');
+  const [selectedGatePassDetails, setSelectedGatePassDetails] = useState<any | null>(null);
 
   // Notices state
   const [notices, setNotices] = useState<any[]>([]);
@@ -525,10 +548,21 @@ export default function App() {
   const [noticeAudience, setNoticeAudience] = useState('ALL');
   const [noticeIsEmergency, setNoticeIsEmergency] = useState(false);
   const [noticeIsPinned, setNoticeIsPinned] = useState(false);
+  const [noticeSearch, setNoticeSearch] = useState('');
+  const [noticeFilter, setNoticeFilter] = useState('ALL');
+  const [selectedNoticeDetails, setSelectedNoticeDetails] = useState<any | null>(null);
+  const [selectedNoticeForEdit, setSelectedNoticeForEdit] = useState<any | null>(null);
+  const [editNoticeTitle, setEditNoticeTitle] = useState('');
+  const [editNoticeContent, setEditNoticeContent] = useState('');
+  const [editNoticeAudience, setEditNoticeAudience] = useState('ALL');
+  const [editNoticeIsEmergency, setEditNoticeIsEmergency] = useState(false);
+  const [editNoticeIsPinned, setEditNoticeIsPinned] = useState(false);
 
   // Notifications state
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notifFilter, setNotifFilter] = useState('ALL');
+  const [notifSearch, setNotifSearch] = useState('');
 
   // ── Worker Management & Emergency States ──
   const [workerCategories, setWorkerCategories] = useState<any[]>([]);
@@ -590,6 +624,37 @@ export default function App() {
   const [reportType, setReportType] = useState('fees');
   const [reportData, setReportData] = useState<any>(null);
   const [reportLoading, setReportLoading] = useState(false);
+  const [reportStartDate, setReportStartDate] = useState('');
+  const [reportEndDate, setReportEndDate] = useState('');
+  const [reportSearch, setReportSearch] = useState('');
+
+  // Audit logs state
+  const [auditModuleFilter, setAuditModuleFilter] = useState('');
+  const [auditUserSearch, setAuditUserSearch] = useState('');
+  const [auditStartDate, setAuditStartDate] = useState('');
+  const [auditEndDate, setAuditEndDate] = useState('');
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditTotalPages, setAuditTotalPages] = useState(1);
+  const [auditTotalCount, setAuditTotalCount] = useState(0);
+
+  // App preferences settings
+  const [prefSoundAlerts, setPrefSoundAlerts] = useState(() => localStorage.getItem('smarthostel_sounds') !== 'false');
+  const [prefDesktopNotifs, setPrefDesktopNotifs] = useState(() => localStorage.getItem('smarthostel_notifs') !== 'false');
+  const [prefGeofenceRadius, setPrefGeofenceRadius] = useState(5);
+  const [prefTokenDuration, setPrefTokenDuration] = useState(300);
+
+  // Profile Edit modal state
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [editProfileName, setEditProfileName] = useState('');
+  const [editProfileMobile, setEditProfileMobile] = useState('');
+  const [editProfileAddress, setEditProfileAddress] = useState('');
+  const [editProfileEmergency, setEditProfileEmergency] = useState('');
+  const [editProfileBloodGroup, setEditProfileBloodGroup] = useState('');
+  const [editProfileMedical, setEditProfileMedical] = useState('');
+  const [editProfileDept, setEditProfileDept] = useState('');
+  const [editProfileYear, setEditProfileYear] = useState('');
+  const [editProfileGuardianName, setEditProfileGuardianName] = useState('');
+  const [editProfileGuardianMobile, setEditProfileGuardianMobile] = useState('');
 
   // Global search state
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
@@ -2095,6 +2160,21 @@ export default function App() {
   };
 
 
+  // CSV Export Helper
+  const exportToCSV = (filename: string, headers: string[], rows: any[][]) => {
+    const csvContent = "data:text/csv;charset=utf-8," + [
+      headers.join(','),
+      ...rows.map(e => e.map(item => `"${String(item ?? '').replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const loadGatePasses = async () => {
     try { const res = await axios.get('/api/gate-passes'); if (res.data?.success) setGatePasses(res.data.data); } catch (e) {}
   };
@@ -2110,65 +2190,260 @@ export default function App() {
   const loadMessMenus = async () => {
     try { const res = await axios.get('/api/mess-menus'); if (res.data?.success) setMessMenus(res.data.data); } catch (e) {}
   };
+  const loadAuditLogs = async (page = 1) => {
+    try {
+      const params = new URLSearchParams();
+      params.append('page', String(page));
+      params.append('limit', '25');
+      if (auditModuleFilter) params.append('module', auditModuleFilter);
+      if (auditUserSearch) params.append('userEmail', auditUserSearch);
+      if (auditStartDate) params.append('startDate', auditStartDate);
+      if (auditEndDate) params.append('endDate', auditEndDate);
+
+      const res = await axios.get(`/api/audit-logs?${params.toString()}`);
+      if (res.data?.success) {
+        setAuditLogs(res.data.data);
+        if (res.data.pagination) {
+          setAuditPage(res.data.pagination.page);
+          setAuditTotalPages(res.data.pagination.totalPages || 1);
+          setAuditTotalCount(res.data.pagination.totalCount || 0);
+        }
+      }
+    } catch (e) {}
+  };
 
   const handleCreateGatePass = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const res = await axios.post('/api/gate-passes', { purpose: gpPurpose, destination: gpDestination, expectedReturn: gpExpectedReturn });
-      if (res.data?.success) { showToast('info', 'Notice', ''); setGpPurpose(''); setGpDestination(''); setGpExpectedReturn(''); loadGatePasses(); }
-    } catch (err: any) { showToast('error', 'Error', err.response?.data?.error || ''); }
+      if (res.data?.success) {
+        showToast('success', t('common.success'), t('gatePass.submitRequest') + ' ' + t('common.success'));
+        setGpPurpose('');
+        setGpDestination('');
+        setGpExpectedReturn('');
+        loadGatePasses();
+      }
+    } catch (err: any) { showToast('error', t('common.error'), err.response?.data?.error || ''); }
   };
+
+  const handleCancelGatePass = async (id: string) => {
+    try {
+      const res = await axios.delete(`/api/gate-passes/${id}`);
+      if (res.data?.success) {
+        showToast('success', t('common.success'), t('gatePass.cancelPass'));
+        loadGatePasses();
+      }
+    } catch (err: any) { showToast('error', t('common.error'), err.response?.data?.error || ''); }
+  };
+
   const handleUpdateGatePass = async (id: string, status: string, remarks?: string) => {
     try {
       const res = await axios.patch(`/api/gate-passes/${id}`, { status, remarks });
       if (res.data?.success) { showToast('success', `Gate Pass ${status}`, `Gate pass has been ${status.toLowerCase()}.`); loadGatePasses(); }
-    } catch (err: any) { showToast('error', 'Error', err.response?.data?.error || ''); }
+    } catch (err: any) { showToast('error', t('common.error'), err.response?.data?.error || ''); }
   };
+
   const handleCreateNotice = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const res = await axios.post('/api/notices', { title: noticeTitle, content: noticeContent, audience: noticeAudience, isEmergency: noticeIsEmergency, isPinned: noticeIsPinned, hostelId: currentUser?.hostelId || undefined });
-      if (res.data?.success) { showToast('success', 'Done', ''); setNoticeTitle(''); setNoticeContent(''); loadNotices(); }
-    } catch (err: any) { showToast('error', 'Error', err.response?.data?.error || ''); }
+      if (res.data?.success) { showToast('success', t('common.success'), t('dialogs.saveSuccess')); setNoticeTitle(''); setNoticeContent(''); loadNotices(); }
+    } catch (err: any) { showToast('error', t('common.error'), err.response?.data?.error || ''); }
   };
+
+  const handleUpdateNotice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedNoticeForEdit) return;
+    try {
+      const res = await axios.patch(`/api/notices/${selectedNoticeForEdit.id}`, {
+        title: editNoticeTitle,
+        content: editNoticeContent,
+        audience: editNoticeAudience,
+        isEmergency: editNoticeIsEmergency,
+        isPinned: editNoticeIsPinned
+      });
+      if (res.data?.success) {
+        showToast('success', t('common.success'), t('dialogs.updateSuccess'));
+        setSelectedNoticeForEdit(null);
+        loadNotices();
+      }
+    } catch (err: any) { showToast('error', t('common.error'), err.response?.data?.error || ''); }
+  };
+
   const handleDeleteNotice = async (id: string) => {
-    // confirm: ''
-    try { await axios.delete(`/api/notices/${id}`); loadNotices(); } catch (e) { showToast('info', 'Notice', ''); }
+    try { await axios.delete(`/api/notices/${id}`); showToast('success', t('common.success'), t('notices.deleteNotice')); loadNotices(); } catch (e) { showToast('info', t('common.notice'), ''); }
   };
+
   const handleMarkNotificationRead = async (id: string) => {
     try { await axios.patch(`/api/notifications/${id}/read`); loadNotifications(); } catch (e) {}
   };
+
   const handleMarkAllRead = async () => {
     try { await axios.post('/api/notifications/mark-all-read'); loadNotifications(); } catch (e) {}
   };
+
+  const handleDeleteNotification = async (id: string) => {
+    try {
+      const res = await axios.delete(`/api/notifications/${id}`);
+      if (res.data?.success) {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+      }
+    } catch (e) {}
+  };
+
   const handleBookLaundry = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const res = await axios.post('/api/laundry', { date: laundryDate, timeSlot: laundryTimeSlot, clothesCount: laundryClothes, notes: laundryNotes });
-      if (res.data?.success) { showToast('success', 'Done', ''); setLaundryDate(''); setLaundryNotes(''); loadLaundrySlots(); }
-    } catch (err: any) { showToast('error', 'Error', err.response?.data?.error || ''); }
+      if (res.data?.success) { showToast('success', t('common.success'), t('dialogs.saveSuccess')); setLaundryDate(''); setLaundryNotes(''); loadLaundrySlots(); }
+    } catch (err: any) { showToast('error', t('common.error'), err.response?.data?.error || ''); }
   };
+
   const handleUpdateLaundry = async (id: string, status: string) => {
-    try { await axios.patch(`/api/laundry/${id}`, { status }); loadLaundrySlots(); } catch (e) { showToast('info', 'Notice', ''); }
+    try { await axios.patch(`/api/laundry/${id}`, { status }); loadLaundrySlots(); } catch (e) { showToast('info', t('common.notice'), ''); }
   };
+
   const handleUpdateMessMenu = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const res = await axios.post('/api/mess-menus', { dayOfWeek: menuDay, breakfast: menuBreakfast, lunch: menuLunch, dinner: menuDinner, hostelId: currentUser?.hostelId || hostels[0]?.id });
-      if (res.data?.success) { showToast('success', 'Menu Updated', `Menu for ${menuDay} updated!`); setMenuBreakfast(''); setMenuLunch(''); setMenuDinner(''); loadMessMenus(); }
-    } catch (err: any) { showToast('error', 'Error', err.response?.data?.error || ''); }
+      if (res.data?.success) { showToast('success', t('common.success'), `Menu for ${menuDay} updated!`); setMenuBreakfast(''); setMenuLunch(''); setMenuDinner(''); loadMessMenus(); }
+    } catch (err: any) { showToast('error', t('common.error'), err.response?.data?.error || ''); }
   };
+
   const handleGenerateReport = async () => {
     setReportLoading(true);
-    try { const res = await axios.get(`/api/reports/${reportType}`); if (res.data?.success) setReportData(res.data.data); }
-    catch (err: any) { showToast('info', 'Notice', ''); } finally { setReportLoading(false); }
+    try {
+      const params = new URLSearchParams();
+      if (reportStartDate) params.append('startDate', reportStartDate);
+      if (reportEndDate) params.append('endDate', reportEndDate);
+      const queryStr = params.toString() ? `?${params.toString()}` : '';
+
+      const res = await axios.get(`/api/reports/${reportType}${queryStr}`);
+      if (res.data?.success) setReportData(res.data.data);
+    } catch (err: any) { showToast('info', t('common.notice'), ''); }
+    finally { setReportLoading(false); }
   };
+
+  const handleExportReportCSV = () => {
+    if (!reportData) return;
+    const dateStr = new Date().toISOString().slice(0, 10);
+    if (reportType === 'fees' && reportData.fees) {
+      const headers = ['Student Name', 'Register No', 'Fee Head', 'Amount (Rs)', 'Paid (Rs)', 'Status', 'Due Date'];
+      const rows = reportData.fees.map((f: any) => [
+        f.student?.fullName || 'N/A',
+        f.student?.registerNumber || 'N/A',
+        f.title,
+        f.amount,
+        f.paidAmount,
+        f.status,
+        new Date(f.dueDate).toLocaleDateString()
+      ]);
+      exportToCSV(`hostel_fees_report_${dateStr}.csv`, headers, rows);
+    } else if (reportType === 'attendance' && reportData.records) {
+      const headers = ['Student Name', 'Register No', 'Room', 'Date', 'Status', 'Session'];
+      const rows = reportData.records.map((r: any) => [
+        r.user?.fullName || 'N/A',
+        r.user?.registerNumber || 'N/A',
+        r.user?.room?.roomNumber || 'N/A',
+        new Date(r.date).toLocaleDateString(),
+        r.isPresent ? 'Present' : 'Absent',
+        r.session || 'Morning'
+      ]);
+      exportToCSV(`hostel_attendance_report_${dateStr}.csv`, headers, rows);
+    } else if (reportType === 'occupancy' && reportData.rooms) {
+      const headers = ['Block', 'Room Number', 'Category', 'Capacity', 'Occupied Beds', 'Available Beds'];
+      const rows = reportData.rooms.map((r: any) => [
+        r.block,
+        r.roomNumber,
+        r.category || 'Standard',
+        r.capacity,
+        r.occupied,
+        r.available
+      ]);
+      exportToCSV(`hostel_occupancy_report_${dateStr}.csv`, headers, rows);
+    } else if (reportType === 'complaints' && reportData.complaints) {
+      const headers = ['Ticket Title', 'Category', 'Priority', 'Status', 'Student Name', 'Worker Assigned', 'Created Date'];
+      const rows = reportData.complaints.map((c: any) => [
+        c.title,
+        c.category,
+        c.priority,
+        c.status,
+        c.student?.fullName || 'N/A',
+        c.worker?.fullName || 'Unassigned',
+        new Date(c.createdAt).toLocaleDateString()
+      ]);
+      exportToCSV(`hostel_complaints_report_${dateStr}.csv`, headers, rows);
+    } else if (reportType === 'leaves' && reportData.leaves) {
+      const headers = ['Student Name', 'Register No', 'Reason', 'Start Date', 'End Date', 'Status'];
+      const rows = reportData.leaves.map((l: any) => [
+        l.user?.fullName || 'N/A',
+        l.user?.registerNumber || 'N/A',
+        l.reason,
+        new Date(l.startDate).toLocaleDateString(),
+        new Date(l.endDate).toLocaleDateString(),
+        l.status
+      ]);
+      exportToCSV(`hostel_leaves_report_${dateStr}.csv`, headers, rows);
+    } else if (reportType === 'gatePasses' && reportData.gatePasses) {
+      const headers = ['Student Name', 'Register No', 'Purpose', 'Destination', 'Status', 'Expected Return', 'Exit Time', 'Actual Return'];
+      const rows = reportData.gatePasses.map((g: any) => [
+        g.student?.fullName || 'N/A',
+        g.student?.registerNumber || 'N/A',
+        g.purpose,
+        g.destination,
+        g.status,
+        new Date(g.expectedReturn).toLocaleString(),
+        g.exitTime ? new Date(g.exitTime).toLocaleString() : 'N/A',
+        g.actualReturn ? new Date(g.actualReturn).toLocaleString() : 'N/A'
+      ]);
+      exportToCSV(`hostel_gate_passes_report_${dateStr}.csv`, headers, rows);
+    }
+  };
+
+  const handleExportAuditCSV = () => {
+    if (auditLogs.length === 0) return;
+    const headers = ['Timestamp', 'Operator Email', 'Module', 'Action', 'Details'];
+    const rows = auditLogs.map(l => [
+      new Date(l.createdAt).toLocaleString(),
+      l.userEmail,
+      l.module,
+      l.action,
+      l.details || ''
+    ]);
+    exportToCSV(`hostel_audit_trail_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await axios.patch('/api/profile', {
+        fullName: editProfileName,
+        mobileNumber: editProfileMobile,
+        address: editProfileAddress,
+        emergencyContact: editProfileEmergency,
+        bloodGroup: editProfileBloodGroup,
+        medicalDetails: editProfileMedical,
+        department: editProfileDept,
+        year: editProfileYear,
+        guardianName: editProfileGuardianName,
+        guardianMobile: editProfileGuardianMobile
+      });
+      if (res.data?.success) {
+        showToast('success', t('common.success'), t('profile.profileUpdated'));
+        setCurrentUser(res.data.data);
+        localStorage.setItem('smarthostel_user', JSON.stringify(res.data.data));
+        setShowEditProfileModal(false);
+      }
+    } catch (err: any) { showToast('error', t('common.error'), err.response?.data?.error || ''); }
+  };
+
   const handleGlobalSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (globalSearchQuery.length < 2) return;
     setGlobalSearchLoading(true);
     try { const res = await axios.get(`/api/search?q=${encodeURIComponent(globalSearchQuery)}`); if (res.data?.success) setGlobalSearchResults(res.data.data); }
-    catch (e) { showToast('info', 'Notice', ''); } finally { setGlobalSearchLoading(false); }
+    catch (e) { showToast('info', t('common.notice'), ''); } finally { setGlobalSearchLoading(false); }
   };
 
   if (loading) {
@@ -4933,19 +5208,19 @@ export default function App() {
             )}
 
             {subView === 'profile' && currentUser && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', maxWidth: '900px', margin: '0 auto', width: '100%' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem', maxWidth: '960px', margin: '0 auto', width: '100%' }}>
                 {/* Profile Details Card */}
                 <div className="glass-panel animate-slide-up" style={{ padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', textAlign: 'center' }}>
                     <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontSize: '2rem', fontWeight: 800 }}>
-                      {currentUser.fullName.charAt(0)}
+                      {currentUser.fullName ? currentUser.fullName.charAt(0).toUpperCase() : 'U'}
                     </div>
                     <div>
                       <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>{currentUser.fullName}</h3>
                       <span className="badge badge-info" style={{ marginTop: '0.25rem' }}>{currentUser.role}</span>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.9rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', fontSize: '0.875rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
                       <span style={{ color: 'var(--text-muted)' }}>{t('auth.email')}</span>
                       <strong>{currentUser.email}</strong>
@@ -4954,10 +5229,34 @@ export default function App() {
                       <span style={{ color: 'var(--text-muted)' }}>{t('common.status')}</span>
                       <strong style={{ color: currentUser.status === 'APPROVED' ? '#10b981' : '#f59e0b' }}>{currentUser.status}</strong>
                     </div>
+                    {currentUser.mobileNumber && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>{t('auth.mobile')}</span>
+                        <strong>{currentUser.mobileNumber}</strong>
+                      </div>
+                    )}
+                    {currentUser.emergencyContact && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>{t('profile.emergencyContact')}</span>
+                        <strong style={{ color: 'var(--danger)' }}>{currentUser.emergencyContact}</strong>
+                      </div>
+                    )}
+                    {currentUser.bloodGroup && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>{t('profile.bloodGroup')}</span>
+                        <strong>{currentUser.bloodGroup}</strong>
+                      </div>
+                    )}
                     {currentUser.registerNumber && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
                         <span style={{ color: 'var(--text-muted)' }}>{t('auth.registerNumber')}</span>
                         <strong>{currentUser.registerNumber}</strong>
+                      </div>
+                    )}
+                    {currentUser.department && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>{t('auth.department')}</span>
+                        <strong>{currentUser.department}</strong>
                       </div>
                     )}
                     {currentUser.hostel && (
@@ -4969,10 +5268,36 @@ export default function App() {
                     {currentUser.room && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
                         <span style={{ color: 'var(--text-muted)' }}>{t('rooms.roomNumber')}</span>
-                        <strong>{currentUser.room.roomNumber}</strong>
+                        <strong>{currentUser.room.roomNumber} ({currentUser.room.block})</strong>
+                      </div>
+                    )}
+                    {currentUser.address && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>{t('profile.address')}</span>
+                        <span style={{ textAlign: 'right', maxWidth: '60%' }}>{currentUser.address}</span>
                       </div>
                     )}
                   </div>
+
+                  <button
+                    className="btn btn-primary"
+                    style={{ width: '100%', marginTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                    onClick={() => {
+                      setEditProfileName(currentUser.fullName || '');
+                      setEditProfileMobile(currentUser.mobileNumber || '');
+                      setEditProfileAddress(currentUser.address || '');
+                      setEditProfileEmergency(currentUser.emergencyContact || '');
+                      setEditProfileBloodGroup(currentUser.bloodGroup || '');
+                      setEditProfileMedical(currentUser.medicalDetails || '');
+                      setEditProfileDept(currentUser.department || '');
+                      setEditProfileYear(currentUser.year || '');
+                      setEditProfileGuardianName(currentUser.guardianName || currentUser.parentName || '');
+                      setEditProfileGuardianMobile(currentUser.guardianMobile || currentUser.parentMobile || '');
+                      setShowEditProfileModal(true);
+                    }}
+                  >
+                    <User size={16} /> {t('profile.editProfile')}
+                  </button>
                 </div>
 
                 {/* Digital ID Card Preview & QR Code */}
@@ -4993,7 +5318,7 @@ export default function App() {
                       SMARTHOSTEL PASS
                     </div>
                     <img 
-                      src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentUser.fullName)}`} 
+                      src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentUser.fullName || 'User')}`} 
                       style={{ width: '80px', height: '80px', borderRadius: '50%', border: '2px solid var(--primary)', margin: '0 auto 1rem', display: 'block' }}
                       alt="Avatar"
                     />
@@ -5003,7 +5328,7 @@ export default function App() {
                     </span>
                     <div style={{ textAlign: 'left', fontSize: '0.75rem', background: 'var(--bg-main)', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', border: '1px solid var(--border-color)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>{t('auth.registerNumber')}:</span><strong>{currentUser.registerNumber || 'N/A'}</strong></div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>{t('hostel.name')}:</span><strong>{currentUser.hostel?.name || 'Demo Hostel A'}</strong></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>{t('hostel.name')}:</span><strong>{currentUser.hostel?.name || 'Main Campus Hostel'}</strong></div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>{t('rooms.roomNumber')}:</span><strong>{currentUser.room?.roomNumber || 'Unassigned'}</strong></div>
                     </div>
                     
@@ -5052,11 +5377,11 @@ export default function App() {
                                 <div class="role">${currentUser.role}</div>
                                 <div class="details">
                                   <div class="details-row"><span class="details-label">Register No:</span><span class="details-val">${currentUser.registerNumber || 'N/A'}</span></div>
-                                  <div class="details-row"><span class="details-label">Hostel:</span><span class="details-val">${currentUser.hostel?.name || 'Demo Hostel A'}</span></div>
+                                  <div class="details-row"><span class="details-label">Hostel:</span><span class="details-val">${currentUser.hostel?.name || 'Main Campus Hostel'}</span></div>
                                   <div class="details-row"><span class="details-label">Room Number:</span><span class="details-val">${currentUser.room?.roomNumber || 'Unassigned'}</span></div>
                                 </div>
                                 <div class="qr"><img src="${qrUrl}" width="130" height="130" /></div>
-                                <div class="footer">SmartHostel AI Â· Secure Verification Pass</div>
+                                <div class="footer">SmartHostel AI · Secure Verification Pass</div>
                               </div>
                               <script>
                                 window.onload = function() {
@@ -5075,6 +5400,75 @@ export default function App() {
                     <QrCode size={18} /> {t('common.print')} / {t('common.download')} {t('visitors.pass')}
                   </button>
                 </div>
+
+                {/* Edit Profile Modal */}
+                {showEditProfileModal && (
+                  <div className="modal-overlay" style={{ zIndex: 1000 }}>
+                    <div className="modal-content glass-panel" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto', padding: '2rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{t('profile.editProfile')}</h3>
+                        <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.25rem' }} onClick={() => setShowEditProfileModal(false)}>✕</button>
+                      </div>
+                      <form onSubmit={handleSaveProfile} style={{ display: 'grid', gap: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                          <div>
+                            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('auth.fullName')}</label>
+                            <input className="form-input" type="text" value={editProfileName} onChange={e => setEditProfileName(e.target.value)} required />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('auth.mobile')}</label>
+                            <input className="form-input" type="text" value={editProfileMobile} onChange={e => setEditProfileMobile(e.target.value)} />
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                          <div>
+                            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('profile.emergencyContact')}</label>
+                            <input className="form-input" type="text" value={editProfileEmergency} onChange={e => setEditProfileEmergency(e.target.value)} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('profile.bloodGroup')}</label>
+                            <select className="form-input" value={editProfileBloodGroup} onChange={e => setEditProfileBloodGroup(e.target.value)}>
+                              <option value="">Select Blood Group</option>
+                              {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => <option key={bg} value={bg}>{bg}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                          <div>
+                            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('auth.department')}</label>
+                            <input className="form-input" type="text" value={editProfileDept} onChange={e => setEditProfileDept(e.target.value)} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('auth.year')}</label>
+                            <input className="form-input" type="text" value={editProfileYear} onChange={e => setEditProfileYear(e.target.value)} />
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                          <div>
+                            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('profile.guardianName')}</label>
+                            <input className="form-input" type="text" value={editProfileGuardianName} onChange={e => setEditProfileGuardianName(e.target.value)} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('profile.guardianMobile')}</label>
+                            <input className="form-input" type="text" value={editProfileGuardianMobile} onChange={e => setEditProfileGuardianMobile(e.target.value)} />
+                          </div>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('profile.address')}</label>
+                          <textarea className="form-input" rows={2} value={editProfileAddress} onChange={e => setEditProfileAddress(e.target.value)} style={{ resize: 'vertical' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('profile.medicalDetails')}</label>
+                          <input className="form-input" type="text" placeholder="e.g. Allergies, Asthma" value={editProfileMedical} onChange={e => setEditProfileMedical(e.target.value)} />
+                        </div>
+                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                          <button type="button" className="btn btn-secondary" onClick={() => setShowEditProfileModal(false)}>{t('common.cancel')}</button>
+                          <button type="submit" className="btn btn-primary">{t('profile.saveProfile')}</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -5267,68 +5661,211 @@ export default function App() {
             {/* 11. AUDIT LOGS MODULE */}
             {subView === 'audit_logs' && currentUser && currentUser.role === 'SUPER_ADMIN' && (
               <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Enterprise Security Audit Trail</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('auditLogs.title')}</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.25rem' }}>{t('auditLogs.subtitle')}</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <button className="btn btn-secondary" onClick={() => loadAuditLogs(auditPage)}>
+                      <RefreshCw size={14} /> {t('common.refresh')}
+                    </button>
+                    <button className="btn btn-primary" onClick={handleExportAuditCSV} disabled={auditLogs.length === 0}>
+                      <Download size={14} /> {t('auditLogs.exportCsv')}
+                    </button>
+                  </div>
+                </div>
                 
                 {/* Search / Filters */}
-                <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                  <input className="form-input" style={{ width: '250px' }} type="text" placeholder="Filter by User Email" onChange={async e => {
-                    const res = await axios.get(`/api/audit-logs?userEmail=${e.target.value}`);
-                    if (res.data?.success) setAuditLogs(res.data.data);
-                  }} />
-                  <select className="form-input" style={{ width: '200px' }} onChange={async e => {
-                    const res = await axios.get(`/api/audit-logs?module=${e.target.value}`);
-                    if (res.data?.success) setAuditLogs(res.data.data);
-                  }}>
-                    <option value="">All Modules</option>
-                    <option value="MESS">Mess Operations</option>
-                    <option value="FINANCE">Finance & Fees</option>
-                    <option value="INVENTORY">Inventory stock</option>
-                    <option value="PAYROLL">Payroll ledger</option>
-                    <option value="SETTINGS">System Settings</option>
-                    <option value="STUDENTS">Students Verify</option>
-                  </select>
+                <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('auditLogs.searchUser')}</label>
+                    <input className="form-input" style={{ width: '220px' }} type="text" placeholder="user@domain.com" value={auditUserSearch} onChange={e => setAuditUserSearch(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('tables.category')}</label>
+                    <select className="form-input" style={{ width: '180px' }} value={auditModuleFilter} onChange={e => setAuditModuleFilter(e.target.value)}>
+                      <option value="">{t('auditLogs.allModules')}</option>
+                      <option value="GATE_PASS">Gate Pass</option>
+                      <option value="NOTICES">Notice Board</option>
+                      <option value="PROFILE">Profile</option>
+                      <option value="MESS">Mess Operations</option>
+                      <option value="FINANCE">Finance & Fees</option>
+                      <option value="INVENTORY">Inventory stock</option>
+                      <option value="PAYROLL">Payroll ledger</option>
+                      <option value="SETTINGS">System Settings</option>
+                      <option value="STUDENTS">Students Verify</option>
+                      <option value="EMERGENCY">Emergency Alerts</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('reports.startDate')}</label>
+                    <input className="form-input" type="date" value={auditStartDate} onChange={e => setAuditStartDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('reports.endDate')}</label>
+                    <input className="form-input" type="date" value={auditEndDate} onChange={e => setAuditEndDate(e.target.value)} />
+                  </div>
+                  <button className="btn btn-primary" onClick={() => loadAuditLogs(1)} style={{ height: '40px' }}>
+                    <Search size={14} /> {t('common.filter')}
+                  </button>
                 </div>
 
                 {/* Audit Logs table */}
                 <div className="glass-panel" style={{ padding: '2rem' }}>
-                  <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                          <th style={{ padding: '0.75rem' }}>Timestamp</th>
-                          <th>Operator Email</th>
-                          <th>Module</th>
-                          <th>Action Description</th>
-                          <th>details</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {auditLogs.map(l => (
-                          <tr key={l.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
-                            <td style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>{new Date(l.createdAt).toLocaleString()}</td>
-                            <td style={{ fontWeight: 600 }}>{l.userEmail}</td>
-                            <td><span className="badge badge-info">{l.module}</span></td>
-                            <td>{l.action}</td>
-                            <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{l.details || '-'}</td>
+                  {auditLogs.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                      <Activity size={36} style={{ opacity: 0.3, marginBottom: '0.75rem' }} />
+                      <p>{t('common.noData')}</p>
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                            <th style={{ padding: '0.75rem' }}>{t('tables.time')}</th>
+                            <th>{t('tables.name')} / Email</th>
+                            <th>{t('tables.category')}</th>
+                            <th>{t('tables.actions')}</th>
+                            <th>{t('common.details')}</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {auditLogs.map(l => (
+                            <tr key={l.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
+                              <td style={{ padding: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{new Date(l.createdAt).toLocaleString()}</td>
+                              <td style={{ fontWeight: 600 }}>{l.userEmail}</td>
+                              <td><span className="badge badge-info">{l.module}</span></td>
+                              <td style={{ fontWeight: 600 }}>{l.action}</td>
+                              <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{l.details || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Pagination Footer */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', flexWrap: 'wrap', gap: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem', fontSize: '0.85rem' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      {t('reports.totalRecords')}: {auditTotalCount} · {t('auditLogs.page')} {auditPage} {t('auditLogs.of')} {auditTotalPages}
+                    </span>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }} disabled={auditPage <= 1} onClick={() => loadAuditLogs(auditPage - 1)}>
+                        ← {t('auditLogs.prev')}
+                      </button>
+                      <button className="btn btn-secondary" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }} disabled={auditPage >= auditTotalPages} onClick={() => loadAuditLogs(auditPage + 1)}>
+                        {t('auditLogs.next')} →
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* 12. SYSTEM SETTINGS & DYNAMIC PERMISSION MATRIX */}
-            {subView === 'settings' && currentUser && (currentUser.role === 'SUPER_ADMIN' || currentUser.role === 'HOSTEL_ADMIN') && (
+            {/* 12. SYSTEM SETTINGS */}
+            {subView === 'settings' && currentUser && (
               <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>System Settings & Operations Dashboard</h2>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('settings.title')}</h2>
+
+                {/* Application Preferences (Accessible to all authenticated users) */}
+                <div className="glass-panel" style={{ padding: '2rem' }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Sliders size={18} color="var(--primary)" /> {t('settings.appPreferences')}
+                  </h3>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                    {/* Theme Preference */}
+                    <div style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                      <div style={{ fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />} {t('settings.theme')}
+                      </div>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>Choose between Dark Charcoal or Light Emerald interface styles.</p>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button type="button" className={`btn ${theme === 'dark' ? 'btn-primary' : 'btn-secondary'}`} style={{ flex: 1 }} onClick={() => setTheme('dark')}>Dark</button>
+                        <button type="button" className={`btn ${theme === 'light' ? 'btn-primary' : 'btn-secondary'}`} style={{ flex: 1 }} onClick={() => setTheme('light')}>Light</button>
+                      </div>
+                    </div>
+
+                    {/* Language Preference */}
+                    <div style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                      <div style={{ fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Languages size={16} /> {t('settings.language')}
+                      </div>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>Select your preferred UI language (English, தமிழ், हिन्दी).</p>
+                      <select className="form-input" value={lang} onChange={e => changeLanguage(e.target.value as any)}>
+                        <option value="en">English (Default)</option>
+                        <option value="ta">தமிழ் (Tamil)</option>
+                        <option value="hi">हिन्दी (Hindi)</option>
+                      </select>
+                    </div>
+
+                    {/* Sound Alerts Toggle */}
+                    <div style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                      <div style={{ fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Volume2 size={16} /> {t('settings.soundAlerts')}
+                      </div>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>{t('settings.enableSounds')}</p>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                        <input type="checkbox" checked={prefSoundAlerts} onChange={e => setPrefSoundAlerts(e.target.checked)} />
+                        <span>{t('common.active')}</span>
+                      </label>
+                    </div>
+
+                    {/* Desktop Notifications Toggle */}
+                    <div style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                      <div style={{ fontWeight: 700, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Bell size={16} /> {t('settings.desktopNotifications')}
+                      </div>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>{t('settings.enableDesktopNotifs')}</p>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                        <input type="checkbox" checked={prefDesktopNotifs} onChange={e => setPrefDesktopNotifs(e.target.checked)} />
+                        <span>{t('common.active')}</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      localStorage.setItem('smarthostel_sounds', String(prefSoundAlerts));
+                      localStorage.setItem('smarthostel_notifs', String(prefDesktopNotifs));
+                      showToast('success', t('common.success'), t('dialogs.saveSuccess'));
+                    }}
+                  >
+                    <Save size={16} /> {t('settings.savePreferences')}
+                  </button>
+                </div>
+
+                {/* Attendance Geofence Configuration (Admin Only) */}
+                {['SUPER_ADMIN', 'HOSTEL_ADMIN'].includes(currentUser.role) && (
+                  <div className="glass-panel" style={{ padding: '2rem' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Shield size={18} color="var(--primary)" /> {t('settings.attendanceConfig')}
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                      <div>
+                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('settings.geofenceRadius')}</label>
+                        <input className="form-input" type="number" value={prefGeofenceRadius} onChange={e => setPrefGeofenceRadius(Number(e.target.value))} />
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>Default: 5.0 meters GPS precision limit</span>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('settings.tokenExpiry')}</label>
+                        <input className="form-input" type="number" value={prefTokenDuration} onChange={e => setPrefTokenDuration(Number(e.target.value))} />
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>Default: 300 seconds (5 minutes rotating dynamic QR)</span>
+                      </div>
+                    </div>
+                    <button className="btn btn-primary" onClick={() => showToast('success', t('common.success'), t('dialogs.saveSuccess'))}>
+                      <Save size={16} /> {t('common.save')}
+                    </button>
+                  </div>
+                )}
 
                 {/* Dynamic Role-Permission Matrix */}
                 {currentUser && currentUser.role === 'SUPER_ADMIN' && (
                   <div className="glass-panel" style={{ padding: '2rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Dynamic Role Permission Matrix</h3>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>Assign resource permissions dynamically across user roles (changes take effect instantly).</p>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>{t('settings.rolePermissions')}</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>{t('settings.rolePermissionsDesc')}</p>
                     
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
@@ -5387,10 +5924,10 @@ export default function App() {
                 {/* Database Backup Vault */}
                 {currentUser && currentUser.role === 'SUPER_ADMIN' && (
                   <div className="glass-panel" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Database Configuration Backups</h3>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{t('settings.dbBackups')}</h3>
                     <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                       <button className="btn btn-primary" onClick={handleExportBackup}>
-                        <Database size={16} /> Download DB Backup JSON
+                        <Database size={16} /> {t('settings.downloadBackup')}
                       </button>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <input 
@@ -6071,8 +6608,12 @@ export default function App() {
               <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('gatePass.title')}</h2>
               <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem', fontSize: '0.875rem' }}>{t('gatePass.subtitle')}</p>
             </div>
-            <button className="btn btn-secondary" onClick={loadGatePasses}>{t('common.refresh')}</button>
+            <button className="btn btn-secondary" onClick={loadGatePasses}>
+              <RefreshCw size={14} /> {t('common.refresh')}
+            </button>
           </div>
+
+          {/* Student Request Pass Form */}
           {currentUser.role === 'STUDENT' && (
             <div style={{ padding: '1.5rem', background: 'var(--primary-soft)', border: '1px solid var(--border-color)', borderRadius: '12px', marginBottom: '2rem' }}>
               <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>{t('gatePass.requestPass')}</h4>
@@ -6084,35 +6625,168 @@ export default function App() {
               </form>
             </div>
           )}
+
+          {/* Search and Filters */}
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ flex: 1, minWidth: '220px' }}>
+              <input
+                className="form-input"
+                type="text"
+                placeholder={t('gatePass.searchPlaceholder')}
+                value={gatePassSearch}
+                onChange={e => setGatePassSearch(e.target.value)}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'EXITED', 'RETURNED'].map(st => (
+                <button
+                  key={st}
+                  type="button"
+                  className={`btn ${gatePassFilter === st ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
+                  onClick={() => setGatePassFilter(st)}
+                >
+                  {st === 'ALL' ? t('gatePass.all') : st === 'PENDING' ? t('gatePass.pending') : st === 'APPROVED' ? t('gatePass.approved') : st === 'REJECTED' ? t('gatePass.rejected') : st === 'EXITED' ? t('gatePass.exited') : t('gatePass.returned')}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Passes List */}
           <div style={{ display: 'grid', gap: '1rem' }}>
-            {gatePasses.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}><p>{t('gatePass.noPasses')}</p></div>
-            ) : gatePasses.map((gp: any) => (
-              <div key={gp.id} style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                <div>
-                  <div style={{ fontWeight: 600 }}>{gp.user?.fullName || gp.student?.fullName || 'Student'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('rooms.roomNumber')}: {gp.user?.room?.roomNumber || gp.student?.room?.roomNumber || 'N/A'}</span></div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                    {t('gatePass.destinationPlaceholder')}: {gp.destination} · {t('gatePass.purposePlaceholder')}: {gp.purpose} · {new Date(gp.expectedReturn).toLocaleString()}
-                  </div>
+            {gatePasses
+              .filter((gp: any) => {
+                if (gatePassFilter !== 'ALL' && gp.status !== gatePassFilter) return false;
+                if (gatePassSearch) {
+                  const q = gatePassSearch.toLowerCase();
+                  const studentName = (gp.user?.fullName || gp.student?.fullName || '').toLowerCase();
+                  const regNo = (gp.user?.registerNumber || gp.student?.registerNumber || '').toLowerCase();
+                  const dest = (gp.destination || '').toLowerCase();
+                  const purp = (gp.purpose || '').toLowerCase();
+                  return studentName.includes(q) || regNo.includes(q) || dest.includes(q) || purp.includes(q);
+                }
+                return true;
+              })
+              .length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                <Activity size={32} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+                <p>{t('gatePass.noPasses')}</p>
+              </div>
+            ) : (
+              gatePasses
+                .filter((gp: any) => {
+                  if (gatePassFilter !== 'ALL' && gp.status !== gatePassFilter) return false;
+                  if (gatePassSearch) {
+                    const q = gatePassSearch.toLowerCase();
+                    const studentName = (gp.user?.fullName || gp.student?.fullName || '').toLowerCase();
+                    const regNo = (gp.user?.registerNumber || gp.student?.registerNumber || '').toLowerCase();
+                    const dest = (gp.destination || '').toLowerCase();
+                    const purp = (gp.purpose || '').toLowerCase();
+                    return studentName.includes(q) || regNo.includes(q) || dest.includes(q) || purp.includes(q);
+                  }
+                  return true;
+                })
+                .map((gp: any) => {
+                  const isMine = currentUser.role === 'STUDENT' && (gp.userId === currentUser.id || gp.studentId === currentUser.id);
+                  return (
+                    <div key={gp.id} style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span>{gp.user?.fullName || gp.student?.fullName || 'Student'}</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            ({gp.user?.registerNumber || gp.student?.registerNumber || 'No Reg'}) · {t('rooms.roomNumber')}: {gp.user?.room?.roomNumber || gp.student?.room?.roomNumber || 'N/A'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+                          <strong>{t('gatePass.destinationPlaceholder')}:</strong> {gp.destination} · <strong>{t('gatePass.purposePlaceholder')}:</strong> {gp.purpose}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                          Expected Return: {new Date(gp.expectedReturn).toLocaleString()}
+                          {gp.exitTime && <span> · Exit: {new Date(gp.exitTime).toLocaleTimeString()}</span>}
+                          {gp.actualReturn && <span> · Return: {new Date(gp.actualReturn).toLocaleTimeString()}</span>}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span className={`badge ${gp.status === 'APPROVED' ? 'badge-success' : gp.status === 'REJECTED' ? 'badge-danger' : gp.status === 'EXITED' ? 'badge-info' : gp.status === 'RETURNED' ? 'badge-success' : 'badge-warning'}`}>{gp.status}</span>
+                        
+                        <button className="btn btn-secondary" style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }} onClick={() => setSelectedGatePassDetails(gp)}>
+                          <QrCode size={13} /> {t('gatePass.viewDetails')}
+                        </button>
+
+                        {isMine && gp.status === 'PENDING' && (
+                          <button className="btn btn-secondary" style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem', color: 'var(--danger)' }} onClick={() => handleCancelGatePass(gp.id)}>
+                            {t('gatePass.cancelPass')}
+                          </button>
+                        )}
+
+                        {['HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SUPER_ADMIN', 'WARDEN'].includes(currentUser.role) && gp.status === 'PENDING' && (
+                          <>
+                            <button className="btn btn-primary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateGatePass(gp.id, 'APPROVED')}>{t('common.approved')}</button>
+                            <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem', color: 'var(--danger)' }} onClick={() => handleUpdateGatePass(gp.id, 'REJECTED')}>{t('common.rejected')}</button>
+                          </>
+                        )}
+                        {['SECURITY', 'HOSTEL_ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) && gp.status === 'APPROVED' && (
+                          <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateGatePass(gp.id, 'EXITED')}>{t('gatePass.markExit')}</button>
+                        )}
+                        {['SECURITY', 'HOSTEL_ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) && gp.status === 'EXITED' && (
+                          <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateGatePass(gp.id, 'RETURNED')}>{t('gatePass.markReturn')}</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+            )}
+          </div>
+
+          {/* Gate Pass Details & QR Modal */}
+          {selectedGatePassDetails && (
+            <div className="modal-overlay" style={{ zIndex: 1000 }}>
+              <div className="modal-content glass-panel" style={{ maxWidth: '440px', width: '90%', padding: '2rem', textAlign: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>{t('gatePass.qrPass')}</h3>
+                  <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => setSelectedGatePassDetails(null)}>✕</button>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <span className={`badge ${gp.status === 'APPROVED' ? 'badge-success' : gp.status === 'REJECTED' ? 'badge-danger' : 'badge-warning'}`}>{gp.status}</span>
-                  {['HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SUPER_ADMIN', 'WARDEN'].includes(currentUser.role) && gp.status === 'PENDING' && (
-                    <>
-                      <button className="btn btn-primary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateGatePass(gp.id, 'APPROVED')}>{t('common.approved')}</button>
-                      <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem', color: 'var(--danger)' }} onClick={() => handleUpdateGatePass(gp.id, 'REJECTED')}>{t('common.rejected')}</button>
-                    </>
-                  )}
-                  {['SECURITY', 'HOSTEL_ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) && gp.status === 'APPROVED' && (
-                    <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateGatePass(gp.id, 'EXITED')}>{t('gatePass.markExit')}</button>
-                  )}
-                  {['SECURITY', 'HOSTEL_ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) && gp.status === 'EXITED' && (
-                    <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateGatePass(gp.id, 'RETURNED')}>{t('gatePass.markReturn')}</button>
-                  )}
+                
+                <div style={{ background: '#ffffff', padding: '1rem', borderRadius: '12px', width: '160px', height: '160px', margin: '0 auto 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=GATEPASS:${selectedGatePassDetails.id}`}
+                    alt="Gate Pass QR"
+                    width="140"
+                    height="140"
+                  />
+                </div>
+
+                <div style={{ textAlign: 'left', background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>{t('students.student')}:</span><strong>{selectedGatePassDetails.user?.fullName || selectedGatePassDetails.student?.fullName}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>{t('gatePass.destinationPlaceholder')}:</span><strong>{selectedGatePassDetails.destination}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>{t('gatePass.purposePlaceholder')}:</span><strong>{selectedGatePassDetails.purpose}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Status:</span><span className="badge badge-info">{selectedGatePassDetails.status}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Expected Return:</span><strong>{new Date(selectedGatePassDetails.expectedReturn).toLocaleString()}</strong></div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setSelectedGatePassDetails(null)}>{t('common.close')}</button>
+                  <button
+                    className="btn btn-primary"
+                    style={{ flex: 1 }}
+                    onClick={() => {
+                      const printWindow = window.open('', '_blank');
+                      if (printWindow) {
+                        printWindow.document.write(`
+                          <html><head><title>Gate Pass - ${selectedGatePassDetails.user?.fullName || 'Student'}</title>
+                          <style>body{font-family:sans-serif;padding:2rem;text-align:center;color:#111;}.card{border:2px solid #333;border-radius:12px;padding:2rem;max-width:400px;margin:0 auto;}</style></head>
+                          <body><div class="card"><h2>SMARTHOSTEL GATE PASS</h2><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=GATEPASS:${selectedGatePassDetails.id}" /><p><strong>Student:</strong> ${selectedGatePassDetails.user?.fullName || ''}</p><p><strong>Destination:</strong> ${selectedGatePassDetails.destination}</p><p><strong>Purpose:</strong> ${selectedGatePassDetails.purpose}</p><p><strong>Expected Return:</strong> ${new Date(selectedGatePassDetails.expectedReturn).toLocaleString()}</p></div><script>window.print();</script></body></html>
+                        `);
+                        printWindow.document.close();
+                      }
+                    }}
+                  >
+                    <Printer size={14} /> {t('gatePass.printPass')}
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -6121,8 +6795,12 @@ export default function App() {
         <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('notices.title')}</h2>
-            <button className="btn btn-secondary" onClick={loadNotices}>{t('common.refresh')}</button>
+            <button className="btn btn-secondary" onClick={loadNotices}>
+              <RefreshCw size={14} /> {t('common.refresh')}
+            </button>
           </div>
+
+          {/* Post Notice Form */}
           {['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN'].includes(currentUser.role) && (
             <div style={{ padding: '1.5rem', background: 'var(--primary-soft)', border: '1px solid var(--border-color)', borderRadius: '12px', marginBottom: '2rem' }}>
               <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>{t('notices.postNotice')}</h4>
@@ -6148,30 +6826,183 @@ export default function App() {
               </form>
             </div>
           )}
-          <div style={{ display: 'grid', gap: '1rem' }}>
-            {notices.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}><p>{t('notices.noNotices')}</p></div>
-            ) : notices.map((notice: any) => (
-              <div key={notice.id} style={{ padding: '1.5rem', background: notice.isEmergency ? 'rgba(201,74,74,0.06)' : 'var(--bg-card)', border: `1px solid ${notice.isEmergency ? 'rgba(201,74,74,0.3)' : notice.isPinned ? 'var(--primary)' : 'var(--border-color)'}`, borderRadius: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {notice.isPinned && <span style={{ fontSize: '1rem' }}>📌</span>}
-                    {notice.isEmergency && <span className="badge badge-danger">{t('common.emergency')}</span>}
-                    <h4 style={{ fontWeight: 700 }}>{notice.title}</h4>
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <span className="badge badge-info">{notice.audience}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(notice.createdAt).toLocaleDateString()}</span>
-                    {['SUPER_ADMIN', 'HOSTEL_ADMIN'].includes(currentUser.role) && (
-                      <button style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }} onClick={() => handleDeleteNotice(notice.id)}>✕</button>
-                    )}
-                  </div>
-                </div>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', lineHeight: 1.6 }}>{notice.content}</p>
-                <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('notices.postedBy', { name: notice.postedBy })}</div>
-              </div>
-            ))}
+
+          {/* Search and Filter Pills */}
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ flex: 1, minWidth: '220px' }}>
+              <input
+                className="form-input"
+                type="text"
+                placeholder={t('notices.searchNotices')}
+                value={noticeSearch}
+                onChange={e => setNoticeSearch(e.target.value)}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {['ALL', 'STUDENTS', 'STAFF', 'EMERGENCY', 'PINNED'].map(f => (
+                <button
+                  key={f}
+                  type="button"
+                  className={`btn ${noticeFilter === f ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
+                  onClick={() => setNoticeFilter(f)}
+                >
+                  {f === 'ALL' ? t('gatePass.all') : f === 'STUDENTS' ? t('notices.studentsOnly') : f === 'STAFF' ? t('notices.staffOnly') : f === 'EMERGENCY' ? t('common.emergency') : t('notices.pinned')}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {/* Notices Grid */}
+          <div style={{ display: 'grid', gap: '1rem' }}>
+            {notices
+              .filter((notice: any) => {
+                if (noticeFilter === 'STUDENTS' && notice.audience !== 'STUDENTS') return false;
+                if (noticeFilter === 'STAFF' && notice.audience !== 'STAFF') return false;
+                if (noticeFilter === 'EMERGENCY' && !notice.isEmergency) return false;
+                if (noticeFilter === 'PINNED' && !notice.isPinned) return false;
+                if (noticeSearch) {
+                  const q = noticeSearch.toLowerCase();
+                  return (notice.title || '').toLowerCase().includes(q) || (notice.content || '').toLowerCase().includes(q);
+                }
+                return true;
+              })
+              .length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                <Activity size={32} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+                <p>{t('notices.noNotices')}</p>
+              </div>
+            ) : (
+              notices
+                .filter((notice: any) => {
+                  if (noticeFilter === 'STUDENTS' && notice.audience !== 'STUDENTS') return false;
+                  if (noticeFilter === 'STAFF' && notice.audience !== 'STAFF') return false;
+                  if (noticeFilter === 'EMERGENCY' && !notice.isEmergency) return false;
+                  if (noticeFilter === 'PINNED' && !notice.isPinned) return false;
+                  if (noticeSearch) {
+                    const q = noticeSearch.toLowerCase();
+                    return (notice.title || '').toLowerCase().includes(q) || (notice.content || '').toLowerCase().includes(q);
+                  }
+                  return true;
+                })
+                .map((notice: any) => (
+                  <div key={notice.id} style={{ padding: '1.5rem', background: notice.isEmergency ? 'rgba(201,74,74,0.06)' : 'var(--bg-card)', border: `1px solid ${notice.isEmergency ? 'rgba(201,74,74,0.3)' : notice.isPinned ? 'var(--primary)' : 'var(--border-color)'}`, borderRadius: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {notice.isPinned && <span style={{ fontSize: '1rem' }}>📌</span>}
+                        {notice.isEmergency && <span className="badge badge-danger">{t('common.emergency')}</span>}
+                        <h4 style={{ fontWeight: 700 }}>{notice.title}</h4>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <span className="badge badge-info">{notice.audience}</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(notice.createdAt).toLocaleDateString()}</span>
+                        
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                          onClick={() => setSelectedNoticeDetails(notice)}
+                        >
+                          <Info size={12} /> {t('common.details')}
+                        </button>
+
+                        {['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN'].includes(currentUser.role) && (
+                          <div style={{ display: 'flex', gap: '0.35rem' }}>
+                            <button
+                              className="btn btn-secondary"
+                              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                              onClick={() => {
+                                setSelectedNoticeForEdit(notice);
+                                setEditNoticeTitle(notice.title);
+                                setEditNoticeContent(notice.content);
+                                setEditNoticeAudience(notice.audience);
+                                setEditNoticeIsEmergency(!!notice.isEmergency);
+                                setEditNoticeIsPinned(!!notice.isPinned);
+                              }}
+                            >
+                              <Edit size={12} /> {t('notices.editNotice')}
+                            </button>
+                            <button
+                              className="btn btn-secondary"
+                              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--danger)' }}
+                              onClick={() => handleDeleteNotice(notice.id)}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', lineHeight: 1.6 }}>{notice.content}</p>
+                    <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('notices.postedBy', { name: notice.postedBy || 'Administration' })}</div>
+                  </div>
+                ))
+            )}
+          </div>
+
+          {/* View Notice Details Modal */}
+          {selectedNoticeDetails && (
+            <div className="modal-overlay" style={{ zIndex: 1000 }}>
+              <div className="modal-content glass-panel" style={{ maxWidth: '520px', width: '90%', padding: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    {selectedNoticeDetails.isPinned && <span>📌</span>}
+                    {selectedNoticeDetails.isEmergency && <span className="badge badge-danger">{t('common.emergency')}</span>}
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>{selectedNoticeDetails.title}</h3>
+                  </div>
+                  <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => setSelectedNoticeDetails(null)}>✕</button>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)', marginBottom: '1.5rem', fontSize: '0.85rem', color: 'var(--text-main)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+                  {selectedNoticeDetails.content}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                  <span>Audience: <strong style={{ color: 'var(--text-main)' }}>{selectedNoticeDetails.audience}</strong></span>
+                  <span>Posted: {new Date(selectedNoticeDetails.createdAt).toLocaleString()}</span>
+                </div>
+                <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setSelectedNoticeDetails(null)}>{t('common.close')}</button>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Notice Modal */}
+          {selectedNoticeForEdit && (
+            <div className="modal-overlay" style={{ zIndex: 1000 }}>
+              <div className="modal-content glass-panel" style={{ maxWidth: '520px', width: '90%', padding: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{t('notices.editNotice')}</h3>
+                  <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.25rem' }} onClick={() => setSelectedNoticeForEdit(null)}>✕</button>
+                </div>
+                <form onSubmit={handleUpdateNotice} style={{ display: 'grid', gap: '1rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('notices.noticeTitle')}</label>
+                    <input className="form-input" type="text" value={editNoticeTitle} onChange={e => setEditNoticeTitle(e.target.value)} required />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('notices.noticeContent')}</label>
+                    <textarea className="form-input" rows={4} value={editNoticeContent} onChange={e => setEditNoticeContent(e.target.value)} style={{ resize: 'vertical' }} required />
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <select className="form-input" style={{ width: 'auto' }} value={editNoticeAudience} onChange={e => setEditNoticeAudience(e.target.value)}>
+                      <option value="ALL">{t('notices.allUsers')}</option>
+                      <option value="STUDENTS">{t('notices.studentsOnly')}</option>
+                      <option value="STAFF">{t('notices.staffOnly')}</option>
+                    </select>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                      <input type="checkbox" checked={editNoticeIsEmergency} onChange={e => setEditNoticeIsEmergency(e.target.checked)} />
+                      {t('notices.emergencyAlert')}
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                      <input type="checkbox" checked={editNoticeIsPinned} onChange={e => setEditNoticeIsPinned(e.target.checked)} />
+                      {t('notices.pinNotice')}
+                    </label>
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                    <button type="button" className="btn btn-secondary" onClick={() => setSelectedNoticeForEdit(null)}>{t('common.cancel')}</button>
+                    <button type="submit" className="btn btn-primary">{t('common.save')}</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -6179,29 +7010,113 @@ export default function App() {
       {subView === 'notifications' && currentUser && (
         <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('notifications.title')} {unreadCount > 0 && <span className="badge badge-danger" style={{ marginLeft: '0.5rem' }}>{unreadCount}</span>}</h2>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button className="btn btn-secondary" onClick={loadNotifications}>{t('common.refresh')}</button>
-              {unreadCount > 0 && <button className="btn btn-primary" onClick={handleMarkAllRead}>{t('notifications.markAllRead')}</button>}
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>
+              {t('notifications.title')} {unreadCount > 0 && <span className="badge badge-danger" style={{ marginLeft: '0.5rem' }}>{unreadCount}</span>}
+            </h2>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button className="btn btn-secondary" onClick={loadNotifications}>
+                <RefreshCw size={14} /> {t('common.refresh')}
+              </button>
+              {unreadCount > 0 && (
+                <button className="btn btn-primary" onClick={handleMarkAllRead}>
+                  <CheckCheck size={14} /> {t('notifications.markAllRead')}
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Search and Filters */}
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ flex: 1, minWidth: '220px' }}>
+              <input
+                className="form-input"
+                type="text"
+                placeholder={t('gatePass.searchPlaceholder')}
+                value={notifSearch}
+                onChange={e => setNotifSearch(e.target.value)}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {['ALL', 'UNREAD', 'EMERGENCY', 'COMPLAINTS', 'LEAVE', 'ATTENDANCE', 'GATE_PASS'].map(flt => (
+                <button
+                  key={flt}
+                  type="button"
+                  className={`btn ${notifFilter === flt ? 'btn-primary' : 'btn-secondary'}`}
+                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
+                  onClick={() => setNotifFilter(flt)}
+                >
+                  {flt === 'ALL' ? t('gatePass.all') : flt === 'UNREAD' ? 'Unread' : flt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Notification Items */}
           <div style={{ display: 'grid', gap: '0.75rem' }}>
-            {notifications.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}><p>{t('notifications.noNotifications')}</p></div>
-            ) : notifications.map((notif: any) => (
-              <div key={notif.id} onClick={() => !notif.isRead && handleMarkNotificationRead(notif.id)} style={{ padding: '1rem 1.25rem', background: notif.isRead ? 'var(--bg-card)' : 'var(--primary-soft)', border: `1px solid ${notif.isRead ? 'var(--border-color)' : 'var(--primary)'}`, borderRadius: '10px', cursor: notif.isRead ? 'default' : 'pointer' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                      {!notif.isRead && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block', marginRight: '0.5rem' }}></span>}
-                      {notif.title}
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{notif.message}</div>
-                  </div>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{new Date(notif.createdAt).toLocaleDateString()}</span>
-                </div>
+            {notifications
+              .filter((notif: any) => {
+                if (notifFilter === 'UNREAD' && notif.isRead) return false;
+                if (notifFilter === 'EMERGENCY' && !notif.title?.toLowerCase().includes('emergency') && !notif.message?.toLowerCase().includes('emergency')) return false;
+                if (notifSearch) {
+                  const q = notifSearch.toLowerCase();
+                  return (notif.title || '').toLowerCase().includes(q) || (notif.message || '').toLowerCase().includes(q);
+                }
+                return true;
+              })
+              .length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                <Bell size={32} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+                <p>{t('notifications.noNotifications')}</p>
               </div>
-            ))}
+            ) : (
+              notifications
+                .filter((notif: any) => {
+                  if (notifFilter === 'UNREAD' && notif.isRead) return false;
+                  if (notifFilter === 'EMERGENCY' && !notif.title?.toLowerCase().includes('emergency') && !notif.message?.toLowerCase().includes('emergency')) return false;
+                  if (notifSearch) {
+                    const q = notifSearch.toLowerCase();
+                    return (notif.title || '').toLowerCase().includes(q) || (notif.message || '').toLowerCase().includes(q);
+                  }
+                  return true;
+                })
+                .map((notif: any) => (
+                  <div
+                    key={notif.id}
+                    onClick={() => !notif.isRead && handleMarkNotificationRead(notif.id)}
+                    style={{
+                      padding: '1rem 1.25rem',
+                      background: notif.isRead ? 'var(--bg-card)' : 'var(--primary-soft)',
+                      border: `1px solid ${notif.isRead ? 'var(--border-color)' : 'var(--primary)'}`,
+                      borderRadius: '10px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '1rem'
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {!notif.isRead && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }}></span>}
+                        <span>{notif.title}</span>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{notif.message}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{new Date(notif.createdAt).toLocaleDateString()}</span>
+                      <button
+                        className="btn btn-ghost"
+                        style={{ padding: '0.3rem', color: 'var(--text-muted)' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteNotification(notif.id);
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+            )}
           </div>
         </div>
       )}
@@ -6211,7 +7126,9 @@ export default function App() {
         <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('mess.weeklyMenu')}</h2>
-            <button className="btn btn-secondary" onClick={loadMessMenus}>Refresh</button>
+            <button className="btn btn-secondary" onClick={loadMessMenus}>
+              <RefreshCw size={14} /> Refresh
+            </button>
           </div>
           {['SUPER_ADMIN', 'HOSTEL_ADMIN', 'MESS_MANAGER', 'ASSISTANT_WARDEN'].includes(currentUser.role) && (
             <div style={{ padding: '1.5rem', background: 'rgba(16,185,129,0.04)', border: '1px solid var(--border-color)', borderRadius: '12px', marginBottom: '2rem' }}>
@@ -6255,66 +7172,205 @@ export default function App() {
       {/* REPORTS MODULE */}
       {subView === 'reports' && currentUser && (
         <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1.5rem' }}>Reports and Analytics</h2>
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
-            {[{id:'fees',label:'Fee Collection'},{id:'attendance',label:'Attendance'},{id:'occupancy',label:'Room Occupancy'}].map(rt => (
-              <button key={rt.id} className={`btn ${reportType === rt.id ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setReportType(rt.id)}>{rt.label}</button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('reports.title')}</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.25rem' }}>{t('reports.subtitle')}</p>
+            </div>
+            {reportData && (
+              <button className="btn btn-primary" onClick={handleExportReportCSV}>
+                <Download size={14} /> {t('reports.exportCsv')}
+              </button>
+            )}
+          </div>
+
+          {/* Report Type Tabs */}
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+            {[
+              { id: 'fees', label: t('reports.feeCollection') },
+              { id: 'attendance', label: t('reports.attendanceReport') },
+              { id: 'occupancy', label: t('reports.roomOccupancy') },
+              { id: 'complaints', label: t('reports.complaintsSummary') },
+              { id: 'leaves', label: t('reports.leaveRequests') },
+              { id: 'gatePasses', label: t('reports.gatePasses') }
+            ].map(rt => (
+              <button
+                key={rt.id}
+                type="button"
+                className={`btn ${reportType === rt.id ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                onClick={() => {
+                  setReportType(rt.id);
+                  setReportData(null);
+                }}
+              >
+                {rt.label}
+              </button>
             ))}
-            <button className="btn btn-primary" onClick={handleGenerateReport} disabled={reportLoading}>
-              {reportLoading ? 'Generating...' : 'Generate Report'}
+          </div>
+
+          {/* Date Range Filters and Generate Button */}
+          <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '2rem' }}>
+            <div>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('reports.startDate')}</label>
+              <input className="form-input" type="date" value={reportStartDate} onChange={e => setReportStartDate(e.target.value)} />
+            </div>
+            <div>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('reports.endDate')}</label>
+              <input className="form-input" type="date" value={reportEndDate} onChange={e => setReportEndDate(e.target.value)} />
+            </div>
+            <div>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('reports.searchRecords')}</label>
+              <input className="form-input" type="text" placeholder="Filter rows..." value={reportSearch} onChange={e => setReportSearch(e.target.value)} style={{ width: '180px' }} />
+            </div>
+            <button className="btn btn-primary" onClick={handleGenerateReport} disabled={reportLoading} style={{ height: '40px' }}>
+              <Search size={14} /> {reportLoading ? t('reports.generating') : t('reports.generateReport')}
             </button>
           </div>
+
+          {/* Generated Report Data Display */}
           {reportData && (
             <div style={{ display: 'grid', gap: '1.5rem' }}>
+              {/* Metric Summary Cards */}
               {reportData.summary && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem' }}>
                   {Object.entries(reportData.summary).map(([key, val]) => (
                     <div key={key} className="glass-panel" style={{ padding: '1.25rem' }}>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{key.replace(/([A-Z])/g, ' $1').trim()}</div>
-                      <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.25rem' }}>{typeof val === 'number' && (key.includes('Due') || key.includes('Collected') || key.includes('outstanding')) ? '₹' + Number(val).toLocaleString() : String(val)}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                        {key.replace(/([A-Z])/g, ' $1').trim()}
+                      </div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.25rem' }}>
+                        {typeof val === 'number' && (key.includes('Due') || key.includes('Collected') || key.includes('outstanding') || key.includes('amount')) ? '₹' + Number(val).toLocaleString() : String(val)}
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
+
+              {/* Data Tables for each Report Type */}
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
                   <thead>
                     <tr style={{ background: 'rgba(99,102,241,0.1)' }}>
-                      {reportType === 'fees' && ['Student', 'Fee', 'Amount', 'Paid', 'Status', 'Due Date'].map(h => <th key={h} style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border-color)', fontWeight: 700 }}>{h}</th>)}
-                      {reportType === 'attendance' && ['Student', 'Reg No', 'Date', 'Status', 'Session'].map(h => <th key={h} style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border-color)', fontWeight: 700 }}>{h}</th>)}
+                      {reportType === 'fees' && ['Student', 'Reg No', 'Fee Head', 'Amount', 'Paid', 'Status', 'Due Date'].map(h => <th key={h} style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border-color)', fontWeight: 700 }}>{h}</th>)}
+                      {reportType === 'attendance' && ['Student', 'Reg No', 'Room', 'Date', 'Status', 'Session'].map(h => <th key={h} style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border-color)', fontWeight: 700 }}>{h}</th>)}
                       {reportType === 'occupancy' && ['Block', 'Room', 'Category', 'Capacity', 'Occupied', 'Available'].map(h => <th key={h} style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border-color)', fontWeight: 700 }}>{h}</th>)}
+                      {reportType === 'complaints' && ['Ticket Title', 'Category', 'Priority', 'Status', 'Student', 'Assigned Worker', 'Date'].map(h => <th key={h} style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border-color)', fontWeight: 700 }}>{h}</th>)}
+                      {reportType === 'leaves' && ['Student', 'Reg No', 'Reason', 'Start Date', 'End Date', 'Status'].map(h => <th key={h} style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border-color)', fontWeight: 700 }}>{h}</th>)}
+                      {reportType === 'gatePasses' && ['Student', 'Reg No', 'Purpose', 'Destination', 'Status', 'Expected Return', 'Exit Time'].map(h => <th key={h} style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '1px solid var(--border-color)', fontWeight: 700 }}>{h}</th>)}
                     </tr>
                   </thead>
                   <tbody>
-                    {reportType === 'fees' && reportData.fees?.slice(0, 50).map((f: any) => (
-                      <tr key={f.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '0.6rem 0.75rem' }}>{f.student?.fullName || '-'}</td>
-                        <td style={{ padding: '0.6rem 0.75rem' }}>{f.title}</td>
-                        <td style={{ padding: '0.6rem 0.75rem' }}>Rs.{f.amount.toLocaleString()}</td>
-                        <td style={{ padding: '0.6rem 0.75rem' }}>Rs.{f.paidAmount.toLocaleString()}</td>
-                        <td style={{ padding: '0.6rem 0.75rem' }}><span className={`badge ${f.status === 'PAID' ? 'badge-success' : f.status === 'PARTIAL' ? 'badge-warning' : 'badge-danger'}`}>{f.status}</span></td>
-                        <td style={{ padding: '0.6rem 0.75rem' }}>{new Date(f.dueDate).toLocaleDateString()}</td>
-                      </tr>
-                    ))}
-                    {reportType === 'attendance' && reportData.records?.slice(0, 50).map((r: any) => (
-                      <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '0.6rem 0.75rem' }}>{r.user?.fullName || '-'}</td>
-                        <td style={{ padding: '0.6rem 0.75rem' }}>{r.user?.registerNumber || '-'}</td>
-                        <td style={{ padding: '0.6rem 0.75rem' }}>{new Date(r.date).toLocaleDateString()}</td>
-                        <td style={{ padding: '0.6rem 0.75rem' }}><span className={`badge ${r.isPresent ? 'badge-success' : 'badge-danger'}`}>{r.isPresent ? 'Present' : 'Absent'}</span></td>
-                        <td style={{ padding: '0.6rem 0.75rem' }}>{r.session || 'Morning'}</td>
-                      </tr>
-                    ))}
-                    {reportType === 'occupancy' && reportData.rooms?.map((r: any) => (
-                      <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                        <td style={{ padding: '0.6rem 0.75rem' }}>{r.block}</td>
-                        <td style={{ padding: '0.6rem 0.75rem' }}>{r.roomNumber}</td>
-                        <td style={{ padding: '0.6rem 0.75rem' }}><span className="badge badge-info">{r.category}</span></td>
-                        <td style={{ padding: '0.6rem 0.75rem' }}>{r.capacity}</td>
-                        <td style={{ padding: '0.6rem 0.75rem' }}>{r.occupied}</td>
-                        <td style={{ padding: '0.6rem 0.75rem' }}><span style={{ color: r.available === 0 ? 'var(--danger)' : 'var(--accent)' }}>{r.available}</span></td>
-                      </tr>
-                    ))}
+                    {/* Fees Rows */}
+                    {reportType === 'fees' && reportData.fees
+                      ?.filter((f: any) => {
+                        if (!reportSearch) return true;
+                        const q = reportSearch.toLowerCase();
+                        return (f.student?.fullName || '').toLowerCase().includes(q) || (f.title || '').toLowerCase().includes(q) || (f.status || '').toLowerCase().includes(q);
+                      })
+                      .map((f: any) => (
+                        <tr key={f.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600 }}>{f.student?.fullName || '-'}</td>
+                          <td style={{ padding: '0.6rem 0.75rem', color: 'var(--text-muted)' }}>{f.student?.registerNumber || '-'}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}>{f.title}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}>₹{f.amount.toLocaleString()}</td>
+                          <td style={{ padding: '0.6rem 0.75rem', color: '#10b981' }}>₹{f.paidAmount.toLocaleString()}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}><span className={`badge ${f.status === 'PAID' ? 'badge-success' : f.status === 'PARTIAL' ? 'badge-warning' : 'badge-danger'}`}>{f.status}</span></td>
+                          <td style={{ padding: '0.6rem 0.75rem', color: 'var(--text-muted)' }}>{new Date(f.dueDate).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+
+                    {/* Attendance Rows */}
+                    {reportType === 'attendance' && reportData.records
+                      ?.filter((r: any) => {
+                        if (!reportSearch) return true;
+                        const q = reportSearch.toLowerCase();
+                        return (r.user?.fullName || '').toLowerCase().includes(q) || (r.user?.registerNumber || '').toLowerCase().includes(q);
+                      })
+                      .map((r: any) => (
+                        <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600 }}>{r.user?.fullName || '-'}</td>
+                          <td style={{ padding: '0.6rem 0.75rem', color: 'var(--text-muted)' }}>{r.user?.registerNumber || '-'}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}>{r.user?.room?.roomNumber || 'N/A'}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}>{new Date(r.date).toLocaleDateString()}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}><span className={`badge ${r.isPresent ? 'badge-success' : 'badge-danger'}`}>{r.isPresent ? 'Present' : 'Absent'}</span></td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}>{r.session || 'Morning'}</td>
+                        </tr>
+                      ))}
+
+                    {/* Occupancy Rows */}
+                    {reportType === 'occupancy' && reportData.rooms
+                      ?.filter((r: any) => {
+                        if (!reportSearch) return true;
+                        const q = reportSearch.toLowerCase();
+                        return (r.block || '').toLowerCase().includes(q) || (r.roomNumber || '').toLowerCase().includes(q);
+                      })
+                      .map((r: any) => (
+                        <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600 }}>{r.block}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}>{r.roomNumber}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}><span className="badge badge-info">{r.category}</span></td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}>{r.capacity}</td>
+                          <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600 }}>{r.occupied}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}><span style={{ color: r.available === 0 ? 'var(--danger)' : 'var(--accent)', fontWeight: 700 }}>{r.available}</span></td>
+                        </tr>
+                      ))}
+
+                    {/* Complaints Rows */}
+                    {reportType === 'complaints' && reportData.complaints
+                      ?.filter((c: any) => {
+                        if (!reportSearch) return true;
+                        const q = reportSearch.toLowerCase();
+                        return (c.title || '').toLowerCase().includes(q) || (c.category || '').toLowerCase().includes(q) || (c.student?.fullName || '').toLowerCase().includes(q);
+                      })
+                      .map((c: any) => (
+                        <tr key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600 }}>{c.title}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}><span className="badge badge-info">{c.category}</span></td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}><span className={`badge ${c.priority === 'URGENT' ? 'badge-danger' : c.priority === 'HIGH' ? 'badge-warning' : 'badge-info'}`}>{c.priority}</span></td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}><span className={`badge ${c.status === 'RESOLVED' ? 'badge-success' : c.status === 'IN_PROGRESS' ? 'badge-info' : 'badge-warning'}`}>{c.status}</span></td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}>{c.student?.fullName || 'Student'}</td>
+                          <td style={{ padding: '0.6rem 0.75rem', color: 'var(--text-muted)' }}>{c.worker?.fullName || 'Unassigned'}</td>
+                          <td style={{ padding: '0.6rem 0.75rem', color: 'var(--text-muted)' }}>{new Date(c.createdAt).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+
+                    {/* Leaves Rows */}
+                    {reportType === 'leaves' && reportData.leaves
+                      ?.filter((l: any) => {
+                        if (!reportSearch) return true;
+                        const q = reportSearch.toLowerCase();
+                        return (l.user?.fullName || '').toLowerCase().includes(q) || (l.reason || '').toLowerCase().includes(q);
+                      })
+                      .map((l: any) => (
+                        <tr key={l.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600 }}>{l.user?.fullName || 'Student'}</td>
+                          <td style={{ padding: '0.6rem 0.75rem', color: 'var(--text-muted)' }}>{l.user?.registerNumber || '-'}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}>{l.reason}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}>{new Date(l.startDate).toLocaleDateString()}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}>{new Date(l.endDate).toLocaleDateString()}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}><span className={`badge ${l.status === 'APPROVED' ? 'badge-success' : l.status === 'REJECTED' ? 'badge-danger' : 'badge-warning'}`}>{l.status}</span></td>
+                        </tr>
+                      ))}
+
+                    {/* Gate Passes Rows */}
+                    {reportType === 'gatePasses' && reportData.gatePasses
+                      ?.filter((gp: any) => {
+                        if (!reportSearch) return true;
+                        const q = reportSearch.toLowerCase();
+                        return (gp.student?.fullName || '').toLowerCase().includes(q) || (gp.destination || '').toLowerCase().includes(q);
+                      })
+                      .map((gp: any) => (
+                        <tr key={gp.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600 }}>{gp.student?.fullName || 'Student'}</td>
+                          <td style={{ padding: '0.6rem 0.75rem', color: 'var(--text-muted)' }}>{gp.student?.registerNumber || '-'}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}>{gp.purpose}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}>{gp.destination}</td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}><span className={`badge ${gp.status === 'APPROVED' ? 'badge-success' : gp.status === 'REJECTED' ? 'badge-danger' : 'badge-warning'}`}>{gp.status}</span></td>
+                          <td style={{ padding: '0.6rem 0.75rem' }}>{new Date(gp.expectedReturn).toLocaleString()}</td>
+                          <td style={{ padding: '0.6rem 0.75rem', color: 'var(--text-muted)' }}>{gp.exitTime ? new Date(gp.exitTime).toLocaleTimeString() : '-'}</td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>

@@ -547,6 +547,21 @@ router.patch('/gate-passes/:id', authMiddleware, async (req: AuthRequest, res: R
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+router.delete('/gate-passes/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const pass = await prisma.gatePass.findUnique({ where: { id } });
+    if (!pass) { res.status(404).json({ success: false, error: 'Gate pass not found' }); return; }
+    if (req.user?.role === 'STUDENT' && pass.studentId !== req.user.id) {
+      res.status(403).json({ success: false, error: 'Unauthorized to cancel this pass' });
+      return;
+    }
+    await prisma.gatePass.delete({ where: { id } });
+    await logActivity(req, 'Cancelled gate pass #' + id, 'GATE_PASS');
+    res.json({ success: true, message: 'Gate pass cancelled successfully' });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
 router.post('/gate-passes/scan', authMiddleware, async (req: AuthRequest, res: Response) => {
   const { qrCode, action } = req.body;
   if (!qrCode) { res.status(400).json({ success: false, error: 'QR code required' }); return; }
@@ -733,6 +748,58 @@ router.post('/notifications/mark-all-read', authMiddleware, async (req: AuthRequ
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+router.delete('/notifications/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const notif = await prisma.notification.findUnique({ where: { id } });
+    if (!notif) { res.status(404).json({ success: false, error: 'Notification not found' }); return; }
+    if (notif.userId !== req.user?.id) { res.status(403).json({ success: false, error: 'Unauthorized' }); return; }
+    await prisma.notification.delete({ where: { id } });
+    res.json({ success: true, message: 'Notification dismissed' });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ============================================================
+// PROFILE ENDPOINTS
+// ============================================================
+router.get('/profile', authMiddleware, async (req: AuthRequest, res: Response) => {
+  if (!req.user) { res.status(401).json({ success: false, error: 'Not authenticated' }); return; }
+  try {
+    const profile = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      include: { hostel: true, room: true }
+    });
+    res.json({ success: true, data: profile });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+router.patch('/profile', authMiddleware, async (req: AuthRequest, res: Response) => {
+  if (!req.user) { res.status(401).json({ success: false, error: 'Not authenticated' }); return; }
+  const { fullName, mobileNumber, address, emergencyContact, bloodGroup, medicalDetails, parentName, parentMobile, department, year, guardianName, guardianMobile } = req.body;
+  try {
+    const updated = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        ...(fullName && { fullName }),
+        ...(mobileNumber && { mobileNumber }),
+        ...(address !== undefined && { address }),
+        ...(emergencyContact !== undefined && { emergencyContact }),
+        ...(bloodGroup !== undefined && { bloodGroup }),
+        ...(medicalDetails !== undefined && { medicalDetails }),
+        ...(parentName !== undefined && { parentName }),
+        ...(parentMobile !== undefined && { parentMobile }),
+        ...(department !== undefined && { department }),
+        ...(year !== undefined && { year }),
+        ...(guardianName !== undefined && { guardianName }),
+        ...(guardianMobile !== undefined && { guardianMobile })
+      },
+      include: { hostel: true, room: true }
+    });
+    await logActivity(req, 'Updated profile details', 'PROFILE');
+    res.json({ success: true, data: updated, message: 'Profile updated successfully' });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
 // ============================================================
 // GLOBAL SEARCH
 // ============================================================
@@ -765,10 +832,20 @@ router.get('/search', authMiddleware, async (req: AuthRequest, res: Response) =>
 // ============================================================
 router.get('/reports/attendance', authMiddleware, async (req: AuthRequest, res: Response) => {
   const hId = req.query.hostelId as string || req.user?.hostelId;
+  const { startDate, endDate } = req.query;
   try {
     const filter: any = {};
     if (hId) filter.user = { hostelId: hId };
-    const records = await prisma.attendance.findMany({ where: filter, include: { user: { select: { fullName: true, registerNumber: true } } }, orderBy: { date: 'desc' }, take: 500 });
+    if (startDate || endDate) {
+      filter.date = {};
+      if (startDate) filter.date.gte = new Date(startDate as string);
+      if (endDate) {
+        const e = new Date(endDate as string);
+        e.setHours(23, 59, 59, 999);
+        filter.date.lte = e;
+      }
+    }
+    const records = await prisma.attendance.findMany({ where: filter, include: { user: { select: { fullName: true, registerNumber: true, room: { select: { roomNumber: true } } } } }, orderBy: { date: 'desc' }, take: 500 });
     const total = records.length, present = records.filter(r => r.isPresent).length;
     res.json({ success: true, data: { records, summary: { total, present, absent: total - present, rate: total > 0 ? Math.round((present / total) * 100) : 0 } } });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
@@ -779,7 +856,7 @@ router.get('/reports/fees', authMiddleware, async (req: AuthRequest, res: Respon
   try {
     const where: any = {};
     if (hostelId) where.hostelId = hostelId;
-    const fees = await prisma.fee.findMany({ where, include: { student: { select: { fullName: true, registerNumber: true } }, payments: true } });
+    const fees = await prisma.fee.findMany({ where, include: { student: { select: { fullName: true, registerNumber: true } }, payments: true }, orderBy: { dueDate: 'desc' } });
     const totalDue = fees.reduce((s, f) => s + f.amount, 0);
     const totalCollected = fees.reduce((s, f) => s + f.paidAmount, 0);
     res.json({ success: true, data: { fees, summary: { totalDue, totalCollected, outstanding: totalDue - totalCollected, pending: fees.filter(f => f.status !== 'PAID').length } } });
@@ -798,17 +875,125 @@ router.get('/reports/occupancy', authMiddleware, async (req: AuthRequest, res: R
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+router.get('/reports/complaints', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const hostelId = req.query.hostelId as string || req.user?.hostelId;
+  try {
+    const where: any = { isDeleted: false };
+    if (hostelId) where.hostelId = hostelId;
+    const complaints = await prisma.complaint.findMany({
+      where,
+      include: {
+        student: { select: { fullName: true, registerNumber: true, room: { select: { roomNumber: true, block: true } } } },
+        worker: { select: { fullName: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const total = complaints.length;
+    const resolved = complaints.filter(c => c.status === 'RESOLVED' || c.status === 'COMPLETED').length;
+    const inProgress = complaints.filter(c => c.status === 'IN_PROGRESS' || c.status === 'ACCEPTED').length;
+    const pending = complaints.filter(c => c.status === 'PENDING' || c.status === 'ASSIGNED').length;
+
+    res.json({
+      success: true,
+      data: {
+        complaints,
+        summary: { total, resolved, inProgress, pending, resolutionRate: total > 0 ? Math.round((resolved / total) * 100) : 0 }
+      }
+    });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+router.get('/reports/leaves', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const hostelId = req.query.hostelId as string || req.user?.hostelId;
+  try {
+    const where: any = {};
+    if (hostelId) where.hostelId = hostelId;
+    const leaves = await prisma.leave.findMany({
+      where,
+      include: { user: { select: { fullName: true, registerNumber: true, room: { select: { roomNumber: true } } } } },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const total = leaves.length;
+    const approved = leaves.filter(l => l.status === 'APPROVED').length;
+    const pending = leaves.filter(l => l.status === 'PENDING').length;
+    const rejected = leaves.filter(l => l.status === 'REJECTED').length;
+
+    res.json({
+      success: true,
+      data: {
+        leaves,
+        summary: { total, approved, pending, rejected, approvalRate: total > 0 ? Math.round((approved / total) * 100) : 0 }
+      }
+    });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+router.get('/reports/gate-passes', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const hostelId = req.query.hostelId as string || req.user?.hostelId;
+  try {
+    const where: any = {};
+    if (hostelId) where.hostelId = hostelId;
+    const gatePasses = await prisma.gatePass.findMany({
+      where,
+      include: { student: { select: { fullName: true, registerNumber: true, room: { select: { roomNumber: true } } } } },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const total = gatePasses.length;
+    const approved = gatePasses.filter(g => g.status === 'APPROVED').length;
+    const exited = gatePasses.filter(g => g.status === 'EXITED').length;
+    const returned = gatePasses.filter(g => g.status === 'RETURNED').length;
+    const pending = gatePasses.filter(g => g.status === 'PENDING').length;
+
+    res.json({
+      success: true,
+      data: {
+        gatePasses,
+        summary: { total, approved, exited, returned, pending }
+      }
+    });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
 // ============================================================
 // AUDIT LOGS
 // ============================================================
 router.get('/audit-logs', authMiddleware, requirePermission('manage_settings'), async (req: AuthRequest, res: Response) => {
-  const { module, userEmail } = req.query;
+  const { module, userEmail, page = '1', limit = '50', startDate, endDate } = req.query;
+  const pageNum = Math.max(1, parseInt(page as string) || 1);
+  const limitNum = Math.min(200, Math.max(10, parseInt(limit as string) || 50));
+  const skip = (pageNum - 1) * limitNum;
+
   const filter: any = {};
   if (module) filter.module = module as string;
-  if (userEmail) filter.userEmail = { contains: userEmail as string };
+  if (userEmail) filter.userEmail = { contains: userEmail as string, mode: 'insensitive' };
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) filter.createdAt.gte = new Date(startDate as string);
+    if (endDate) {
+      const e = new Date(endDate as string);
+      e.setHours(23, 59, 59, 999);
+      filter.createdAt.lte = e;
+    }
+  }
+
   try {
-    const logs = await prisma.activityLog.findMany({ where: filter, orderBy: { createdAt: 'desc' }, take: 200 });
-    res.json({ success: true, data: logs });
+    const [logs, totalCount] = await Promise.all([
+      prisma.activityLog.findMany({ where: filter, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
+      prisma.activityLog.count({ where: filter })
+    ]);
+    res.json({
+      success: true,
+      data: logs,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limitNum)
+      }
+    });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
