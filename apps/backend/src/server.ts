@@ -4,7 +4,7 @@ import cookieParser from 'cookie-parser';
 import * as argon2 from 'argon2';
 import { config } from './core/config';
 import { prisma } from './core/prisma';
-import { authMiddleware, requireRole, AuthRequest } from './core/auth.middleware';
+import { authMiddleware, requireRole, AuthRequest, signUserToken } from './core/auth.middleware';
 import { sessionStore } from './core/sessionStore';
 import erpRouter from './core/erp.routes';
 
@@ -96,7 +96,15 @@ app.post('/api/auth/login', async (req, res) => {
       return;
     }
 
-    const token = sessionStore.createSession({
+    const token = signUserToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      hostelId: user.hostelId
+    });
+
+    // Also register in memory session store for backwards compatibility
+    sessionStore.createSession({
       id: user.id,
       email: user.email,
       role: user.role,
@@ -108,7 +116,7 @@ app.post('/api/auth/login', async (req, res) => {
       httpOnly: true,
       secure: isProd, // Must be true for cross-site cookies
       sameSite: isProd ? 'none' : 'lax', // Must be 'none' for cross-site cookies
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days persistent authentication
     });
 
     res.json({

@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { prisma } from './prisma';
 import { authMiddleware, requirePermission, requireRole, AuthRequest } from './auth.middleware';
+import { pushService } from './push.service';
 import { Role, GatePassStatus, NoticeAudience } from '@prisma/client';
 
 const router = Router();
@@ -1497,6 +1498,72 @@ router.post('/complaints/:id/reopen', authMiddleware, async (req: AuthRequest, r
 // EMERGENCY ALERT SYSTEM
 // ============================================================
 
+// ============================================================
+// PUSH NOTIFICATIONS & EMERGENCY SYSTEM
+// ============================================================
+
+router.get('/push/vapid-public-key', (req, res) => {
+  try {
+    const publicKey = pushService.getPublicKey();
+    res.json({ success: true, publicKey });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/push/register', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const { subscription } = req.body;
+  const user = req.user!;
+  const userAgent = req.headers['user-agent'] || 'Unknown Device';
+
+  if (!subscription || !subscription.endpoint || !subscription.keys) {
+    res.status(400).json({ success: false, error: 'Valid subscription object with keys required' });
+    return;
+  }
+
+  try {
+    const result = await pushService.registerSubscription(
+      user.id,
+      user.role as Role,
+      user.hostelId,
+      subscription,
+      userAgent
+    );
+    res.json({ success: true, message: 'Push subscription registered successfully', data: result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/push/unregister', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const { endpoint } = req.body;
+  const user = req.user!;
+  try {
+    await pushService.unregisterSubscription(user.id, endpoint);
+    res.json({ success: true, message: 'Device unsubscribed from push notifications' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/push/test', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const user = req.user!;
+  try {
+    const result = await pushService.sendNotificationToUser(user.id, {
+      title: '🔔 Test Notification',
+      body: 'Push notification system is working correctly on your device!',
+      icon: '/favicon.svg',
+      badge: '/favicon.svg',
+      tag: 'test-notification',
+      vibrate: [200, 100, 200],
+      data: { url: '/' }
+    });
+    res.json({ success: true, message: 'Test notification dispatched', result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.post('/emergency/alert', authMiddleware, async (req: AuthRequest, res: Response) => {
   const { type, level, message } = req.body;
   const user = req.user!;
@@ -1511,7 +1578,11 @@ router.post('/emergency/alert', authMiddleware, async (req: AuthRequest, res: Re
       include: { room: true, hostel: true }
     });
 
-    const hostelId = studentUser?.hostelId || req.user?.hostelId || '';
+    let hostelId = studentUser?.hostelId || req.user?.hostelId;
+    if (!hostelId) {
+      const fallbackHostel = await prisma.hostel.findFirst();
+      hostelId = fallbackHostel?.id || '';
+    }
     const block = studentUser?.room?.block || null;
     const floor = studentUser?.room?.floor || null;
     const roomId = studentUser?.roomId || null;
@@ -1566,6 +1637,42 @@ router.post('/emergency/alert', authMiddleware, async (req: AuthRequest, res: Re
           isRead: false
         }))
       });
+
+      // Dispatch Web Push notification to registered recipient devices (even if app is closed/locked)
+      try {
+        const studentName = studentUser?.fullName || user.email;
+        const studentMobile = studentUser?.mobileNumber || 'N/A';
+        const hostelName = studentUser?.hostel?.name || 'SmartHostel';
+        const formattedTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const pushBody = `Student: ${studentName} (${studentMobile})\nRoom: ${roomNumber || 'N/A'} (Block ${block || 'N/A'})\nHostel: ${hostelName}\nTime: ${formattedTime}\nDetails: ${message || type}`;
+
+        await pushService.broadcastToUsers(targetUsers.map(u => u.id), {
+          title: `🚨 EMERGENCY ALERT: ${type.toUpperCase()}`,
+          body: pushBody,
+          icon: '/favicon.svg',
+          badge: '/favicon.svg',
+          tag: `emergency-${alertRecord.id}`,
+          vibrate: [500, 200, 500, 200, 500, 200, 500],
+          requireInteraction: true,
+          data: {
+            alertId: alertRecord.id,
+            type,
+            level,
+            roomNumber,
+            block,
+            studentName,
+            studentMobile,
+            hostelName,
+            timestamp: new Date().toISOString(),
+            url: '/'
+          },
+          actions: [
+            { action: 'view', title: 'Open Alert' }
+          ]
+        });
+      } catch (pushErr) {
+        console.error('[PUSH SERVICE] Failed to dispatch emergency push:', pushErr);
+      }
     }
 
     res.json({ success: true, data: alertRecord, notifiedCount: targetUsers.length });
@@ -1624,6 +1731,7 @@ router.post('/emergency/:id/resolve', authMiddleware, requireRole(['SUPER_ADMIN'
     res.json({ success: true, data: alert });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
+
 
 // ============================================================
 // LAUNDRY WAITLIST

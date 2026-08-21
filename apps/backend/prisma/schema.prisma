@@ -181,6 +181,7 @@ model User {
   workerProfile      WorkerProfile?
   reportedEmergencies EmergencyAlert[] @relation("ReportedEmergencies")
   acknowledgedEmergencies EmergencyAlert[] @relation("AcknowledgedEmergencies")
+  pushSubscriptions   PushSubscription[]
 }
 
 model Room {
@@ -639,5 +640,19 @@ model LaundryWaitlist {
   hostelId  String
   status    String   @default("WAITING")
   createdAt DateTime @default(now())
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid()) @map("_id")
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role
+  hostelId  String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 

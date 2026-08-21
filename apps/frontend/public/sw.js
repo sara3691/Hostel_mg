@@ -1,6 +1,5 @@
-﻿// SmartHostel AI - Service Worker
-// Cache version - increment to force cache refresh
-const CACHE_VERSION = "v1.0.0";
+// SmartHostel AI - Service Worker with Web Push & Offline Support
+const CACHE_VERSION = "v1.1.0";
 const STATIC_CACHE = `smarthostel-static-${CACHE_VERSION}`;
 const OFFLINE_URL = "/";
 
@@ -58,7 +57,6 @@ self.addEventListener("fetch", (event) => {
     caches.match(request).then((cached) => {
       if (cached) return cached;
       return fetch(request).then((response) => {
-        // Cache successful GET responses for static assets
         if (response.ok && request.method === "GET") {
           const cloned = response.clone();
           caches.open(STATIC_CACHE).then((cache) => cache.put(request, cloned));
@@ -66,6 +64,79 @@ self.addEventListener("fetch", (event) => {
         return response;
       }).catch(() => caches.match(OFFLINE_URL));
     })
+  );
+});
+
+// ── Web Push Notification Handler (Emergency & System Alerts) ──
+self.addEventListener("push", (event) => {
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (_) {
+      data = { title: "🚨 SmartHostel Alert", body: event.data.text() };
+    }
+  }
+
+  const title = data.title || "🚨 EMERGENCY ALERT";
+  const options = {
+    body: data.body || "High priority hostel alert received.",
+    icon: data.icon || "/favicon.svg",
+    badge: data.badge || "/favicon.svg",
+    tag: data.tag || `alert-${Date.now()}`,
+    renotify: true,
+    requireInteraction: true,
+    vibrate: data.vibrate || [500, 200, 500, 200, 500, 200, 500],
+    data: data.data || { url: "/" },
+    actions: data.actions || [
+      { action: "view", title: "View Details" }
+    ]
+  };
+
+  event.waitUntil(
+    (async () => {
+      // 1. Show native OS notification (displays even when app is closed, minimized, or phone locked)
+      await self.registration.showNotification(title, options);
+
+      // 2. Broadcast to all open client tabs (for in-app real-time banner / siren tone)
+      const allClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of allClients) {
+        client.postMessage({
+          type: "EMERGENCY_PUSH_RECEIVED",
+          payload: data
+        });
+      }
+    })()
+  );
+});
+
+// ── Notification Click Handler ──
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const targetUrl = event.notification.data?.url || "/";
+
+  event.waitUntil(
+    (async () => {
+      const allClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+
+      // Focus existing open tab if available
+      for (const client of allClients) {
+        if ("focus" in client) {
+          await client.focus();
+          client.postMessage({
+            type: "NAVIGATE_EMERGENCY",
+            data: event.notification.data
+          });
+          return;
+        }
+      }
+
+      // Open new window if app is currently closed
+      if (self.clients.openWindow) {
+        await self.clients.openWindow(targetUrl);
+      }
+    })()
   );
 });
 

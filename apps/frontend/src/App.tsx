@@ -19,6 +19,7 @@ import {
   Calendar,
   ArrowRight,
   Bell,
+  BellRing,
   Search,
   QrCode,
   X,
@@ -73,6 +74,22 @@ axios.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Helper to convert base64 VAPID public key to Uint8Array for PushManager
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 // ── Live Camera Capture Modal Component (STRICTLY NO FILE UPLOAD) ──
 const CameraCaptureModal = ({
@@ -361,8 +378,23 @@ export default function App() {
   const [scannerGps, setScannerGps] = useState<{ latitude: number; longitude: number; accuracy: number } | null>(null);
   const [gpsStatus, setGpsStatus] = useState<string>('Detecting...');
   const [gpsError, setGpsError] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [view, setView] = useState<'home' | 'login' | 'register' | 'dashboard' | 'qr_login'>('home');
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    try {
+      const cached = localStorage.getItem('cached_user');
+      return cached ? JSON.parse(cached) : null;
+    } catch (_) {
+      return null;
+    }
+  });
+  const [view, setView] = useState<'home' | 'login' | 'register' | 'dashboard' | 'qr_login'>(() => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const cached = localStorage.getItem('cached_user');
+      return (token && cached) ? 'dashboard' : 'home';
+    } catch (_) {
+      return 'home';
+    }
+  });
   const [subView, setSubView] = useState<string>('dashboard');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -606,6 +638,10 @@ export default function App() {
   const [emergencyLevel, setEmergencyLevel] = useState<'ROOM' | 'FLOOR' | 'HOSTEL'>('ROOM');
   const [emergencyType, setEmergencyType] = useState('Medical');
   const [emergencyMessageInput, setEmergencyMessageInput] = useState('');
+  const [isSendingEmergency, setIsSendingEmergency] = useState(false);
+  const [pushPermissionStatus, setPushPermissionStatus] = useState<NotificationPermission>(() => {
+    return (typeof window !== 'undefined' && 'Notification' in window) ? Notification.permission : 'default';
+  });
 
   // Laundry date state
   const [laundryDate, setLaundryDate] = useState('');
@@ -703,34 +739,48 @@ export default function App() {
     // Load public hostels
     loadHostels();
 
-    // Register Service Worker
+    // Register Service Worker and listen for push notifications
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW registration failed:', err));
+
+      const handleSwMessage = (event: MessageEvent) => {
+        if (event.data?.type === 'EMERGENCY_PUSH_RECEIVED') {
+          playEmergencyAudio();
+          loadEmergencyAlerts();
+          showToast('error', '🚨 EMERGENCY ALERT', event.data.payload?.body || 'High priority alert received!');
+        } else if (event.data?.type === 'NAVIGATE_EMERGENCY') {
+          setSubView('emergencies');
+        }
+      };
+
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+
+      // PWA install prompt
+      const handleBeforeInstallPrompt = (e: any) => {
+        e.preventDefault();
+        setDeferredInstallPrompt(e);
+        setShowInstallBanner(true);
+      };
+      window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+      // Online/Offline detection with automatic reconnect verification
+      const handleOnline = () => {
+        setIsOnline(true);
+        setShowOnlineBanner(true);
+        setTimeout(() => setShowOnlineBanner(false), 3000);
+        checkAuth();
+      };
+      const handleOffline = () => setIsOnline(false);
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      };
     }
-
-    // PWA install prompt
-    const handleBeforeInstallPrompt = (e: any) => {
-      e.preventDefault();
-      setDeferredInstallPrompt(e);
-      setShowInstallBanner(true);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    // Online/Offline detection
-    const handleOnline = () => {
-      setIsOnline(true);
-      setShowOnlineBanner(true);
-      setTimeout(() => setShowOnlineBanner(false), 3000);
-    };
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
   }, []);
 
   useEffect(() => {
@@ -852,17 +902,99 @@ export default function App() {
     setShowInstallBanner(false);
   };
 
-  const checkAuth = async () => {
+  const playEmergencyAudio = useCallback(() => {
     try {
-      const res = await axios.get('/api/auth/me');
-      if (res.data?.success) {
-        setCurrentUser(res.data.data);
-        setView('dashboard');
-        loadDashboardData(res.data.data);
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sawtooth';
+      const now = ctx.currentTime;
+      osc.frequency.setValueAtTime(950, now);
+      osc.frequency.exponentialRampToValueAtTime(450, now + 0.3);
+      osc.frequency.exponentialRampToValueAtTime(950, now + 0.6);
+      osc.frequency.exponentialRampToValueAtTime(450, now + 0.9);
+      osc.frequency.exponentialRampToValueAtTime(950, now + 1.2);
+
+      gain.gain.setValueAtTime(0.35, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 1.6);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 1.6);
+    } catch (_) {}
+  }, []);
+
+  const registerPushNotifications = useCallback(async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      setPushPermissionStatus(permission);
+      if (permission !== 'granted') {
+        return;
+      }
+
+      const reg = await navigator.serviceWorker.ready;
+      let subscription = await reg.pushManager.getSubscription();
+
+      if (!subscription) {
+        const res = await axios.get('/api/push/vapid-public-key');
+        if (res.data?.success && res.data.publicKey) {
+          const convertedVapidKey = urlBase64ToUint8Array(res.data.publicKey);
+          subscription = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: convertedVapidKey
+          });
+        }
+      }
+
+      if (subscription) {
+        await axios.post('/api/push/register', { subscription });
       }
     } catch (err) {
-      setCurrentUser(null);
-      setView('home');
+      console.warn('Push notification subscription info:', err);
+    }
+  }, []);
+
+  const checkAuth = async () => {
+    const token = localStorage.getItem('access_token');
+    try {
+      const res = await axios.get('/api/auth/me');
+      if (res.data?.success && res.data.data) {
+        setCurrentUser(res.data.data);
+        localStorage.setItem('cached_user', JSON.stringify(res.data.data));
+        setView('dashboard');
+        loadDashboardData(res.data.data);
+        // Automatically sync push subscription if permission is already granted
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          registerPushNotifications();
+        }
+      }
+    } catch (err: any) {
+      // ONLY log out if the backend explicitly rejected authentication with 401 Unauthorized
+      if (err.response?.status === 401) {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('cached_user');
+        setCurrentUser(null);
+        setView('home');
+      } else {
+        // Network drop / offline / server cold boot: PRESERVE cached login state!
+        console.warn('Backend verification skipped due to network/connection state. Maintaining persistent login.');
+        const cached = localStorage.getItem('cached_user');
+        if (cached && token) {
+          try {
+            const parsed = JSON.parse(cached);
+            setCurrentUser(parsed);
+            setView('dashboard');
+          } catch (_) {}
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -1115,6 +1247,8 @@ export default function App() {
   };
 
   const handleTriggerEmergency = async () => {
+    if (isSendingEmergency) return;
+    setIsSendingEmergency(true);
     try {
       const res = await axios.post('/api/emergency/alert', {
         type: emergencyType,
@@ -1126,23 +1260,12 @@ export default function App() {
         setShowEmergencyModal(false);
         setEmergencyMessageInput('');
         loadEmergencyAlerts();
-
-        try {
-          const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(880, ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.5);
-          gain.gain.setValueAtTime(0.3, ctx.currentTime);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start();
-          osc.stop(ctx.currentTime + 1);
-        } catch (_) {}
+        playEmergencyAudio();
       }
     } catch (err: any) {
       showToast('error', t('common.error'), err.response?.data?.error || t('common.error'));
+    } finally {
+      setIsSendingEmergency(false);
     }
   };
 
@@ -1450,10 +1573,14 @@ export default function App() {
         if (res.data.token) {
           localStorage.setItem('access_token', res.data.token);
         }
+        if (res.data.data) {
+          localStorage.setItem('cached_user', JSON.stringify(res.data.data));
+        }
         setCurrentUser(res.data.data);
         setView('dashboard');
         setSubView('dashboard');
         loadDashboardData(res.data.data);
+        registerPushNotifications();
       }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Login failed. Please try again.');
@@ -1474,15 +1601,17 @@ export default function App() {
         }
         const user = res.data.data as UserProfile;
         if (user.role !== 'SUPER_ADMIN' && user.role !== 'WARDEN') {
-          showToast('info', 'Notice', '');
+          showToast('info', 'Notice', 'Access restricted to authorized personnel');
           await axios.post('/api/auth/logout');
           return;
         }
+        localStorage.setItem('cached_user', JSON.stringify(user));
         setCurrentUser(user);
         setIsQrScannerPortal(true);
         setView('dashboard');
         setSubView('dashboard');
         loadDashboardData(user);
+        registerPushNotifications();
       }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Login failed. Please try again.');
@@ -1518,7 +1647,19 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.ready;
+        const subscription = await reg.pushManager.getSubscription();
+        if (subscription) {
+          await axios.post('/api/push/unregister', { endpoint: subscription.endpoint });
+          await subscription.unsubscribe();
+        }
+      }
+    } catch (_) {}
+
     localStorage.removeItem('access_token');
+    localStorage.removeItem('cached_user');
     try {
       await axios.post('/api/auth/logout');
     } catch (err) {
@@ -3632,11 +3773,11 @@ export default function App() {
           </aside>
 
           {/* Main Content Area */}
-          <main style={{ flex: 1, padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          <main className="main-content">
 
             {/* Active Emergency Alert Banner Overlay */}
             {emergencyAlertsList.filter(a => a.status === 'ACTIVE').length > 0 && (
-              <div style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger-border)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <div style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger-border)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1.25rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <ShieldAlert size={22} color="var(--danger)" />
                   <div>
@@ -3648,7 +3789,7 @@ export default function App() {
                     </p>
                   </div>
                 </div>
-                {currentUser && ['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SECURITY'].includes(currentUser.role) && (
+                {currentUser && ['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SECURITY', 'WARDEN'].includes(currentUser.role) && (
                   <button className="btn btn-secondary" style={{ fontSize: '0.75rem', borderColor: 'var(--danger-border)', color: 'var(--danger)', padding: '0.35rem 0.75rem' }} onClick={() => setSubView('emergencies')}>
                     View Details
                   </button>
@@ -3656,24 +3797,41 @@ export default function App() {
               </div>
             )}
 
+            {/* Notification Permission Card (Prompt when permission is default) */}
+            {currentUser && pushPermissionStatus === 'default' && (
+              <div className="glass-panel animate-slide-up" style={{ padding: '0.85rem 1.25rem', background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <BellRing size={20} color="var(--primary)" />
+                  <div>
+                    <h4 style={{ fontWeight: 700, fontSize: '0.85rem' }}>Enable Emergency Push Notifications</h4>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Receive emergency alerts on your device even when this app is backgrounded or closed.</p>
+                  </div>
+                </div>
+                <button className="btn btn-primary" style={{ padding: '0.35rem 0.85rem', fontSize: '0.8rem' }} onClick={registerPushNotifications}>
+                  Enable Alerts
+                </button>
+              </div>
+            )}
+
             {/* Floating Student Emergency Trigger Button */}
             {currentUser && currentUser.role === 'STUDENT' && (
-              <div style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 900 }}>
+              <div className="floating-emergency-btn">
                 <button
                   className="btn btn-danger"
                   style={{
-                    padding: '0.6rem 1.1rem',
-                    fontSize: '0.82rem',
-                    fontWeight: 600,
-                    borderRadius: 'var(--radius-md)',
-                    boxShadow: 'var(--shadow-md)',
+                    padding: '0.65rem 1.25rem',
+                    fontSize: '0.875rem',
+                    fontWeight: 700,
+                    borderRadius: '999px',
+                    boxShadow: 'var(--shadow-lg)',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.4rem'
+                    gap: '0.5rem',
+                    minHeight: '44px'
                   }}
                   onClick={() => setShowEmergencyModal(true)}
                 >
-                  <ShieldAlert size={16} /> {t('emergency.sendAlert')}
+                  <ShieldAlert size={18} /> {t('emergency.sendAlert')}
                 </button>
               </div>
             )}
@@ -4026,8 +4184,8 @@ export default function App() {
                       {/* Live logs */}
                       <div className="glass-panel" style={{ padding: '2rem' }}>
                         <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('attendance.historyTitle')}</h3>
-                        <div style={{ maxHeight: '380px', overflowY: 'auto' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                        <div className="table-wrapper" style={{ maxHeight: '380px', overflowY: 'auto' }}>
+                          <table className="table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                             <thead>
                               <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                                 <th style={{ padding: '0.75rem' }}>{t('tables.name')}</th>
@@ -4227,8 +4385,8 @@ export default function App() {
                     {/* Leave History */}
                     <div className="glass-panel" style={{ padding: '2rem' }}>
                       <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('leaves.history')}</h3>
-                      <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                      <div className="table-wrapper" style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                        <table className="table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                           <thead>
                             <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                               <th style={{ padding: '0.75rem 0' }}>{t('tables.date')}</th>
@@ -4272,8 +4430,8 @@ export default function App() {
                 {(currentUser.role === 'WARDEN' || currentUser.role === 'SUPER_ADMIN') && (
                   <div className="glass-panel" style={{ padding: '2rem' }}>
                     <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('leaves.pending')}</h3>
-                    <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <div className="table-wrapper" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                      <table className="table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
                           <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                             <th style={{ padding: '0.75rem' }}>{t('tables.name')}</th>
@@ -4550,8 +4708,8 @@ export default function App() {
                 {(currentUser.role === 'WARDEN' || currentUser.role === 'SUPER_ADMIN') && (
                   <div className="glass-panel" style={{ padding: '2rem' }}>
                     <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('visitors.title')}</h3>
-                    <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <div className="table-wrapper" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                      <table className="table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
                           <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                             <th style={{ padding: '0.75rem' }}>{t('visitors.visitorName')}</th>
@@ -6267,340 +6425,9 @@ export default function App() {
               </div>
             )}
 
-          </main>
-        </div>
-      )}
+          
 
-      {/* QR Code view Modal for students – Real Camera Scanner */}
-      {showQRScanner && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
-          onClick={() => { stopCameraStream(); setShowQRScanner(false); }}>
-          <div className="glass-panel" style={{ maxWidth: '440px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', textAlign: 'center' }}
-            onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>{t('attendance.scanQr')}</h3>
-              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => { stopCameraStream(); setShowQRScanner(false); }}>
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* GPS Location Status Indicator Pill */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontSize: '0.75rem', background: scannerGps ? 'rgba(16,185,129,0.1)' : gpsError ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', color: scannerGps ? '#10b981' : gpsError ? '#ef4444' : '#f59e0b', padding: '0.35rem 0.75rem', borderRadius: '999px', border: '1px solid var(--border-color)' }}>
-              <Compass size={14} />
-              <span>{gpsError || gpsStatus}</span>
-              {!scannerGps && (
-                <button type="button" className="btn btn-secondary" style={{ padding: '0.1rem 0.4rem', fontSize: '0.65rem' }} onClick={captureScannerGps}>
-                  Enable GPS
-                </button>
-              )}
-            </div>
-
-            {/* Camera Viewfinder */}
-            <div className="qr-video-container" style={{ margin: '0 auto' }}>
-              <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', display: cameraActive ? 'block' : 'none' }} />
-              {!cameraActive && !cameraError && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', background: 'rgba(0,0,0,0.6)' }}>
-                  <Camera size={48} style={{ opacity: 0.4 }} />
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', padding: '0 1rem' }}>Tap "Start Camera" to scan your QR code</p>
-                </div>
-              )}
-              {cameraError && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '1rem', background: 'rgba(239,68,68,0.1)' }}>
-                  <CameraOff size={32} color="#ef4444" />
-                  <p style={{ fontSize: '0.75rem', color: '#fca5a5', lineHeight: 1.4 }}>{cameraError}</p>
-                </div>
-              )}
-              {cameraActive && (
-                <div className="qr-scanner-overlay">
-                  <div className="qr-scanner-corners" />
-                  <div className="qr-scan-line" />
-                </div>
-              )}
-            </div>
-
-            {/* Camera Controls */}
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              {!cameraActive ? (
-                <button className="btn btn-primary" style={{ flex: 1 }} onClick={startCameraStream}>
-                  <Camera size={16} /> {t('camera.openCamera')}
-                </button>
-              ) : (
-                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={stopCameraStream}>
-                  <CameraOff size={16} /> {t('common.close')}
-                </button>
-              )}
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setFacingMode(f => f === 'environment' ? 'user' : 'environment')}
-                disabled={!cameraActive} title="Flip Camera">
-                🔄 Flip
-              </button>
-            </div>
-
-            {/* BarcodeDetector status */}
-            {cameraActive && (
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {qrScanMessage || ('BarcodeDetector' in window ? '✓ Auto-scanning active – hold QR code in view' : '⚠️ Auto-scan not supported. Use manual input below.')}
-              </p>
-            )}
-
-            {/* Manual fallback */}
-            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Or enter QR token manually:</p>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input className="form-input" type="text" placeholder={t('qrTerminal.tokenPlaceholder')} value={manualScanInput} onChange={e => setManualScanInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && manualScanInput && (handleQRScan(manualScanInput), setManualScanInput(''))} />
-                <button className="btn btn-primary" onClick={() => { if (manualScanInput) { handleQRScan(manualScanInput); setManualScanInput(''); } }}>{t('common.submit')}</button>
-              </div>
-            </div>
-
-            {/* Quick mock Check-In/Out fallback for development */}
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button className="btn btn-secondary" style={{ flex: 1, fontSize: '0.8rem' }} onClick={() => handleQRCheckIn(currentUser?.hostelId || hostels[0]?.id || '')}>
-                {t('attendance.checkIn')}
-              </button>
-              <button className="btn btn-secondary" style={{ flex: 1, fontSize: '0.8rem' }} onClick={handleQRCheckOut}>
-                {t('attendance.checkOut')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Visitor QR Pass Modal */}
-      {activeVisitorForQR && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setActiveVisitorForQR(null)}>
-          <div className="glass-panel" style={{ maxWidth: '420px', width: '100%', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)' }}>{t('visitors.entryPass')}</h3>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('tables.id')}: {activeVisitorForQR.id}</span>
-            <div style={{ margin: '0 auto', background: '#ffffff', padding: '0.75rem', borderRadius: '12px', width: '160px', height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <QRCodeSVG 
-                value={JSON.stringify({ type: 'visitor_pass', id: activeVisitorForQR.id, name: activeVisitorForQR.name, date: activeVisitorForQR.visitDate })} 
-                size={140} 
-                level="M"
-              />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem', textAlign: 'left', background: 'rgba(255,255,255,0.01)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div><strong style={{ color: 'var(--text-muted)' }}>{t('visitors.name')}:</strong> {activeVisitorForQR.name}</div>
-              <div><strong style={{ color: 'var(--text-muted)' }}>{t('visitors.purpose')}:</strong> {activeVisitorForQR.purpose}</div>
-              <div><strong style={{ color: 'var(--text-muted)' }}>{t('visitors.expectedDate')}:</strong> {new Date(activeVisitorForQR.visitDate).toLocaleDateString()}</div>
-            </div>
-            <button className="btn btn-secondary" onClick={() => setActiveVisitorForQR(null)}>{t('common.close')}</button>
-          </div>
-        </div>
-      )}
-
-      {/* Selected Room Details Modal */}
-      {selectedRoom && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setSelectedRoom(null)}>
-          <div className="glass-panel animate-slide-up" style={{ maxWidth: '460px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{t('rooms.roomNumber')} {selectedRoom.roomNumber}</h3>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('rooms.block')} {selectedRoom.block} · {t('rooms.floor')} {selectedRoom.floor}</p>
-              </div>
-              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setSelectedRoom(null)}><X size={16} /></button>
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Users size={16} color="var(--primary)" /> {t('hostel.students')} ({selectedRoom.users?.length || 0} / {selectedRoom.capacity || 4})
-              </h4>
-
-              {(!selectedRoom.users || selectedRoom.users.length === 0) ? (
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('common.noData')}</p>
-              ) : (
-                <div style={{ display: 'grid', gap: '0.75rem' }}>
-                  {selectedRoom.users.map((u: any) => (
-                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{u.fullName}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('auth.registerNumber')}: {u.registerNumber || 'N/A'} · {t('auth.department')}: {u.department || 'N/A'}</div>
-                      </div>
-                      <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }} onClick={() => { setSelectedRoom(null); setSelectedStudentProfile(u); }}>
-                        {t('students.profile')} <ChevronRight size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <button className="btn btn-secondary" onClick={() => setSelectedRoom(null)}>{t('common.close')}</button>
-          </div>
-        </div>
-      )}
-
-      {/* Student 360° Profile Modal */}
-      {selectedStudentProfile && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setSelectedStudentProfile(null)}>
-          <div className="glass-panel animate-slide-up" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1.2rem', color: 'var(--primary-contrast)' }}>
-                  {selectedStudentProfile.fullName?.charAt(0) || 'S'}
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {selectedStudentProfile.fullName}
-                    <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>{selectedStudentProfile.status}</span>
-                  </h3>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
-                    <span>{t('auth.registerNumber')}: {selectedStudentProfile.registerNumber || 'STU-001'}</span> ·
-                    <span>{t('rooms.roomNumber')}: {selectedStudentProfile.room?.roomNumber || 'Unassigned'}</span>
-                  </p>
-                </div>
-              </div>
-              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setSelectedStudentProfile(null)}><X size={16} /></button>
-            </div>
-
-            <div className="profile-tabs" style={{ marginBottom: '0.5rem' }}>
-              {['personal', 'academic', 'hostel', 'leaves', 'complaints'].map(tab => (
-                <button
-                  key={tab}
-                  className={`profile-tab ${profileTab === tab ? 'active' : ''}`}
-                  onClick={() => setProfileTab(tab)}
-                  style={{ textTransform: 'capitalize' }}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-
-            {profileTab === 'personal' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.85rem' }}>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('auth.email')}</div>
-                  <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.email}</div>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Phone size={12} /> {t('auth.mobile')}</div>
-                  <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.mobileNumber || 'Not provided'}</div>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>Blood Group</div>
-                  <div style={{ fontWeight: 600, marginTop: '0.2rem', color: '#ef4444' }}>{selectedStudentProfile.bloodGroup || 'O+'}</div>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)', gridColumn: 'span 2' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><MapPin size={12} /> {t('auth.address')}</div>
-                  <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.address || 'Address on file'}</div>
-                </div>
-              </div>
-            )}
-
-            {profileTab === 'academic' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.85rem' }}>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><GraduationCap size={12} /> {t('auth.college')}</div>
-                  <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.collegeName || 'Engineering Campus'}</div>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('auth.department')}</div>
-                  <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.department || 'Computer Science'}</div>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('auth.year')}</div>
-                  <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.year || '3rd Year'}</div>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('auth.registerNumber')}</div>
-                  <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.registerNumber || 'REG-2026-99'}</div>
-                </div>
-              </div>
-            )}
-
-            {profileTab === 'hostel' && (
-              <div style={{ display: 'grid', gap: '1rem', fontSize: '0.85rem' }}>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('hostel.name')}</div>
-                    <div style={{ fontWeight: 700, fontSize: '1rem' }}>{selectedStudentProfile.hostel?.name || 'Main Hostel Facility'}</div>
-                  </div>
-                  <Building2 size={24} color="var(--primary)" />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('rooms.roomNumber')}</div>
-                    <div style={{ fontWeight: 700, marginTop: '0.2rem', color: 'var(--primary)' }}>{t('rooms.roomNumber')} {selectedStudentProfile.room?.roomNumber || 'Not assigned'}</div>
-                  </div>
-                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>QR Token</div>
-                    <div style={{ fontWeight: 600, marginTop: '0.2rem', color: selectedStudentProfile.qrToken ? '#10b981' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <CheckCheck size={14} /> {selectedStudentProfile.qrToken ? t('common.active') : t('common.pending')}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {profileTab === 'leaves' && (
-              <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.85rem' }}>
-                {leavesHistory.filter((l: any) => l.userId === selectedStudentProfile.id).length === 0 ? (
-                  <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem' }}>{t('common.noData')}</p>
-                ) : (
-                  leavesHistory.filter((l: any) => l.userId === selectedStudentProfile.id).map((l: any) => (
-                    <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{l.reason}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(l.startDate).toLocaleDateString()} to {new Date(l.endDate).toLocaleDateString()}</div>
-                      </div>
-                      <span className={`badge ${l.status === 'APPROVED' ? 'badge-success' : l.status === 'REJECTED' ? 'badge-danger' : 'badge-warning'}`}>{l.status}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {profileTab === 'complaints' && (
-              <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.85rem' }}>
-                {complaints.filter((c: any) => c.userId === selectedStudentProfile.id).length === 0 ? (
-                  <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem' }}>{t('common.noData')}</p>
-                ) : (
-                  complaints.filter((c: any) => c.userId === selectedStudentProfile.id).map((c: any) => (
-                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{c.title}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('tables.category')}: {c.category}</div>
-                      </div>
-                      <span className={`badge ${c.status === 'RESOLVED' ? 'badge-success' : 'badge-warning'}`}>{c.status}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            <button className="btn btn-secondary" onClick={() => setSelectedStudentProfile(null)}>{t('common.close')}</button>
-          </div>
-        </div>
-      )}
-
-
-      {/* Mobile Bottom Navigation (Visible only on mobile screen widths) */}
-      {currentUser && (
-        <nav className="bottom-nav">
-          <button className={`bottom-nav-item ${subView === 'dashboard' ? 'active' : ''}`} onClick={() => setSubView('dashboard')}>
-            <Home size={20} />
-            <span>{t('nav.dashboard')}</span>
-          </button>
-          <button className={`bottom-nav-item ${subView === 'attendance' ? 'active' : ''}`} onClick={() => setSubView('attendance')}>
-            <QrCode size={20} />
-            <span>{t('nav.attendance')}</span>
-          </button>
-          <button className={`bottom-nav-item ${subView === 'ai_assistant' ? 'active' : ''}`} onClick={() => setSubView('ai_assistant')}>
-            <Bot size={20} />
-            <span>{t('nav.aiAssistant')}</span>
-          </button>
-          <button className={`bottom-nav-item ${subView === 'complaints' ? 'active' : ''}`} onClick={() => setSubView('complaints')}>
-            <AlertTriangle size={20} />
-            <span>{t('nav.complaints')}</span>
-          </button>
-          <button className="bottom-nav-item" onClick={() => setMobileMenuOpen(true)}>
-            <Menu size={20} />
-            <span>{t('common.all')}</span>
-          </button>
-        </nav>
-      )}
-
-
-      {/* GATE PASS MODULE */}
+            {/* GATE PASS MODULE */}
       {subView === 'gate_pass' && currentUser && (
         <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
@@ -7436,6 +7263,339 @@ export default function App() {
         </div>
       )}
 
+          </main>
+        </div>
+      )}
+
+      {/* QR Code view Modal for students – Real Camera Scanner */}
+      {showQRScanner && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+          onClick={() => { stopCameraStream(); setShowQRScanner(false); }}>
+          <div className="glass-panel" style={{ maxWidth: '440px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', textAlign: 'center' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>{t('attendance.scanQr')}</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => { stopCameraStream(); setShowQRScanner(false); }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* GPS Location Status Indicator Pill */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontSize: '0.75rem', background: scannerGps ? 'rgba(16,185,129,0.1)' : gpsError ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', color: scannerGps ? '#10b981' : gpsError ? '#ef4444' : '#f59e0b', padding: '0.35rem 0.75rem', borderRadius: '999px', border: '1px solid var(--border-color)' }}>
+              <Compass size={14} />
+              <span>{gpsError || gpsStatus}</span>
+              {!scannerGps && (
+                <button type="button" className="btn btn-secondary" style={{ padding: '0.1rem 0.4rem', fontSize: '0.65rem' }} onClick={captureScannerGps}>
+                  Enable GPS
+                </button>
+              )}
+            </div>
+
+            {/* Camera Viewfinder */}
+            <div className="qr-video-container" style={{ margin: '0 auto' }}>
+              <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', display: cameraActive ? 'block' : 'none' }} />
+              {!cameraActive && !cameraError && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', background: 'rgba(0,0,0,0.6)' }}>
+                  <Camera size={48} style={{ opacity: 0.4 }} />
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', padding: '0 1rem' }}>Tap "Start Camera" to scan your QR code</p>
+                </div>
+              )}
+              {cameraError && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '1rem', background: 'rgba(239,68,68,0.1)' }}>
+                  <CameraOff size={32} color="#ef4444" />
+                  <p style={{ fontSize: '0.75rem', color: '#fca5a5', lineHeight: 1.4 }}>{cameraError}</p>
+                </div>
+              )}
+              {cameraActive && (
+                <div className="qr-scanner-overlay">
+                  <div className="qr-scanner-corners" />
+                  <div className="qr-scan-line" />
+                </div>
+              )}
+            </div>
+
+            {/* Camera Controls */}
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {!cameraActive ? (
+                <button className="btn btn-primary" style={{ flex: 1 }} onClick={startCameraStream}>
+                  <Camera size={16} /> {t('camera.openCamera')}
+                </button>
+              ) : (
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={stopCameraStream}>
+                  <CameraOff size={16} /> {t('common.close')}
+                </button>
+              )}
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setFacingMode(f => f === 'environment' ? 'user' : 'environment')}
+                disabled={!cameraActive} title="Flip Camera">
+                🔄 Flip
+              </button>
+            </div>
+
+            {/* BarcodeDetector status */}
+            {cameraActive && (
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                {qrScanMessage || ('BarcodeDetector' in window ? '✓ Auto-scanning active – hold QR code in view' : '⚠️ Auto-scan not supported. Use manual input below.')}
+              </p>
+            )}
+
+            {/* Manual fallback */}
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Or enter QR token manually:</p>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input className="form-input" type="text" placeholder={t('qrTerminal.tokenPlaceholder')} value={manualScanInput} onChange={e => setManualScanInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && manualScanInput && (handleQRScan(manualScanInput), setManualScanInput(''))} />
+                <button className="btn btn-primary" onClick={() => { if (manualScanInput) { handleQRScan(manualScanInput); setManualScanInput(''); } }}>{t('common.submit')}</button>
+              </div>
+            </div>
+
+            {/* Quick mock Check-In/Out fallback for development */}
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button className="btn btn-secondary" style={{ flex: 1, fontSize: '0.8rem' }} onClick={() => handleQRCheckIn(currentUser?.hostelId || hostels[0]?.id || '')}>
+                {t('attendance.checkIn')}
+              </button>
+              <button className="btn btn-secondary" style={{ flex: 1, fontSize: '0.8rem' }} onClick={handleQRCheckOut}>
+                {t('attendance.checkOut')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Visitor QR Pass Modal */}
+      {activeVisitorForQR && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setActiveVisitorForQR(null)}>
+          <div className="glass-panel" style={{ maxWidth: '420px', width: '100%', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)' }}>{t('visitors.entryPass')}</h3>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('tables.id')}: {activeVisitorForQR.id}</span>
+            <div style={{ margin: '0 auto', background: '#ffffff', padding: '0.75rem', borderRadius: '12px', width: '160px', height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <QRCodeSVG 
+                value={JSON.stringify({ type: 'visitor_pass', id: activeVisitorForQR.id, name: activeVisitorForQR.name, date: activeVisitorForQR.visitDate })} 
+                size={140} 
+                level="M"
+              />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem', textAlign: 'left', background: 'rgba(255,255,255,0.01)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div><strong style={{ color: 'var(--text-muted)' }}>{t('visitors.name')}:</strong> {activeVisitorForQR.name}</div>
+              <div><strong style={{ color: 'var(--text-muted)' }}>{t('visitors.purpose')}:</strong> {activeVisitorForQR.purpose}</div>
+              <div><strong style={{ color: 'var(--text-muted)' }}>{t('visitors.expectedDate')}:</strong> {new Date(activeVisitorForQR.visitDate).toLocaleDateString()}</div>
+            </div>
+            <button className="btn btn-secondary" onClick={() => setActiveVisitorForQR(null)}>{t('common.close')}</button>
+          </div>
+        </div>
+      )}
+
+      {/* Selected Room Details Modal */}
+      {selectedRoom && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setSelectedRoom(null)}>
+          <div className="glass-panel animate-slide-up" style={{ maxWidth: '460px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{t('rooms.roomNumber')} {selectedRoom.roomNumber}</h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('rooms.block')} {selectedRoom.block} · {t('rooms.floor')} {selectedRoom.floor}</p>
+              </div>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setSelectedRoom(null)}><X size={16} /></button>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Users size={16} color="var(--primary)" /> {t('hostel.students')} ({selectedRoom.users?.length || 0} / {selectedRoom.capacity || 4})
+              </h4>
+
+              {(!selectedRoom.users || selectedRoom.users.length === 0) ? (
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('common.noData')}</p>
+              ) : (
+                <div style={{ display: 'grid', gap: '0.75rem' }}>
+                  {selectedRoom.users.map((u: any) => (
+                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{u.fullName}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('auth.registerNumber')}: {u.registerNumber || 'N/A'} · {t('auth.department')}: {u.department || 'N/A'}</div>
+                      </div>
+                      <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }} onClick={() => { setSelectedRoom(null); setSelectedStudentProfile(u); }}>
+                        {t('students.profile')} <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button className="btn btn-secondary" onClick={() => setSelectedRoom(null)}>{t('common.close')}</button>
+          </div>
+        </div>
+      )}
+
+      {/* Student 360° Profile Modal */}
+      {selectedStudentProfile && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setSelectedStudentProfile(null)}>
+          <div className="glass-panel animate-slide-up" style={{ maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: 'var(--radius-md)', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1.2rem', color: 'var(--primary-contrast)' }}>
+                  {selectedStudentProfile.fullName?.charAt(0) || 'S'}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {selectedStudentProfile.fullName}
+                    <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>{selectedStudentProfile.status}</span>
+                  </h3>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
+                    <span>{t('auth.registerNumber')}: {selectedStudentProfile.registerNumber || 'STU-001'}</span> ·
+                    <span>{t('rooms.roomNumber')}: {selectedStudentProfile.room?.roomNumber || 'Unassigned'}</span>
+                  </p>
+                </div>
+              </div>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setSelectedStudentProfile(null)}><X size={16} /></button>
+            </div>
+
+            <div className="profile-tabs" style={{ marginBottom: '0.5rem' }}>
+              {['personal', 'academic', 'hostel', 'leaves', 'complaints'].map(tab => (
+                <button
+                  key={tab}
+                  className={`profile-tab ${profileTab === tab ? 'active' : ''}`}
+                  onClick={() => setProfileTab(tab)}
+                  style={{ textTransform: 'capitalize' }}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            {profileTab === 'personal' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.85rem' }}>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('auth.email')}</div>
+                  <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.email}</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Phone size={12} /> {t('auth.mobile')}</div>
+                  <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.mobileNumber || 'Not provided'}</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>Blood Group</div>
+                  <div style={{ fontWeight: 600, marginTop: '0.2rem', color: '#ef4444' }}>{selectedStudentProfile.bloodGroup || 'O+'}</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)', gridColumn: 'span 2' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><MapPin size={12} /> {t('auth.address')}</div>
+                  <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.address || 'Address on file'}</div>
+                </div>
+              </div>
+            )}
+
+            {profileTab === 'academic' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.85rem' }}>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}><GraduationCap size={12} /> {t('auth.college')}</div>
+                  <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.collegeName || 'Engineering Campus'}</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('auth.department')}</div>
+                  <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.department || 'Computer Science'}</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('auth.year')}</div>
+                  <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.year || '3rd Year'}</div>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('auth.registerNumber')}</div>
+                  <div style={{ fontWeight: 600, marginTop: '0.2rem' }}>{selectedStudentProfile.registerNumber || 'REG-2026-99'}</div>
+                </div>
+              </div>
+            )}
+
+            {profileTab === 'hostel' && (
+              <div style={{ display: 'grid', gap: '1rem', fontSize: '0.85rem' }}>
+                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('hostel.name')}</div>
+                    <div style={{ fontWeight: 700, fontSize: '1rem' }}>{selectedStudentProfile.hostel?.name || 'Main Hostel Facility'}</div>
+                  </div>
+                  <Building2 size={24} color="var(--primary)" />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>{t('rooms.roomNumber')}</div>
+                    <div style={{ fontWeight: 700, marginTop: '0.2rem', color: 'var(--primary)' }}>{t('rooms.roomNumber')} {selectedStudentProfile.room?.roomNumber || 'Not assigned'}</div>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>QR Token</div>
+                    <div style={{ fontWeight: 600, marginTop: '0.2rem', color: selectedStudentProfile.qrToken ? '#10b981' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <CheckCheck size={14} /> {selectedStudentProfile.qrToken ? t('common.active') : t('common.pending')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {profileTab === 'leaves' && (
+              <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.85rem' }}>
+                {leavesHistory.filter((l: any) => l.userId === selectedStudentProfile.id).length === 0 ? (
+                  <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem' }}>{t('common.noData')}</p>
+                ) : (
+                  leavesHistory.filter((l: any) => l.userId === selectedStudentProfile.id).map((l: any) => (
+                    <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{l.reason}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(l.startDate).toLocaleDateString()} to {new Date(l.endDate).toLocaleDateString()}</div>
+                      </div>
+                      <span className={`badge ${l.status === 'APPROVED' ? 'badge-success' : l.status === 'REJECTED' ? 'badge-danger' : 'badge-warning'}`}>{l.status}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {profileTab === 'complaints' && (
+              <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.85rem' }}>
+                {complaints.filter((c: any) => c.userId === selectedStudentProfile.id).length === 0 ? (
+                  <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem' }}>{t('common.noData')}</p>
+                ) : (
+                  complaints.filter((c: any) => c.userId === selectedStudentProfile.id).map((c: any) => (
+                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{c.title}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('tables.category')}: {c.category}</div>
+                      </div>
+                      <span className={`badge ${c.status === 'RESOLVED' ? 'badge-success' : 'badge-warning'}`}>{c.status}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            <button className="btn btn-secondary" onClick={() => setSelectedStudentProfile(null)}>{t('common.close')}</button>
+          </div>
+        </div>
+      )}
+
+
+      {/* Mobile Bottom Navigation (Visible only on mobile screen widths) */}
+      {currentUser && (
+        <nav className="bottom-nav">
+          <button className={`bottom-nav-item ${subView === 'dashboard' ? 'active' : ''}`} onClick={() => setSubView('dashboard')}>
+            <Home size={20} />
+            <span>{t('nav.dashboard')}</span>
+          </button>
+          <button className={`bottom-nav-item ${subView === 'attendance' ? 'active' : ''}`} onClick={() => setSubView('attendance')}>
+            <QrCode size={20} />
+            <span>{t('nav.attendance')}</span>
+          </button>
+          <button className={`bottom-nav-item ${subView === 'ai_assistant' ? 'active' : ''}`} onClick={() => setSubView('ai_assistant')}>
+            <Bot size={20} />
+            <span>{t('nav.aiAssistant')}</span>
+          </button>
+          <button className={`bottom-nav-item ${subView === 'complaints' ? 'active' : ''}`} onClick={() => setSubView('complaints')}>
+            <AlertTriangle size={20} />
+            <span>{t('nav.complaints')}</span>
+          </button>
+          <button className="bottom-nav-item" onClick={() => setMobileMenuOpen(true)}>
+            <Menu size={20} />
+            <span>{t('common.all')}</span>
+          </button>
+        </nav>
+      )}
+
+
       {/* MODAL 1: ADD WORKER CATEGORY */}
       {showAddCategoryModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
@@ -7707,10 +7867,21 @@ export default function App() {
               </div>
 
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
-                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowEmergencyModal(false)}>{t('emergency.cancel')}</button>
-                <button className="btn btn-danger" style={{ flex: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }} onClick={handleTriggerEmergency}>
-                  <ShieldAlert size={15} />
-                  <span>{t('emergency.send')}</span>
+                <button className="btn btn-secondary" style={{ flex: 1, minHeight: '44px' }} onClick={() => setShowEmergencyModal(false)} disabled={isSendingEmergency}>{t('emergency.cancel')}</button>
+                <button
+                  className="btn btn-danger"
+                  style={{ flex: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', minHeight: '44px' }}
+                  onClick={handleTriggerEmergency}
+                  disabled={isSendingEmergency}
+                >
+                  {isSendingEmergency ? (
+                    <span>Sending Alert...</span>
+                  ) : (
+                    <>
+                      <ShieldAlert size={16} />
+                      <span>{t('emergency.send')}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
