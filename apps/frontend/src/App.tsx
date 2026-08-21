@@ -4570,102 +4570,179 @@ export default function App() {
               </div>
             )}
 
-            {subView === 'rooms' && (currentUser?.role === 'WARDEN' || currentUser?.role === 'SUPER_ADMIN') && (
-              <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>{t('rooms.addRoom')}</h3>
-                <form onSubmit={handleCreateRoom} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-                  <input className="form-input" type="text" value={newRoomBlock} onChange={e => setNewRoomBlock(e.target.value)} placeholder={t('rooms.block')} required />
-                  <input className="form-input" type="number" value={newRoomFloor} onChange={e => setNewRoomFloor(e.target.value)} placeholder={t('rooms.floor')} required />
-                  <input className="form-input" type="text" value={newRoomNumber} onChange={e => setNewRoomNumber(e.target.value)} placeholder={t('rooms.roomNumber')} required />
-                  <input className="form-input" type="number" value={newRoomCapacity} onChange={e => setNewRoomCapacity(e.target.value)} placeholder={t('rooms.capacity')} required />
-                  <select className="form-input" value={newRoomHostelId} onChange={e => setNewRoomHostelId(e.target.value)}>
-                    {hostels.map(h => (
-                      <option key={h.id} value={h.id}>{h.name}</option>
-                    ))}
-                  </select>
-                  <button className="btn btn-primary" type="submit">{t('rooms.addRoom')}</button>
-                </form>
-                <div>
-                  <div className="flex-responsive-between" style={{ marginBottom: '1rem', marginTop: '1.5rem' }}>
-                    <h4 style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <Building2 size={18} color="var(--primary)" /> {t('rooms.title')} ({rooms.length})
-                    </h4>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      {['all', 'available', 'full'].map(filter => (
-                        <button
-                          key={filter}
-                          type="button"
-                          className={`btn ${roomFilter === filter ? 'btn-primary' : 'btn-secondary'}`}
-                          style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem', textTransform: 'capitalize' }}
-                          onClick={() => setRoomFilter(filter)}
-                        >
-                          {filter === 'all' ? t('common.all') : filter === 'available' ? t('common.available') : t('common.occupied')}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+            {/* 3. ROOMS MODULE */}
+            {subView === 'rooms' && currentUser && (
+              <div className="glass-panel animate-slide-up" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {currentUser.role === 'STUDENT' ? (
+                  <div>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Building2 size={24} color="var(--primary)" />
+                      <span>{t('rooms.roomDetails')}</span>
+                    </h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+                      {t('hostel.name')}: <strong>{currentUser.hostel?.name || hostels.find(h => h.id === currentUser.hostelId)?.name || 'Main Campus Hostel'}</strong>
+                    </p>
 
-                  <div className="occupancy-grid">
-                    {rooms
-                      .filter(r => {
-                        const occupied = r.users?.length || 0;
-                        if (roomFilter === 'available') return occupied < (r.capacity || 4);
-                        if (roomFilter === 'full') return occupied >= (r.capacity || 4);
-                        return true;
-                      })
-                      .map((r, idx) => {
-                        const occupied = r.users?.length || 0;
-                        const cap = r.capacity || 4;
-                        const pct = Math.round((occupied / cap) * 100);
-                        const statusClass = occupied >= cap ? 'full' : occupied > 0 ? 'partial' : 'available';
+                    {currentUser.room || rooms.find(r => r.id === currentUser.roomId || r.roomNumber === currentUser.room?.roomNumber) ? (() => {
+                      const myRoom = rooms.find(r => r.id === currentUser.roomId || r.roomNumber === currentUser.room?.roomNumber) || currentUser.room;
+                      const roommates = myRoom?.users || [];
+                      const roomCapacity = myRoom?.capacity || 4;
 
-                        return (
-                          <div
-                            key={idx}
-                            className={`occupancy-card ${statusClass}`}
-                            onClick={() => setSelectedRoom(r)}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>{t('rooms.roomNumber')} {r.roomNumber}</span>
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t('rooms.floor')} {r.floor}</span>
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                          {/* Room Summary Card */}
+                          <div className="dashboard-grid">
+                            <div className="glass-panel stat-card" style={{ padding: '1.25rem' }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{t('rooms.roomNumber')}</span>
+                              <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.25rem' }}>{myRoom?.roomNumber || 'N/A'}</h3>
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                              {r.block}
+                            <div className="glass-panel stat-card" style={{ padding: '1.25rem' }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{t('rooms.block')}</span>
+                              <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.25rem' }}>{myRoom?.block || 'A'}</h3>
                             </div>
-
-                            <div className="bed-dots">
-                              {Array.from({ length: cap }).map((_, i) => (
-                                <div key={i} className={`bed-dot ${i < occupied ? 'occupied' : 'empty'}`} />
-                              ))}
+                            <div className="glass-panel stat-card" style={{ padding: '1.25rem' }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{t('rooms.floor')}</span>
+                              <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--info)', marginTop: '0.25rem' }}>Floor {myRoom?.floor ?? 1}</h3>
                             </div>
-
-                            <div className="occupancy-bar">
-                              <div className={`occupancy-bar-fill ${statusClass}`} style={{ width: `${pct}%` }} />
-                            </div>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.4rem', textAlign: 'right' }}>
-                              {occupied}/{cap} {t('rooms.totalBeds')}
+                            <div className="glass-panel stat-card" style={{ padding: '1.25rem' }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{t('rooms.occupancy')}</span>
+                              <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.25rem' }}>{roommates.length}/{roomCapacity}</h3>
                             </div>
                           </div>
-                        );
-                      })}
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {subView === 'laundry' && (
-              <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>{t('laundry.title')}</h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>{t('laundry.slot')}</p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                  {['Morning 08:00 - 10:00', 'Mid-Day 11:00 - 13:00', 'Afternoon 14:00 - 16:00', 'Evening 17:00 - 19:00'].map((slot, i) => (
-                    <div key={i} style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                      <span style={{ fontWeight: 700 }}>{slot}</span>
-                      <span className="badge badge-success">{t('laundry.available')}</span>
-                      <button className="btn btn-primary" style={{ padding: '0.5rem' }} onClick={() => showToast('success', t('common.success'), t('dialogs.saveSuccess'))}>{t('laundry.bookSlot')}</button>
+                          {/* Roommates List */}
+                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <Users size={18} color="var(--primary)" />
+                              <span>{t('students.title')} ({roommates.length})</span>
+                            </h3>
+                            {roommates.length === 0 ? (
+                              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>You are the primary resident assigned to this room.</p>
+                            ) : (
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                                {roommates.map((rm: any) => (
+                                  <div key={rm.id || rm.email} className="glass-panel" style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', border: rm.id === currentUser.id ? '1px solid var(--primary)' : '1px solid var(--border-color)' }}>
+                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--primary)' }}>
+                                      {rm.fullName ? rm.fullName.charAt(0) : 'S'}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rm.fullName}</span>
+                                        {rm.id === currentUser.id && <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>You</span>}
+                                      </div>
+                                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{rm.registerNumber || rm.department || 'Resident'}</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Quick Room Emergency Action */}
+                          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <button
+                              className="btn btn-danger"
+                              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                              onClick={() => {
+                                setEmergencyLevel('ROOM');
+                                setShowEmergencyModal(true);
+                              }}
+                            >
+                              <ShieldAlert size={16} />
+                              <span>{t('emergency.room')} {t('emergency.title')}</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })() : (
+                      <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
+                        <Home size={40} style={{ opacity: 0.3, marginBottom: '0.75rem' }} />
+                        <h4 style={{ fontWeight: 700, fontSize: '1.1rem' }}>No Room Allocated Yet</h4>
+                        <p style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>Please contact your hostel warden for room and bed assignment.</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>{t('rooms.addRoom')}</h3>
+                    <form onSubmit={handleCreateRoom} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+                      <input className="form-input" type="text" value={newRoomBlock} onChange={e => setNewRoomBlock(e.target.value)} placeholder={t('rooms.block')} required />
+                      <input className="form-input" type="number" value={newRoomFloor} onChange={e => setNewRoomFloor(e.target.value)} placeholder={t('rooms.floor')} required />
+                      <input className="form-input" type="text" value={newRoomNumber} onChange={e => setNewRoomNumber(e.target.value)} placeholder={t('rooms.roomNumber')} required />
+                      <input className="form-input" type="number" value={newRoomCapacity} onChange={e => setNewRoomCapacity(e.target.value)} placeholder={t('rooms.capacity')} required />
+                      <select className="form-input" value={newRoomHostelId} onChange={e => setNewRoomHostelId(e.target.value)}>
+                        {hostels.map(h => (
+                          <option key={h.id} value={h.id}>{h.name}</option>
+                        ))}
+                      </select>
+                      <button className="btn btn-primary" type="submit">{t('rooms.addRoom')}</button>
+                    </form>
+
+                    <div className="flex-responsive-between" style={{ marginBottom: '1rem', marginTop: '1.5rem' }}>
+                      <h4 style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Building2 size={18} color="var(--primary)" /> {t('rooms.title')} ({rooms.length})
+                      </h4>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {['all', 'available', 'full'].map(filter => (
+                          <button
+                            key={filter}
+                            type="button"
+                            className={`btn ${roomFilter === filter ? 'btn-primary' : 'btn-secondary'}`}
+                            style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem', textTransform: 'capitalize' }}
+                            onClick={() => setRoomFilter(filter)}
+                          >
+                            {filter === 'all' ? t('common.all') : filter === 'available' ? t('common.available') : t('common.occupied')}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
+
+                    <div className="occupancy-grid">
+                      {rooms
+                        .filter(r => {
+                          const occupied = r.users?.length || 0;
+                          if (roomFilter === 'available') return occupied < (r.capacity || 4);
+                          if (roomFilter === 'full') return occupied >= (r.capacity || 4);
+                          return true;
+                        })
+                        .map((r, idx) => {
+                          const occupied = r.users?.length || 0;
+                          const cap = r.capacity || 4;
+                          const pct = Math.round((occupied / cap) * 100);
+                          const statusClass = occupied >= cap ? 'full' : occupied > 0 ? 'partial' : 'available';
+
+                          return (
+                            <div
+                              key={idx}
+                              className={`occupancy-card ${statusClass}`}
+                              onClick={() => setSelectedRoom(r)}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>{t('rooms.roomNumber')} {r.roomNumber}</span>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t('rooms.floor')} {r.floor}</span>
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                                {r.block}
+                              </div>
+
+                              <div className="bed-dots">
+                                {Array.from({ length: cap }).map((_, i) => (
+                                  <div key={i} className={`bed-dot ${i < occupied ? 'occupied' : 'empty'}`} />
+                                ))}
+                              </div>
+
+                              <div className="occupancy-bar">
+                                <div className={`occupancy-bar-fill ${statusClass}`} style={{ width: `${pct}%` }} />
+                              </div>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.4rem', textAlign: 'right' }}>
+                                {occupied}/{cap} {t('rooms.totalBeds')}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

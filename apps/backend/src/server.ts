@@ -448,6 +448,22 @@ app.patch('/api/visitors/:id', authMiddleware, requireRole(['HOSTEL_ADMIN', 'ASS
       where: { id },
       data
     });
+
+    if (updated.studentId) {
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: updated.studentId,
+            type: 'VISITOR_UPDATE',
+            title: `Visitor Pass ${status || 'Updated'}`,
+            message: `Visitor pass for ${updated.name} on ${new Date(updated.visitDate).toLocaleDateString()} is now ${updated.status}.`
+          }
+        });
+      } catch (notifErr) {
+        console.error('Error notifying student on visitor pass update:', notifErr);
+      }
+    }
+
     res.json({ success: true, data: updated });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -747,6 +763,21 @@ app.patch('/api/leaves/:id', authMiddleware, requireRole(['HOSTEL_ADMIN', 'ASSIS
       where: { id },
       data: { status, remarks }
     });
+
+    if (leave.userId) {
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: leave.userId,
+            type: 'LEAVE_UPDATE',
+            title: `Leave Request ${status === 'APPROVED' ? 'Approved' : 'Rejected'}`,
+            message: `Your leave request from ${new Date(leave.startDate).toLocaleDateString()} to ${new Date(leave.endDate).toLocaleDateString()} has been ${status.toLowerCase()}.${remarks ? ' Remarks: ' + remarks : ''}`
+          }
+        });
+      } catch (notifErr) {
+        console.error('Error notifying student on leave update:', notifErr);
+      }
+    }
 
     res.json({ success: true, message: `Leave request ${status.toLowerCase()} successfully!`, data: leave });
   } catch (err: any) {
@@ -1182,6 +1213,19 @@ app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['HOSTEL_ADMIN',
         where: { id: qrRecord.id },
         data: { status: 'USED', usedAt: new Date() }
       });
+    }
+
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: student.id,
+          type: 'ATTENDANCE_MARKED',
+          title: 'Attendance Marked Present',
+          message: `Your attendance for ${targetSession} session on ${targetDate.toLocaleDateString()} was recorded successfully. Distance: ${distMeters !== null ? Math.round(distMeters * 10) / 10 + 'm' : 'Verified'}.`
+        }
+      });
+    } catch (notifErr) {
+      console.error('Error notifying student on attendance marked:', notifErr);
     }
 
     res.json({

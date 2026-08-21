@@ -592,8 +592,81 @@ router.patch('/laundry/:id', authMiddleware, async (req: AuthRequest, res: Respo
   const { status, notes } = req.body;
   try {
     const slot = await prisma.laundrySlot.update({ where: { id }, data: { status, notes } });
-    if (status === 'DELIVERED') await createNotification(slot.userId, 'Laundry Delivered', 'Your laundry has been delivered to your room.', 'ANNOUNCEMENT', 'laundry');
+    if (status === 'DELIVERED') {
+      await createNotification(slot.userId, 'Laundry Delivered', 'Your laundry has been delivered to your room.', 'ANNOUNCEMENT', 'laundry');
+    }
+
+    if (status === 'CANCELLED' || status === 'DELIVERED') {
+      const startOfDay = new Date(slot.date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(slot.date);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const waitingList = await prisma.laundryWaitlist.findMany({
+        where: {
+          timeSlot: slot.timeSlot,
+          date: { gte: startOfDay, lte: endOfDay },
+          status: 'WAITING'
+        }
+      });
+
+      for (const entry of waitingList) {
+        await prisma.notification.create({
+          data: {
+            userId: entry.userId,
+            type: 'LAUNDRY_AVAILABLE',
+            title: 'Laundry Slot Available',
+            message: `A laundry slot for ${entry.timeSlot} on ${new Date(entry.date).toLocaleDateString()} has become available! Book your slot now.`
+          }
+        });
+        await prisma.laundryWaitlist.update({
+          where: { id: entry.id },
+          data: { status: 'NOTIFIED' }
+        });
+      }
+    }
+
     res.json({ success: true, data: slot });
+  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+router.delete('/laundry/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const slot = await prisma.laundrySlot.findUnique({ where: { id } });
+    if (!slot) { res.status(404).json({ success: false, error: 'Slot not found' }); return; }
+
+    await prisma.laundrySlot.delete({ where: { id } });
+
+    const startOfDay = new Date(slot.date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(slot.date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const waitingList = await prisma.laundryWaitlist.findMany({
+      where: {
+        timeSlot: slot.timeSlot,
+        date: { gte: startOfDay, lte: endOfDay },
+        status: 'WAITING'
+      }
+    });
+
+    for (const entry of waitingList) {
+      await prisma.notification.create({
+        data: {
+          userId: entry.userId,
+          type: 'LAUNDRY_AVAILABLE',
+          title: 'Laundry Slot Available',
+          message: `A laundry slot for ${entry.timeSlot} on ${new Date(entry.date).toLocaleDateString()} has opened up! Book your slot now.`
+        }
+      });
+      await prisma.laundryWaitlist.update({
+        where: { id: entry.id },
+        data: { status: 'NOTIFIED' }
+      });
+    }
+
+    res.json({ success: true, message: 'Laundry booking cancelled and waitlist notified.' });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
@@ -999,19 +1072,44 @@ router.post('/worker/complaints/:id/reject', authMiddleware, async (req: AuthReq
       where: { id },
       data: {
         status: 'REJECTED',
+        workerId: null,
+        staffId: null,
         rejectedAt: new Date(),
         rejectionReason: reason || 'Not specified',
         timeline: {
           create: {
             event: 'REJECTED',
             title: 'Worker Rejected Assignment',
-            description: `Reason: ${reason || 'Not specified'}`,
+            description: `Worker ${actorName} rejected the assignment. Reason: ${reason || 'Not specified'}`,
             actorName: actorName,
             actorRole: 'WORKER'
           }
         }
       }
     });
+
+    // Notify Hostel Admins and Wardens so they can reassign
+    try {
+      const targetAdmins = await prisma.user.findMany({
+        where: {
+          role: { in: ['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'WARDEN'] },
+          ...(complaint.hostelId ? { OR: [{ hostelId: complaint.hostelId }, { role: 'SUPER_ADMIN' }] } : {})
+        }
+      });
+
+      if (targetAdmins.length > 0) {
+        await prisma.notification.createMany({
+          data: targetAdmins.map(admin => ({
+            userId: admin.id,
+            type: 'COMPLAINT_REJECTED',
+            title: 'Complaint Assignment Rejected',
+            message: `Worker ${actorName} rejected complaint "${complaint.title}". Reason: ${reason || 'Not specified'}. Ready for reassignment.`
+          }))
+        });
+      }
+    } catch (notifErr) {
+      console.error('Error notifying admins on worker rejection:', notifErr);
+    }
 
     res.json({ success: true, data: complaint });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
