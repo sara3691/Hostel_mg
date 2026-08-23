@@ -1,7 +1,6 @@
 import { Router, Response } from 'express';
 import { prisma } from './prisma';
 import { authMiddleware, requirePermission, requireRole, AuthRequest } from './auth.middleware';
-import { pushService } from './push.service';
 import { Role, GatePassStatus, NoticeAudience } from '@prisma/client';
 
 const router = Router();
@@ -112,101 +111,6 @@ router.post('/students/:id/status', authMiddleware, requirePermission('manage_st
     res.json({ success: true, data: updatedUser });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
-
-// GET /api/students/:id - Full 360° student profile
-router.get('/students/:id/profile', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const { id } = req.params;
-  try {
-    const student = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true, fullName: true, email: true, role: true, status: true,
-        mobileNumber: true, registerNumber: true, department: true, year: true,
-        collegeName: true, gender: true, bloodGroup: true, photo: true,
-        address: true, emergencyContact: true, medicalDetails: true,
-        guardianName: true, guardianMobile: true, guardianRelation: true,
-        createdAt: true, qrToken: true, hostelId: true, roomId: true, messId: true,
-        hostel: { select: { name: true, code: true, collegeName: true, address: true } },
-        room: { select: { roomNumber: true, block: true, floor: true, capacity: true } },
-        documents: true,
-        leaves: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-          select: { id: true, startDate: true, endDate: true, reason: true, status: true, createdAt: true }
-        },
-        complaintsRaised: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-          select: { id: true, title: true, category: true, status: true, priority: true, createdAt: true }
-        },
-        fees: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-          select: { id: true, title: true, amount: true, status: true, dueDate: true }
-        },
-        attendances: {
-          orderBy: { date: 'desc' },
-          take: 30,
-          select: { id: true, date: true, isPresent: true, session: true }
-        }
-      }
-    });
-    if (!student) { res.status(404).json({ success: false, error: 'Student not found' }); return; }
-
-    // Compute attendance summary
-    const attended = student.attendances.filter((a: any) => a.isPresent).length;
-    const total = student.attendances.length;
-    const attendanceSummary = {
-      total,
-      present: attended,
-      absent: total - attended,
-      percentage: total > 0 ? Math.round((attended / total) * 100) : 100
-    };
-
-    res.json({ success: true, data: { ...student, attendanceSummary } });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-// GET /api/dashboard/stats - Role-specific dashboard statistics
-router.get('/dashboard/stats', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const user = req.user!;
-    const hostelFilter = user.role !== 'SUPER_ADMIN' && user.hostelId ? { hostelId: user.hostelId } : {};
-
-    const [totalStudents, totalRooms, pendingLeaves, openComplaints, totalHostels, recentAttendances] = await Promise.all([
-      prisma.user.count({ where: { role: 'STUDENT', isDeleted: false, ...hostelFilter } }),
-      prisma.room.count({ where: { ...hostelFilter } }),
-      prisma.leave.count({ where: { status: 'PENDING', ...(hostelFilter.hostelId ? { user: { hostelId: hostelFilter.hostelId } } : {}) } }),
-      prisma.complaint.count({ where: { status: { in: ['PENDING', 'ASSIGNED', 'IN_PROGRESS'] }, ...hostelFilter } }),
-      user.role === 'SUPER_ADMIN' ? prisma.hostel.count() : Promise.resolve(1),
-      prisma.attendance.findMany({
-        where: {
-          date: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-          ...(hostelFilter.hostelId ? { user: { hostelId: hostelFilter.hostelId } } : {})
-        },
-        select: { isPresent: true }
-      })
-    ]);
-
-    const weeklyPresent = recentAttendances.filter(a => a.isPresent).length;
-    const weeklyTotal = recentAttendances.length;
-
-    res.json({
-      success: true,
-      data: {
-        totalStudents,
-        totalRooms,
-        totalHostels,
-        pendingLeaves,
-        openComplaints,
-        weeklyAttendance: weeklyTotal > 0 ? Math.round((weeklyPresent / weeklyTotal) * 100) : 0,
-        weeklyPresent,
-        weeklyTotal
-      }
-    });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
 
 // ============================================================
 // HOSTEL SETTINGS
@@ -323,6 +227,413 @@ router.post('/mess-menus', authMiddleware, requirePermission('manage_mess'), asy
     await logActivity(req, 'Updated mess menu for ' + dayOfWeek, 'MESS');
     res.json({ success: true, data: menu });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ============================================================
+// MEAL CONFIRMATION & SKIP SYSTEM
+// ============================================================
+
+router.get('/meals', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const { date, hostelId, block, floor } = req.query;
+  const targetDate = date ? new Date(date as string) : new Date();
+  const cleanDate = new Date(targetDate.setUTCHours(0, 0, 0, 0));
+
+  try {
+    if (req.user?.role === 'STUDENT') {
+      const student = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { hostelId: true, messId: true }
+      });
+      if (!student || !student.hostelId) {
+        res.json({ success: true, data: [] });
+        return;
+      }
+      const studentHostelId = student.hostelId;
+      const studentMessId = student.messId;
+
+      // Fetch active meals for student's hostel/mess
+      const meals = await prisma.meal.findMany({
+        where: {
+          date: cleanDate,
+          hostelId: studentHostelId,
+          messId: studentMessId || null
+        },
+        orderBy: { mealTime: 'asc' }
+      });
+
+      // Fetch leaves for this student to check if they are away
+      const isOnLeave = await prisma.leave.findFirst({
+        where: {
+          userId: req.user.id,
+          status: 'APPROVED',
+          startDate: { lte: cleanDate },
+          endDate: { gte: cleanDate }
+        }
+      });
+
+      const data = await Promise.all(meals.map(async (meal) => {
+        const confirmation = await prisma.mealConfirmation.findUnique({
+          where: {
+            mealId_studentId: {
+              mealId: meal.id,
+              studentId: req.user!.id
+            }
+          }
+        });
+
+        // Cutoff check
+        const isClosed = new Date() >= new Date(meal.cutoffTime);
+
+        // If student is on approved leave, they are marked as SKIPPED automatically
+        let displayStatus = 'TAKING';
+        if (isOnLeave) {
+          displayStatus = 'SKIPPED';
+        } else if (confirmation) {
+          displayStatus = confirmation.status;
+        }
+
+        return {
+          ...meal,
+          status: meal.status,
+          userStatus: displayStatus,
+          isClosed,
+          isOnLeave: !!isOnLeave
+        };
+      }));
+
+      res.json({ success: true, data });
+    } else {
+      // Admin / Mess Manager View: get stats
+      const filterHostelId = (hostelId as string) || req.user?.hostelId;
+      
+      const whereClause: any = {
+        date: cleanDate
+      };
+      if (filterHostelId) {
+        whereClause.hostelId = filterHostelId;
+      }
+
+      const meals = await prisma.meal.findMany({
+        where: whereClause,
+        orderBy: { mealTime: 'asc' }
+      });
+
+      const data = await Promise.all(meals.map(async (meal) => {
+        // Find active students eligible for this meal
+        const studentQuery: any = {
+          role: 'STUDENT',
+          isDeleted: false,
+          status: 'APPROVED',
+          hostelId: meal.hostelId
+        };
+        if (meal.messId) studentQuery.messId = meal.messId;
+
+        if (block || floor) {
+          studentQuery.room = {};
+          if (block) studentQuery.room.block = block as string;
+          if (floor) studentQuery.room.floor = parseInt(floor as string);
+        }
+
+        const activeStudents = await prisma.user.findMany({
+          where: studentQuery,
+          select: { id: true, hostelId: true }
+        });
+
+        const activeStudentIds = activeStudents.map(s => s.id);
+
+        // Find approved leaves covering this date
+        const leaves = await prisma.leave.findMany({
+          where: {
+            status: 'APPROVED',
+            startDate: { lte: meal.date },
+            endDate: { gte: meal.date },
+            userId: { in: activeStudentIds }
+          },
+          select: { userId: true }
+        });
+        const onLeaveStudentIds = new Set(leaves.map(l => l.userId));
+
+        // Eligible students
+        const eligibleStudents = activeStudents.filter(s => !onLeaveStudentIds.has(s.id));
+        const eligibleStudentIds = eligibleStudents.map(s => s.id);
+
+        // Find confirmations
+        const confirmations = await prisma.mealConfirmation.findMany({
+          where: {
+            mealId: meal.id,
+            studentId: { in: eligibleStudentIds }
+          }
+        });
+
+        const skippedStudentIds = new Set(
+          confirmations.filter(c => c.status === 'SKIPPED').map(c => c.studentId)
+        );
+
+        const totalEligible = eligibleStudents.length;
+        const skippedCount = skippedStudentIds.size;
+        const takingCount = totalEligible - skippedCount;
+
+        // Hostel-wise Breakdown
+        const hostels = await prisma.hostel.findMany();
+        const hostelBreakdown = await Promise.all(hostels.map(async (h) => {
+          const hActive = activeStudents.filter(s => s.hostelId === h.id);
+          const hActiveIds = hActive.map(s => s.id);
+          const hLeaves = leaves.filter(l => hActiveIds.includes(l.userId));
+          const hLeaveUserIds = new Set(hLeaves.map(l => l.userId));
+          
+          const hEligible = hActive.filter(s => !hLeaveUserIds.has(s.id));
+          const hEligibleIds = hEligible.map(s => s.id);
+          
+          const hConfirmations = confirmations.filter(c => hEligibleIds.includes(c.studentId));
+          const hSkipped = hConfirmations.filter(c => c.status === 'SKIPPED').length;
+          
+          const hEligibleCount = hEligible.length;
+          const hTakingCount = hEligibleCount - hSkipped;
+
+          return {
+            hostelId: h.id,
+            hostelName: h.name,
+            eligible: hEligibleCount,
+            skipped: hSkipped,
+            taking: hTakingCount
+          };
+        }));
+
+        return {
+          ...meal,
+          isClosed: new Date() >= new Date(meal.cutoffTime),
+          stats: {
+            totalEligible,
+            skippedCount,
+            takingCount,
+            hostelBreakdown: hostelBreakdown.filter(h => h.eligible > 0)
+          }
+        };
+      }));
+
+      res.json({ success: true, data });
+    }
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/meals', authMiddleware, requirePermission('manage_mess'), async (req: AuthRequest, res: Response) => {
+  const { date, type, menu, cutoffTime, mealTime, hostelId, messId } = req.body;
+  if (!date || !type || !menu || !cutoffTime || !mealTime || !hostelId) {
+    res.status(400).json({ success: false, error: 'Missing parameters' });
+    return;
+  }
+  const cleanDate = new Date(new Date(date).setUTCHours(0, 0, 0, 0));
+
+  try {
+    const meal = await prisma.meal.upsert({
+      where: {
+        date_type_hostelId_messId: {
+          date: cleanDate,
+          type,
+          hostelId,
+          messId: messId || null
+        }
+      },
+      update: {
+        menu,
+        cutoffTime: new Date(cutoffTime),
+        mealTime: new Date(mealTime),
+        status: 'ACTIVE'
+      },
+      create: {
+        date: cleanDate,
+        type,
+        menu,
+        cutoffTime: new Date(cutoffTime),
+        mealTime: new Date(mealTime),
+        hostelId,
+        messId: messId || null,
+        status: 'ACTIVE'
+      }
+    });
+
+    // Notify eligible students
+    const students = await prisma.user.findMany({
+      where: { role: 'STUDENT', hostelId, messId: messId || null, isDeleted: false }
+    });
+    for (const student of students) {
+      await createNotification(
+        student.id,
+        'New Meal Menu Published',
+        `Menu for ${type} on ${new Date(date).toLocaleDateString()} is published: ${menu}`,
+        'MESS',
+        'mess_confirm'
+      );
+    }
+
+    await logActivity(req, 'Published Meal: ' + type + ' for ' + date, 'MESS');
+    res.status(201).json({ success: true, data: meal });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/meals/:id/confirm', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!status || !['TAKING', 'SKIPPED'].includes(status)) {
+    res.status(400).json({ success: false, error: 'Invalid status' });
+    return;
+  }
+
+  try {
+    const meal = await prisma.meal.findUnique({ where: { id } });
+    if (!meal) {
+      res.status(404).json({ success: false, error: 'Meal not found' });
+      return;
+    }
+
+    if (meal.status === 'CANCELLED') {
+      res.status(400).json({ success: false, error: 'Meal is cancelled' });
+      return;
+    }
+
+    if (new Date() >= new Date(meal.cutoffTime)) {
+      res.status(400).json({ success: false, error: 'Meal confirmation is closed for this meal.' });
+      return;
+    }
+
+    const confirmation = await prisma.mealConfirmation.upsert({
+      where: {
+        mealId_studentId: {
+          mealId: id,
+          studentId: req.user!.id
+        }
+      },
+      update: { status },
+      create: {
+        mealId: id,
+        studentId: req.user!.id,
+        status
+      }
+    });
+
+    res.json({ success: true, data: confirmation });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.patch('/meals/:id/cancel', authMiddleware, requirePermission('manage_mess'), async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const meal = await prisma.meal.update({
+      where: { id },
+      data: { status: 'CANCELLED' }
+    });
+
+    // Notify students
+    const students = await prisma.user.findMany({
+      where: { role: 'STUDENT', hostelId: meal.hostelId, messId: meal.messId || null, isDeleted: false }
+    });
+    for (const student of students) {
+      await createNotification(
+        student.id,
+        'Meal Cancelled',
+        `The ${meal.type} on ${new Date(meal.date).toLocaleDateString()} has been cancelled.`,
+        'MESS'
+      );
+    }
+
+    await logActivity(req, 'Cancelled Meal: ' + meal.type + ' for ' + meal.date, 'MESS');
+    res.json({ success: true, data: meal });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.get('/meals/history', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    if (req.user?.role === 'STUDENT') {
+      const confirmations = await prisma.mealConfirmation.findMany({
+        where: { studentId: req.user.id },
+        include: { meal: true },
+        orderBy: { meal: { date: 'desc' } },
+        take: 100
+      });
+
+      const data = confirmations.map(c => ({
+        date: c.meal.date,
+        meal: c.meal.type,
+        status: c.status,
+        menu: c.meal.menu
+      }));
+
+      res.json({ success: true, data });
+    } else {
+      const filterHostelId = req.query.hostelId as string || req.user?.hostelId;
+      const whereClause: any = {};
+      if (filterHostelId) {
+        whereClause.hostelId = filterHostelId;
+      }
+
+      const meals = await prisma.meal.findMany({
+        where: whereClause,
+        orderBy: { date: 'desc' },
+        take: 150
+      });
+
+      const data = await Promise.all(meals.map(async (meal) => {
+        const studentQuery: any = {
+          role: 'STUDENT',
+          isDeleted: false,
+          status: 'APPROVED',
+          hostelId: meal.hostelId
+        };
+        if (meal.messId) studentQuery.messId = meal.messId;
+
+        const activeStudents = await prisma.user.findMany({
+          where: studentQuery,
+          select: { id: true }
+        });
+        const activeStudentIds = activeStudents.map(s => s.id);
+
+        const leaves = await prisma.leave.findMany({
+          where: {
+            status: 'APPROVED',
+            startDate: { lte: meal.date },
+            endDate: { gte: meal.date },
+            userId: { in: activeStudentIds }
+          },
+          select: { userId: true }
+        });
+        const onLeaveStudentIds = new Set(leaves.map(l => l.userId));
+        const eligibleStudents = activeStudents.filter(s => !onLeaveStudentIds.has(s.id));
+        const eligibleStudentIds = eligibleStudents.map(s => s.id);
+
+        const confirmations = await prisma.mealConfirmation.findMany({
+          where: { mealId: meal.id, studentId: { in: eligibleStudentIds } }
+        });
+
+        const skipped = confirmations.filter(c => c.status === 'SKIPPED').length;
+        const eligible = eligibleStudents.length;
+        const taking = eligible - skipped;
+
+        return {
+          id: meal.id,
+          date: meal.date,
+          meal: meal.type,
+          eligible,
+          taking,
+          skipped,
+          menu: meal.menu,
+          status: meal.status
+        };
+      }));
+
+      res.json({ success: true, data });
+    }
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // ============================================================
@@ -548,21 +859,6 @@ router.patch('/gate-passes/:id', authMiddleware, async (req: AuthRequest, res: R
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-router.delete('/gate-passes/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const { id } = req.params;
-  try {
-    const pass = await prisma.gatePass.findUnique({ where: { id } });
-    if (!pass) { res.status(404).json({ success: false, error: 'Gate pass not found' }); return; }
-    if (req.user?.role === 'STUDENT' && pass.studentId !== req.user.id) {
-      res.status(403).json({ success: false, error: 'Unauthorized to cancel this pass' });
-      return;
-    }
-    await prisma.gatePass.delete({ where: { id } });
-    await logActivity(req, 'Cancelled gate pass #' + id, 'GATE_PASS');
-    res.json({ success: true, message: 'Gate pass cancelled successfully' });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
 router.post('/gate-passes/scan', authMiddleware, async (req: AuthRequest, res: Response) => {
   const { qrCode, action } = req.body;
   if (!qrCode) { res.status(400).json({ success: false, error: 'QR code required' }); return; }
@@ -608,81 +904,8 @@ router.patch('/laundry/:id', authMiddleware, async (req: AuthRequest, res: Respo
   const { status, notes } = req.body;
   try {
     const slot = await prisma.laundrySlot.update({ where: { id }, data: { status, notes } });
-    if (status === 'DELIVERED') {
-      await createNotification(slot.userId, 'Laundry Delivered', 'Your laundry has been delivered to your room.', 'ANNOUNCEMENT', 'laundry');
-    }
-
-    if (status === 'CANCELLED' || status === 'DELIVERED') {
-      const startOfDay = new Date(slot.date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(slot.date);
-      endOfDay.setHours(23, 59, 59, 999);
-
-      const waitingList = await prisma.laundryWaitlist.findMany({
-        where: {
-          timeSlot: slot.timeSlot,
-          date: { gte: startOfDay, lte: endOfDay },
-          status: 'WAITING'
-        }
-      });
-
-      for (const entry of waitingList) {
-        await prisma.notification.create({
-          data: {
-            userId: entry.userId,
-            type: 'LAUNDRY_AVAILABLE',
-            title: 'Laundry Slot Available',
-            message: `A laundry slot for ${entry.timeSlot} on ${new Date(entry.date).toLocaleDateString()} has become available! Book your slot now.`
-          }
-        });
-        await prisma.laundryWaitlist.update({
-          where: { id: entry.id },
-          data: { status: 'NOTIFIED' }
-        });
-      }
-    }
-
+    if (status === 'DELIVERED') await createNotification(slot.userId, 'Laundry Delivered', 'Your laundry has been delivered to your room.', 'ANNOUNCEMENT', 'laundry');
     res.json({ success: true, data: slot });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.delete('/laundry/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const { id } = req.params;
-  try {
-    const slot = await prisma.laundrySlot.findUnique({ where: { id } });
-    if (!slot) { res.status(404).json({ success: false, error: 'Slot not found' }); return; }
-
-    await prisma.laundrySlot.delete({ where: { id } });
-
-    const startOfDay = new Date(slot.date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(slot.date);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const waitingList = await prisma.laundryWaitlist.findMany({
-      where: {
-        timeSlot: slot.timeSlot,
-        date: { gte: startOfDay, lte: endOfDay },
-        status: 'WAITING'
-      }
-    });
-
-    for (const entry of waitingList) {
-      await prisma.notification.create({
-        data: {
-          userId: entry.userId,
-          type: 'LAUNDRY_AVAILABLE',
-          title: 'Laundry Slot Available',
-          message: `A laundry slot for ${entry.timeSlot} on ${new Date(entry.date).toLocaleDateString()} has opened up! Book your slot now.`
-        }
-      });
-      await prisma.laundryWaitlist.update({
-        where: { id: entry.id },
-        data: { status: 'NOTIFIED' }
-      });
-    }
-
-    res.json({ success: true, message: 'Laundry booking cancelled and waitlist notified.' });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
@@ -749,58 +972,6 @@ router.post('/notifications/mark-all-read', authMiddleware, async (req: AuthRequ
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-router.delete('/notifications/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const { id } = req.params;
-  try {
-    const notif = await prisma.notification.findUnique({ where: { id } });
-    if (!notif) { res.status(404).json({ success: false, error: 'Notification not found' }); return; }
-    if (notif.userId !== req.user?.id) { res.status(403).json({ success: false, error: 'Unauthorized' }); return; }
-    await prisma.notification.delete({ where: { id } });
-    res.json({ success: true, message: 'Notification dismissed' });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-// ============================================================
-// PROFILE ENDPOINTS
-// ============================================================
-router.get('/profile', authMiddleware, async (req: AuthRequest, res: Response) => {
-  if (!req.user) { res.status(401).json({ success: false, error: 'Not authenticated' }); return; }
-  try {
-    const profile = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      include: { hostel: true, room: true }
-    });
-    res.json({ success: true, data: profile });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.patch('/profile', authMiddleware, async (req: AuthRequest, res: Response) => {
-  if (!req.user) { res.status(401).json({ success: false, error: 'Not authenticated' }); return; }
-  const { fullName, mobileNumber, address, emergencyContact, bloodGroup, medicalDetails, parentName, parentMobile, department, year, guardianName, guardianMobile } = req.body;
-  try {
-    const updated = await prisma.user.update({
-      where: { id: req.user.id },
-      data: {
-        ...(fullName && { fullName }),
-        ...(mobileNumber && { mobileNumber }),
-        ...(address !== undefined && { address }),
-        ...(emergencyContact !== undefined && { emergencyContact }),
-        ...(bloodGroup !== undefined && { bloodGroup }),
-        ...(medicalDetails !== undefined && { medicalDetails }),
-        ...(parentName !== undefined && { parentName }),
-        ...(parentMobile !== undefined && { parentMobile }),
-        ...(department !== undefined && { department }),
-        ...(year !== undefined && { year }),
-        ...(guardianName !== undefined && { guardianName }),
-        ...(guardianMobile !== undefined && { guardianMobile })
-      },
-      include: { hostel: true, room: true }
-    });
-    await logActivity(req, 'Updated profile details', 'PROFILE');
-    res.json({ success: true, data: updated, message: 'Profile updated successfully' });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
 // ============================================================
 // GLOBAL SEARCH
 // ============================================================
@@ -833,20 +1004,10 @@ router.get('/search', authMiddleware, async (req: AuthRequest, res: Response) =>
 // ============================================================
 router.get('/reports/attendance', authMiddleware, async (req: AuthRequest, res: Response) => {
   const hId = req.query.hostelId as string || req.user?.hostelId;
-  const { startDate, endDate } = req.query;
   try {
     const filter: any = {};
     if (hId) filter.user = { hostelId: hId };
-    if (startDate || endDate) {
-      filter.date = {};
-      if (startDate) filter.date.gte = new Date(startDate as string);
-      if (endDate) {
-        const e = new Date(endDate as string);
-        e.setHours(23, 59, 59, 999);
-        filter.date.lte = e;
-      }
-    }
-    const records = await prisma.attendance.findMany({ where: filter, include: { user: { select: { fullName: true, registerNumber: true, room: { select: { roomNumber: true } } } } }, orderBy: { date: 'desc' }, take: 500 });
+    const records = await prisma.attendance.findMany({ where: filter, include: { user: { select: { fullName: true, registerNumber: true } } }, orderBy: { date: 'desc' }, take: 500 });
     const total = records.length, present = records.filter(r => r.isPresent).length;
     res.json({ success: true, data: { records, summary: { total, present, absent: total - present, rate: total > 0 ? Math.round((present / total) * 100) : 0 } } });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
@@ -857,7 +1018,7 @@ router.get('/reports/fees', authMiddleware, async (req: AuthRequest, res: Respon
   try {
     const where: any = {};
     if (hostelId) where.hostelId = hostelId;
-    const fees = await prisma.fee.findMany({ where, include: { student: { select: { fullName: true, registerNumber: true } }, payments: true }, orderBy: { dueDate: 'desc' } });
+    const fees = await prisma.fee.findMany({ where, include: { student: { select: { fullName: true, registerNumber: true } }, payments: true } });
     const totalDue = fees.reduce((s, f) => s + f.amount, 0);
     const totalCollected = fees.reduce((s, f) => s + f.paidAmount, 0);
     res.json({ success: true, data: { fees, summary: { totalDue, totalCollected, outstanding: totalDue - totalCollected, pending: fees.filter(f => f.status !== 'PAID').length } } });
@@ -876,125 +1037,17 @@ router.get('/reports/occupancy', authMiddleware, async (req: AuthRequest, res: R
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-router.get('/reports/complaints', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const hostelId = req.query.hostelId as string || req.user?.hostelId;
-  try {
-    const where: any = { isDeleted: false };
-    if (hostelId) where.hostelId = hostelId;
-    const complaints = await prisma.complaint.findMany({
-      where,
-      include: {
-        student: { select: { fullName: true, registerNumber: true, room: { select: { roomNumber: true, block: true } } } },
-        worker: { select: { fullName: true } }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    const total = complaints.length;
-    const resolved = complaints.filter(c => c.status === 'RESOLVED' || c.status === 'COMPLETED').length;
-    const inProgress = complaints.filter(c => c.status === 'IN_PROGRESS' || c.status === 'ACCEPTED').length;
-    const pending = complaints.filter(c => c.status === 'PENDING' || c.status === 'ASSIGNED').length;
-
-    res.json({
-      success: true,
-      data: {
-        complaints,
-        summary: { total, resolved, inProgress, pending, resolutionRate: total > 0 ? Math.round((resolved / total) * 100) : 0 }
-      }
-    });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.get('/reports/leaves', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const hostelId = req.query.hostelId as string || req.user?.hostelId;
-  try {
-    const where: any = {};
-    if (hostelId) where.hostelId = hostelId;
-    const leaves = await prisma.leave.findMany({
-      where,
-      include: { user: { select: { fullName: true, registerNumber: true, room: { select: { roomNumber: true } } } } },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    const total = leaves.length;
-    const approved = leaves.filter(l => l.status === 'APPROVED').length;
-    const pending = leaves.filter(l => l.status === 'PENDING').length;
-    const rejected = leaves.filter(l => l.status === 'REJECTED').length;
-
-    res.json({
-      success: true,
-      data: {
-        leaves,
-        summary: { total, approved, pending, rejected, approvalRate: total > 0 ? Math.round((approved / total) * 100) : 0 }
-      }
-    });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.get('/reports/gate-passes', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const hostelId = req.query.hostelId as string || req.user?.hostelId;
-  try {
-    const where: any = {};
-    if (hostelId) where.hostelId = hostelId;
-    const gatePasses = await prisma.gatePass.findMany({
-      where,
-      include: { student: { select: { fullName: true, registerNumber: true, room: { select: { roomNumber: true } } } } },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    const total = gatePasses.length;
-    const approved = gatePasses.filter(g => g.status === 'APPROVED').length;
-    const exited = gatePasses.filter(g => g.status === 'EXITED').length;
-    const returned = gatePasses.filter(g => g.status === 'RETURNED').length;
-    const pending = gatePasses.filter(g => g.status === 'PENDING').length;
-
-    res.json({
-      success: true,
-      data: {
-        gatePasses,
-        summary: { total, approved, exited, returned, pending }
-      }
-    });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
 // ============================================================
 // AUDIT LOGS
 // ============================================================
 router.get('/audit-logs', authMiddleware, requirePermission('manage_settings'), async (req: AuthRequest, res: Response) => {
-  const { module, userEmail, page = '1', limit = '50', startDate, endDate } = req.query;
-  const pageNum = Math.max(1, parseInt(page as string) || 1);
-  const limitNum = Math.min(200, Math.max(10, parseInt(limit as string) || 50));
-  const skip = (pageNum - 1) * limitNum;
-
+  const { module, userEmail } = req.query;
   const filter: any = {};
   if (module) filter.module = module as string;
-  if (userEmail) filter.userEmail = { contains: userEmail as string, mode: 'insensitive' };
-  if (startDate || endDate) {
-    filter.createdAt = {};
-    if (startDate) filter.createdAt.gte = new Date(startDate as string);
-    if (endDate) {
-      const e = new Date(endDate as string);
-      e.setHours(23, 59, 59, 999);
-      filter.createdAt.lte = e;
-    }
-  }
-
+  if (userEmail) filter.userEmail = { contains: userEmail as string };
   try {
-    const [logs, totalCount] = await Promise.all([
-      prisma.activityLog.findMany({ where: filter, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
-      prisma.activityLog.count({ where: filter })
-    ]);
-    res.json({
-      success: true,
-      data: logs,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        totalCount,
-        totalPages: Math.ceil(totalCount / limitNum)
-      }
-    });
+    const logs = await prisma.activityLog.findMany({ where: filter, orderBy: { createdAt: 'desc' }, take: 200 });
+    res.json({ success: true, data: logs });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
@@ -1030,735 +1083,4 @@ router.post('/backup/restore', authMiddleware, requirePermission('manage_setting
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// ============================================================
-// WORKER MANAGEMENT & CATEGORIES
-// ============================================================
-
-router.get('/workers/categories', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    let categories = await prisma.workerCategory.findMany({
-      where: { isActive: true },
-      include: { _count: { select: { workers: true } } }
-    });
-
-    if (categories.length === 0) {
-      const defaultCategories = [
-        { name: 'Plumber', description: 'Water leaks, tap replacement, pipe repair', icon: 'Wrench' },
-        { name: 'Electrician', description: 'Wiring, switches, fan, lights, AC power', icon: 'Zap' },
-        { name: 'Carpenter', description: 'Doors, windows, cupboards, chairs, beds', icon: 'Hammer' },
-        { name: 'Cleaner', description: 'Room cleaning, floor wash, waste disposal', icon: 'Sparkles' },
-        { name: 'AC Technician', description: 'AC cooling, gas refill, filter cleaning', icon: 'Wind' },
-        { name: 'Maintenance', description: 'General civil repair and masonry work', icon: 'Settings' },
-        { name: 'Internet Technician', description: 'Wi-Fi router, LAN cable, network ports', icon: 'Wifi' },
-        { name: 'Security', description: 'Gate pass and perimeter security', icon: 'Shield' }
-      ];
-
-      for (const cat of defaultCategories) {
-        await prisma.workerCategory.upsert({
-          where: { name: cat.name },
-          update: {},
-          create: cat
-        });
-      }
-
-      categories = await prisma.workerCategory.findMany({
-        where: { isActive: true },
-        include: { _count: { select: { workers: true } } }
-      });
-    }
-
-    res.json({ success: true, data: categories });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.post('/workers/categories', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN']), async (req: AuthRequest, res: Response) => {
-  const { name, description, icon } = req.body;
-  if (!name) { res.status(400).json({ success: false, error: 'Category name is required' }); return; }
-  try {
-    const category = await prisma.workerCategory.create({
-      data: { name, description, icon: icon || 'Wrench' }
-    });
-    res.json({ success: true, data: category });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.get('/workers', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const { categoryId, availability, hostelId } = req.query;
-  const filter: any = { role: 'WORKER' };
-  if (hostelId) filter.hostelId = hostelId as string;
-
-  try {
-    const workers = await prisma.user.findMany({
-      where: filter,
-      select: {
-        id: true, fullName: true, email: true, mobileNumber: true, role: true, status: true, hostelId: true,
-        workerProfile: {
-          include: { category: true }
-        }
-      }
-    });
-
-    let filtered = workers.filter(w => w.workerProfile !== null);
-    if (categoryId) {
-      filtered = filtered.filter(w => w.workerProfile?.categoryId === categoryId);
-    }
-    if (availability) {
-      filtered = filtered.filter(w => w.workerProfile?.availability === availability);
-    }
-
-    res.json({ success: true, data: filtered });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.post('/workers', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN']), async (req: AuthRequest, res: Response) => {
-  const { fullName, email, password, mobileNumber, categoryId, specialization, hostelId, block } = req.body;
-  if (!fullName || !email || !password || !categoryId) {
-    res.status(400).json({ success: false, error: 'Full name, email, password and category are required' });
-    return;
-  }
-
-  try {
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) { res.status(400).json({ success: false, error: 'Email already registered' }); return; }
-
-    const bcrypt = require('bcryptjs');
-    const passwordHash = await bcrypt.hash(password, 10);
-    const workerId = 'WRK-' + Math.random().toString(36).substring(2, 7).toUpperCase();
-
-    const workerUser = await prisma.user.create({
-      data: {
-        fullName,
-        email,
-        passwordHash,
-        mobileNumber: mobileNumber || '0000000000',
-        role: 'WORKER',
-        status: 'APPROVED',
-        hostelId: hostelId || req.user?.hostelId || null,
-        workerProfile: {
-          create: {
-            workerId,
-            categoryId,
-            specialization: specialization || null,
-            hostelId: hostelId || req.user?.hostelId || null,
-            block: block || null,
-            status: 'ACTIVE',
-            availability: 'AVAILABLE'
-          }
-        }
-      },
-      include: { workerProfile: { include: { category: true } } }
-    });
-
-    res.json({ success: true, data: workerUser });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-// ============================================================
-// WORKER PORTAL & COMPLAINT WORKFLOW
-// ============================================================
-
-router.get('/worker/dashboard', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const user = req.user!;
-  try {
-    const profile = await prisma.workerProfile.findUnique({
-      where: { userId: user.id },
-      include: { category: true }
-    });
-
-    const categoryName = profile?.category?.name;
-    const workerHostelId = profile?.hostelId || user.hostelId;
-
-    const whereCondition: any = {
-      isDeleted: false,
-      OR: [
-        { workerId: user.id },
-        { staffId: user.id }
-      ]
-    };
-
-    if (categoryName) {
-      whereCondition.OR.push({
-        workerId: null,
-        category: { equals: categoryName, mode: 'insensitive' },
-        ...(workerHostelId ? { hostelId: workerHostelId } : {})
-      });
-    }
-
-    const complaints = await prisma.complaint.findMany({
-      where: whereCondition,
-      include: {
-        student: { select: { fullName: true, mobileNumber: true, registerNumber: true, room: true } },
-        hostel: { select: { name: true } },
-        timeline: { orderBy: { timestamp: 'desc' } }
-      },
-      orderBy: { updatedAt: 'desc' }
-    });
-
-    const assignedCount = complaints.length;
-    const pendingAcceptance = complaints.filter(c => c.status === 'PENDING' || c.status === 'ASSIGNED').length;
-    const inProgress = complaints.filter(c => c.status === 'ACCEPTED' || c.status === 'IN_PROGRESS').length;
-    const completed = complaints.filter(c => c.status === 'COMPLETED' || c.status === 'RESOLVED' || c.status === 'VERIFIED').length;
-
-    res.json({
-      success: true,
-      data: {
-        profile,
-        metrics: { assignedCount, pendingAcceptance, inProgress, completed, rating: profile?.rating || 5.0 },
-        complaints
-      }
-    });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.post('/worker/complaints/:id/accept', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const { id } = req.params;
-  const user = req.user!;
-  const actorName = (user as any).fullName || user.email || 'Worker';
-  try {
-    const complaint = await prisma.complaint.update({
-      where: { id },
-      data: {
-        workerId: user.id,
-        staffId: user.id,
-        status: 'ACCEPTED',
-        acceptedAt: new Date(),
-        timeline: {
-          create: {
-            event: 'ACCEPTED',
-            title: 'Worker Accepted Job',
-            description: `Worker ${actorName} accepted the complaint assignment.`,
-            actorName: actorName,
-            actorRole: 'WORKER'
-          }
-        }
-      }
-    });
-
-    await prisma.notification.create({
-      data: {
-        userId: complaint.studentId,
-        type: 'COMPLAINT_ACCEPTED',
-        title: 'Worker Accepted Complaint',
-        message: `Worker ${actorName} accepted your complaint "${complaint.title}".`
-      }
-    });
-
-    res.json({ success: true, data: complaint });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-
-router.post('/worker/complaints/:id/reject', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const { id } = req.params;
-  const { reason } = req.body;
-  const user = req.user!;
-  const actorName = (user as any).fullName || user.email || 'Worker';
-  try {
-    const complaint = await prisma.complaint.update({
-      where: { id },
-      data: {
-        status: 'REJECTED',
-        workerId: null,
-        staffId: null,
-        rejectedAt: new Date(),
-        rejectionReason: reason || 'Not specified',
-        timeline: {
-          create: {
-            event: 'REJECTED',
-            title: 'Worker Rejected Assignment',
-            description: `Worker ${actorName} rejected the assignment. Reason: ${reason || 'Not specified'}`,
-            actorName: actorName,
-            actorRole: 'WORKER'
-          }
-        }
-      }
-    });
-
-    // Notify Hostel Admins and Wardens so they can reassign
-    try {
-      const targetAdmins = await prisma.user.findMany({
-        where: {
-          role: { in: ['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'WARDEN'] },
-          ...(complaint.hostelId ? { OR: [{ hostelId: complaint.hostelId }, { role: 'SUPER_ADMIN' }] } : {})
-        }
-      });
-
-      if (targetAdmins.length > 0) {
-        await prisma.notification.createMany({
-          data: targetAdmins.map(admin => ({
-            userId: admin.id,
-            type: 'COMPLAINT_REJECTED',
-            title: 'Complaint Assignment Rejected',
-            message: `Worker ${actorName} rejected complaint "${complaint.title}". Reason: ${reason || 'Not specified'}. Ready for reassignment.`
-          }))
-        });
-      }
-    } catch (notifErr) {
-      console.error('Error notifying admins on worker rejection:', notifErr);
-    }
-
-    res.json({ success: true, data: complaint });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.post('/worker/complaints/:id/start', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const { id } = req.params;
-  const user = req.user!;
-  const actorName = (user as any).fullName || user.email || 'Worker';
-  try {
-    const complaint = await prisma.complaint.update({
-      where: { id },
-      data: {
-        status: 'IN_PROGRESS',
-        startedAt: new Date(),
-        timeline: {
-          create: {
-            event: 'STARTED',
-            title: 'Work Started',
-            description: `Worker ${actorName} has started work on site.`,
-            actorName: actorName,
-            actorRole: 'WORKER'
-          }
-        }
-      }
-    });
-
-    await prisma.notification.create({
-      data: {
-        userId: complaint.studentId,
-        type: 'COMPLAINT_STARTED',
-        title: 'Work Started',
-        message: `Worker ${actorName} is currently working on "${complaint.title}".`
-      }
-    });
-
-    res.json({ success: true, data: complaint });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.post('/worker/complaints/:id/complete', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const { id } = req.params;
-  const { completionNotes, materialsUsed } = req.body;
-  const user = req.user!;
-  const actorName = (user as any).fullName || user.email || 'Worker';
-  try {
-    const complaint = await prisma.complaint.update({
-      where: { id },
-      data: {
-        status: 'COMPLETED',
-        completedAt: new Date(),
-        completionNotes: completionNotes || 'Work completed successfully',
-        materialsUsed: materialsUsed || 'None',
-        timeline: {
-          create: {
-            event: 'COMPLETED',
-            title: 'Work Completed',
-            description: `Notes: ${completionNotes || 'Work completed'}. Materials: ${materialsUsed || 'None'}.`,
-            actorName: actorName,
-            actorRole: 'WORKER'
-          }
-        }
-      }
-    });
-
-    await prisma.workerProfile.updateMany({
-      where: { userId: user.id },
-      data: { completedCount: { increment: 1 } }
-    });
-
-    await prisma.notification.create({
-      data: {
-        userId: complaint.studentId,
-        type: 'COMPLAINT_COMPLETED',
-        title: 'Complaint Completed',
-        message: `Worker ${actorName} has completed your complaint "${complaint.title}". Please confirm resolution.`
-      }
-    });
-
-    res.json({ success: true, data: complaint });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.post('/complaints/:id/assign', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN']), async (req: AuthRequest, res: Response) => {
-  const { id } = req.params;
-  const { workerId } = req.body;
-  const user = req.user!;
-  const actorName = (user as any).fullName || user.email || 'Admin';
-  try {
-    const workerUser = await prisma.user.findUnique({ where: { id: workerId } });
-    if (!workerUser) { res.status(404).json({ success: false, error: 'Worker not found' }); return; }
-
-    const complaint = await prisma.complaint.update({
-      where: { id },
-      data: {
-        workerId,
-        staffId: workerId,
-        status: 'ASSIGNED',
-        assignedBy: actorName,
-        assignedAt: new Date(),
-        timeline: {
-          create: {
-            event: 'ASSIGNED',
-            title: 'Worker Assigned',
-            description: `Assigned to worker ${workerUser.fullName} by ${actorName}.`,
-            actorName: actorName,
-            actorRole: user.role
-          }
-        }
-      }
-    });
-
-    await prisma.workerProfile.updateMany({
-      where: { userId: workerId },
-      data: { assignedCount: { increment: 1 } }
-    });
-
-    await prisma.notification.create({
-      data: {
-        userId: workerId,
-        type: 'JOB_ASSIGNED',
-        title: 'New Complaint Assigned',
-        message: `You have been assigned to complaint "${complaint.title}".`
-      }
-    });
-
-    res.json({ success: true, data: complaint });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.post('/complaints/:id/confirm', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const { id } = req.params;
-  const { rating, feedback } = req.body;
-  const user = req.user!;
-  const actorName = (user as any).fullName || user.email || 'Student';
-  try {
-    const complaint = await prisma.complaint.update({
-      where: { id },
-      data: {
-        status: 'RESOLVED',
-        feedbackRating: rating ? Number(rating) : 5,
-        studentFeedback: feedback || 'Confirmed resolved',
-        timeline: {
-          create: {
-            event: 'CONFIRMED',
-            title: 'Student Confirmed Resolution',
-            description: `Rating: ${rating || 5} Stars. Feedback: ${feedback || 'Confirmed resolved.'}`,
-            actorName: actorName,
-            actorRole: 'STUDENT'
-          }
-        }
-      }
-    });
-
-    res.json({ success: true, data: complaint });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.post('/complaints/:id/reopen', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const { id } = req.params;
-  const { reason } = req.body;
-  const user = req.user!;
-  const actorName = (user as any).fullName || user.email || 'Student';
-  try {
-    const complaint = await prisma.complaint.update({
-      where: { id },
-      data: {
-        status: 'REOPENED',
-        reopenedAt: new Date(),
-        reopenReason: reason || 'Issue persists',
-        timeline: {
-          create: {
-            event: 'REOPENED',
-            title: 'Student Reopened Complaint',
-            description: `Reason: ${reason || 'Issue persists'}`,
-            actorName: actorName,
-            actorRole: 'STUDENT'
-          }
-        }
-      }
-    });
-
-    if (complaint.workerId) {
-      await prisma.notification.create({
-        data: {
-          userId: complaint.workerId,
-          type: 'COMPLAINT_REOPENED',
-          title: 'Complaint Reopened',
-          message: `Student ${actorName} reopened complaint "${complaint.title}".`
-        }
-      });
-    }
-
-    res.json({ success: true, data: complaint });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-
-// ============================================================
-// EMERGENCY ALERT SYSTEM
-// ============================================================
-
-// ============================================================
-// PUSH NOTIFICATIONS & EMERGENCY SYSTEM
-// ============================================================
-
-router.get('/push/vapid-public-key', (req, res) => {
-  try {
-    const publicKey = pushService.getPublicKey();
-    res.json({ success: true, publicKey });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-router.post('/push/register', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const { subscription } = req.body;
-  const user = req.user!;
-  const userAgent = req.headers['user-agent'] || 'Unknown Device';
-
-  if (!subscription || !subscription.endpoint || !subscription.keys) {
-    res.status(400).json({ success: false, error: 'Valid subscription object with keys required' });
-    return;
-  }
-
-  try {
-    const result = await pushService.registerSubscription(
-      user.id,
-      user.role as Role,
-      user.hostelId,
-      subscription,
-      userAgent
-    );
-    res.json({ success: true, message: 'Push subscription registered successfully', data: result });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-router.post('/push/unregister', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const { endpoint } = req.body;
-  const user = req.user!;
-  try {
-    await pushService.unregisterSubscription(user.id, endpoint);
-    res.json({ success: true, message: 'Device unsubscribed from push notifications' });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-router.post('/push/test', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const user = req.user!;
-  try {
-    const result = await pushService.sendNotificationToUser(user.id, {
-      title: '🔔 Test Notification',
-      body: 'Push notification system is working correctly on your device!',
-      icon: '/favicon.svg',
-      badge: '/favicon.svg',
-      tag: 'test-notification',
-      vibrate: [200, 100, 200],
-      data: { url: '/' }
-    });
-    res.json({ success: true, message: 'Test notification dispatched', result });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-router.post('/emergency/alert', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const { type, level, message } = req.body;
-  const user = req.user!;
-  if (!type || !level) {
-    res.status(400).json({ success: false, error: 'Emergency type and level are required' });
-    return;
-  }
-
-  try {
-    const studentUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      include: { room: true, hostel: true }
-    });
-
-    let hostelId = studentUser?.hostelId || req.user?.hostelId;
-    if (!hostelId) {
-      const fallbackHostel = await prisma.hostel.findFirst();
-      hostelId = fallbackHostel?.id || '';
-    }
-    const block = studentUser?.room?.block || null;
-    const floor = studentUser?.room?.floor || null;
-    const roomId = studentUser?.roomId || null;
-    const roomNumber = studentUser?.room?.roomNumber || null;
-
-    const alertRecord = await prisma.emergencyAlert.create({
-      data: {
-        type,
-        level,
-        hostelId,
-        block,
-        floor,
-        roomId,
-        roomNumber,
-        message: message || `${type} emergency reported at ${level} level.`,
-        reportedById: user.id,
-        status: 'ACTIVE'
-      },
-      include: { reportedBy: { select: { fullName: true, mobileNumber: true } }, hostel: { select: { name: true } } }
-    });
-
-    let targetUsers: any[] = [];
-    if (level === 'ROOM' && roomId) {
-      targetUsers = await prisma.user.findMany({
-        where: { OR: [{ roomId }, { role: { in: ['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SECURITY'] } }] }
-      });
-    } else if (level === 'FLOOR' && floor !== null) {
-      targetUsers = await prisma.user.findMany({
-        where: {
-          OR: [
-            { room: { floor, block: block || undefined } },
-            { role: { in: ['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SECURITY'] } }
-          ]
-        }
-      });
-    } else {
-      targetUsers = await prisma.user.findMany({
-        where: { OR: [{ hostelId }, { role: 'SUPER_ADMIN' }] }
-      });
-    }
-
-    if (targetUsers.length > 0) {
-      const alertTitle = `🚨 EMERGENCY: ${type.toUpperCase()} (${level})`;
-      const alertMsg = `Location: ${studentUser?.room?.block || 'Hostel'} - Room ${roomNumber || 'N/A'}. Details: ${message || type}`;
-
-      await prisma.notification.createMany({
-        data: targetUsers.map(u => ({
-          userId: u.id,
-          type: 'EMERGENCY',
-          title: alertTitle,
-          message: alertMsg,
-          isRead: false
-        }))
-      });
-
-      // Dispatch Web Push notification to registered recipient devices (even if app is closed/locked)
-      try {
-        const studentName = studentUser?.fullName || user.email;
-        const studentMobile = studentUser?.mobileNumber || 'N/A';
-        const hostelName = studentUser?.hostel?.name || 'SmartHostel';
-        const formattedTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const pushBody = `Student: ${studentName} (${studentMobile})\nRoom: ${roomNumber || 'N/A'} (Block ${block || 'N/A'})\nHostel: ${hostelName}\nTime: ${formattedTime}\nDetails: ${message || type}`;
-
-        await pushService.broadcastToUsers(targetUsers.map(u => u.id), {
-          title: `🚨 EMERGENCY ALERT: ${type.toUpperCase()}`,
-          body: pushBody,
-          icon: '/favicon.svg',
-          badge: '/favicon.svg',
-          tag: `emergency-${alertRecord.id}`,
-          vibrate: [500, 200, 500, 200, 500, 200, 500],
-          requireInteraction: true,
-          data: {
-            alertId: alertRecord.id,
-            type,
-            level,
-            roomNumber,
-            block,
-            studentName,
-            studentMobile,
-            hostelName,
-            timestamp: new Date().toISOString(),
-            url: '/'
-          },
-          actions: [
-            { action: 'view', title: 'Open Alert' }
-          ]
-        });
-      } catch (pushErr) {
-        console.error('[PUSH SERVICE] Failed to dispatch emergency push:', pushErr);
-      }
-    }
-
-    res.json({ success: true, data: alertRecord, notifiedCount: targetUsers.length });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.get('/emergency/alerts', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const user = req.user!;
-    const filter: any = {};
-    if (user.role !== 'SUPER_ADMIN' && user.hostelId) {
-      filter.hostelId = user.hostelId;
-    }
-
-    const alerts = await prisma.emergencyAlert.findMany({
-      where: filter,
-      include: {
-        reportedBy: { select: { fullName: true, mobileNumber: true } },
-        acknowledgedBy: { select: { fullName: true } },
-        hostel: { select: { name: true } }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 50
-    });
-
-    res.json({ success: true, data: alerts });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.post('/emergency/:id/acknowledge', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SECURITY']), async (req: AuthRequest, res: Response) => {
-  const { id } = req.params;
-  const user = req.user!;
-  try {
-    const alert = await prisma.emergencyAlert.update({
-      where: { id },
-      data: {
-        status: 'ACKNOWLEDGED',
-        acknowledgedAt: new Date(),
-        acknowledgedById: user.id
-      }
-    });
-    res.json({ success: true, data: alert });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.post('/emergency/:id/resolve', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SECURITY']), async (req: AuthRequest, res: Response) => {
-  const { id } = req.params;
-  try {
-    const alert = await prisma.emergencyAlert.update({
-      where: { id },
-      data: {
-        status: 'RESOLVED',
-        resolvedAt: new Date()
-      }
-    });
-    res.json({ success: true, data: alert });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-
-// ============================================================
-// LAUNDRY WAITLIST
-// ============================================================
-
-router.post('/laundry/waitlist', authMiddleware, async (req: AuthRequest, res: Response) => {
-  const { timeSlot, date } = req.body;
-  const user = req.user!;
-  if (!timeSlot || !date) {
-    res.status(400).json({ success: false, error: 'Time slot and date are required' });
-    return;
-  }
-
-  try {
-    const waitlistEntry = await prisma.laundryWaitlist.create({
-      data: {
-        timeSlot,
-        date: new Date(date),
-        userId: user.id,
-        hostelId: user.hostelId || '',
-        status: 'WAITING'
-      }
-    });
-
-    res.json({ success: true, data: waitlistEntry });
-  } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
-});
-
 export default router;
-

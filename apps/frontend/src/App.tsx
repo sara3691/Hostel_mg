@@ -563,6 +563,23 @@ export default function App() {
   const [docUrl, setDocUrl] = useState('');
 
   const [newMessName, setNewMessName] = useState('');
+  // Mess Skip & confirmation states
+  const [meals, setMeals] = useState<any[]>([]);
+  const [mealHistory, setMealHistory] = useState<any[]>([]);
+  const [isMealsLoading, setIsMealsLoading] = useState(false);
+  const [mealPublishDate, setMealPublishDate] = useState(new Date().toISOString().split('T')[0]);
+  const [mealPublishType, setMealPublishType] = useState('BREAKFAST');
+  const [mealPublishMenu, setMealPublishMenu] = useState('');
+  const [mealPublishCutoff, setMealPublishCutoff] = useState('');
+  const [mealPublishTime, setMealPublishTime] = useState('');
+  const [mealFilterHostelId, setMealFilterHostelId] = useState('');
+  const [mealFilterBlock, setMealFilterBlock] = useState('');
+  const [mealFilterFloor, setMealFilterFloor] = useState('');
+  const [mealFilterDate, setMealFilterDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showSkipConfirmationModal, setShowSkipConfirmationModal] = useState(false);
+  const [selectedMealForSkip, setSelectedMealForSkip] = useState<any | null>(null);
+  const [showPublishMealModal, setShowPublishMealModal] = useState(false);
+  const [activeMessTab, setActiveMessTab] = useState('today');
   const [laundrySlots, setLaundrySlots] = useState<any[]>([]);
   // Gate Pass state
   const [gatePasses, setGatePasses] = useState<any[]>([]);
@@ -1078,6 +1095,12 @@ export default function App() {
     return () => clearInterval(interval);
   }, [currentUser, fetchAttendanceHistory]);
 
+  useEffect(() => {
+    if (currentUser) {
+      loadMeals();
+    }
+  }, [mealFilterDate, mealFilterHostelId, mealFilterBlock, mealFilterFloor]);
+
   const loadWorkerDashboard = async () => {
     try {
       const res = await axios.get('/api/worker/dashboard');
@@ -1401,6 +1424,8 @@ export default function App() {
       try { loadNotifications(); } catch (e) {}
       try { loadLaundrySlots(); } catch (e) {}
       try { loadMessMenus(); } catch (e) {}
+      try { loadMeals(); } catch (e) {}
+      try { loadMealHistory(); } catch (e) {}
     } catch (err) {
       console.error('Error loading dashboard sub-data', err);
     }
@@ -2450,6 +2475,86 @@ export default function App() {
       const res = await axios.post('/api/mess-menus', { dayOfWeek: menuDay, breakfast: menuBreakfast, lunch: menuLunch, dinner: menuDinner, hostelId: currentUser?.hostelId || hostels[0]?.id });
       if (res.data?.success) { showToast('success', t('common.success'), `Menu for ${menuDay} updated!`); setMenuBreakfast(''); setMenuLunch(''); setMenuDinner(''); loadMessMenus(); }
     } catch (err: any) { showToast('error', t('common.error'), err.response?.data?.error || ''); }
+  };
+
+  const loadMeals = async () => {
+    setIsMealsLoading(true);
+    try {
+      const params: any = { date: mealFilterDate };
+      if (mealFilterHostelId) params.hostelId = mealFilterHostelId;
+      if (mealFilterBlock) params.block = mealFilterBlock;
+      if (mealFilterFloor) params.floor = mealFilterFloor;
+      
+      const res = await axios.get('/api/meals', { params });
+      if (res.data?.success) {
+        setMeals(res.data.data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsMealsLoading(false);
+    }
+  };
+
+  const loadMealHistory = async () => {
+    try {
+      const res = await axios.get('/api/meals/history');
+      if (res.data?.success) {
+        setMealHistory(res.data.data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleConfirmMeal = async (mealId: string, status: 'TAKING' | 'SKIPPED') => {
+    try {
+      const res = await axios.post(`/api/meals/${mealId}/confirm`, { status });
+      if (res.data?.success) {
+        showToast('success', t('common.success'), status === 'TAKING' ? t('mess.mealConfirmed') : t('mess.mealSkipped'));
+        loadMeals();
+        loadMealHistory();
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || '');
+    }
+  };
+
+  const handlePublishMeal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post('/api/meals', {
+        date: mealPublishDate,
+        type: mealPublishType,
+        menu: mealPublishMenu,
+        cutoffTime: mealPublishCutoff,
+        mealTime: mealPublishTime,
+        hostelId: currentUser?.hostelId || hostels[0]?.id
+      });
+      if (res.data?.success) {
+        showToast('success', t('common.success'), 'Meal published successfully!');
+        setMealPublishMenu('');
+        setMealPublishCutoff('');
+        setMealPublishTime('');
+        setShowPublishMealModal(false);
+        loadMeals();
+        loadMealHistory();
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || '');
+    }
+  };
+
+  const handleCancelMeal = async (mealId: string) => {
+    try {
+      const res = await axios.patch(`/api/meals/${mealId}/cancel`);
+      if (res.data?.success) {
+        showToast('success', t('common.success'), t('mess.mealCancelled'));
+        loadMeals();
+      }
+    } catch (err: any) {
+      showToast('error', t('common.error'), err.response?.data?.error || '');
+    }
   };
 
   const handleGenerateReport = async () => {
@@ -5180,14 +5285,400 @@ export default function App() {
             )}
 
             {subView === 'mess' && currentUser && (
-              <div className="glass-panel animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('mess.title')}</h2>
+              <div className="glass-panel animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div className="flex-responsive-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+                  <div>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{t('mess.title')}</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Manage and confirm daily dining requirement</p>
+                  </div>
+                  
+                  {/* Dynamic Sub-Tabs inside Mess */}
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button
+                      className={`btn ${activeMessTab === 'today' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                      onClick={() => { setActiveMessTab('today'); loadMeals(); }}
+                    >
+                      {t('mess.today')}
+                    </button>
+                    <button
+                      className={`btn ${activeMessTab === 'history' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                      onClick={() => { setActiveMessTab('history'); loadMealHistory(); }}
+                    >
+                      {t('mess.mealHistory')}
+                    </button>
+                    {currentUser.role === 'STUDENT' && (
+                      <button
+                        className={`btn ${activeMessTab === 'plans' ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                        onClick={() => setActiveMessTab('plans')}
+                      >
+                        {t('mess.enrollPlan')}
+                      </button>
+                    )}
+                    {['SUPER_ADMIN', 'MESS_MANAGER'].includes(currentUser.role) && (
+                      <button
+                        className={`btn ${activeMessTab === 'attendance' ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                        onClick={() => setActiveMessTab('attendance')}
+                      >
+                        Dining Registry
+                      </button>
+                    )}
+                    <button
+                      className={`btn ${activeMessTab === 'weekly' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+                      onClick={() => setActiveMessTab('weekly')}
+                    >
+                      {t('mess.weeklyMenu')}
+                    </button>
+                  </div>
+                </div>
 
-                {/* Student Enrollment View */}
-                {currentUser.role === 'STUDENT' && (
+                {/* TAB 1: TODAY'S MEALS */}
+                {activeMessTab === 'today' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    {/* Admin Actions Bar */}
+                    {['SUPER_ADMIN', 'MESS_MANAGER', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN'].includes(currentUser.role) && (
+                      <div className="flex-responsive-between" style={{ background: 'var(--bg-subtle)', padding: '1rem', borderRadius: 'var(--radius-lg)', gap: '1rem', alignItems: 'center' }}>
+                        {/* Filters */}
+                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <div>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>Date</span>
+                            <input className="form-input" style={{ height: '34px', padding: '0.35rem 0.5rem', width: '135px' }} type="date" value={mealFilterDate} onChange={e => setMealFilterDate(e.target.value)} />
+                          </div>
+                          <div>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>Block</span>
+                            <input className="form-input" style={{ height: '34px', padding: '0.35rem 0.5rem', width: '90px' }} type="text" placeholder="Block" value={mealFilterBlock} onChange={e => setMealFilterBlock(e.target.value)} />
+                          </div>
+                          <div>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>Floor</span>
+                            <input className="form-input" style={{ height: '34px', padding: '0.35rem 0.5rem', width: '80px' }} type="number" placeholder="Floor" value={mealFilterFloor} onChange={e => setMealFilterFloor(e.target.value)} />
+                          </div>
+                          {hostels.length > 1 && (
+                            <div>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>Hostel</span>
+                              <select className="form-input" style={{ height: '34px', padding: '0.35rem 0.5rem', width: '140px' }} value={mealFilterHostelId} onChange={e => setMealFilterHostelId(e.target.value)}>
+                                <option value="">All Hostels</option>
+                                {hostels.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Publish Meal Button */}
+                        {['SUPER_ADMIN', 'MESS_MANAGER'].includes(currentUser.role) && (
+                          <button
+                            className="btn btn-primary"
+                            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', height: '38px', marginTop: '14px' }}
+                            onClick={() => setShowPublishMealModal(true)}
+                          >
+                            <PlusCircle size={16} />
+                            <span>{t('mess.publishMeal')}</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {isMealsLoading ? (
+                      <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>{t('common.loading')}</div>
+                    ) : meals.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: 'var(--radius-lg)' }}>
+                        <p>{t('mess.noMealsToday')}</p>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        {meals.map((meal) => {
+                          const isCancelled = meal.status === 'CANCELLED';
+                          const isClosed = meal.isClosed;
+                          const formattedDate = new Date(meal.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+                          const cutoffDate = new Date(meal.cutoffTime);
+
+                          if (currentUser.role === 'STUDENT') {
+                            const isTaking = meal.userStatus === 'TAKING';
+                            return (
+                              <div
+                                key={meal.id}
+                                className="glass-panel"
+                                style={{
+                                  padding: '1.5rem',
+                                  border: isCancelled
+                                    ? '1px solid var(--danger-border)'
+                                    : isClosed
+                                    ? '1px solid var(--border-color)'
+                                    : isTaking
+                                    ? '1px solid var(--primary-border)'
+                                    : '1px solid var(--warning-border)',
+                                  borderRadius: 'var(--radius-lg)',
+                                  background: isCancelled
+                                    ? 'var(--danger-soft)'
+                                    : isTaking
+                                    ? 'var(--primary-soft)'
+                                    : 'var(--warning-soft)',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '1rem'
+                                }}
+                              >
+                                <div className="flex-responsive-between" style={{ alignItems: 'flex-start' }}>
+                                  <div>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                      {formattedDate} · {t('mess.mealTime')}: {new Date(meal.mealTime).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginTop: '0.15rem' }}>
+                                      {t(`mess.${meal.type.toLowerCase()}`)}
+                                    </h3>
+                                  </div>
+                                  <div>
+                                    {isCancelled ? (
+                                      <span className="badge badge-danger">{t('common.cancelled')}</span>
+                                    ) : isClosed ? (
+                                      <span className="badge badge-neutral">{t('mess.mealClosed')}</span>
+                                    ) : isTaking ? (
+                                      <span className="badge badge-success" style={{ padding: '0.35rem 0.75rem' }}>✓ {t('mess.takingFood')}</span>
+                                    ) : (
+                                      <span className="badge badge-warning" style={{ padding: '0.35rem 0.75rem' }}>{t('mess.mealSkipped')}</span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div style={{ background: 'var(--bg-card)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: '0.9rem', lineHeight: '1.45' }}>
+                                  <strong style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Menu</strong>
+                                  {meal.menu}
+                                </div>
+
+                                <div className="flex-responsive-between" style={{ alignItems: 'center', gap: '1rem' }}>
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                    {t('mess.skipCutoff')}: {cutoffDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} ({cutoffDate.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })})
+                                  </span>
+
+                                  {!isCancelled && !isClosed && (
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                      {isTaking ? (
+                                        <button
+                                          className="btn btn-secondary"
+                                          style={{ color: 'var(--danger)', borderColor: 'var(--danger-border)', minHeight: '38px', padding: '0.4rem 1.25rem' }}
+                                          onClick={() => {
+                                            setSelectedMealForSkip(meal);
+                                            setShowSkipConfirmationModal(true);
+                                          }}
+                                        >
+                                          {t('mess.skipFood')}
+                                        </button>
+                                      ) : (
+                                        <button
+                                          className="btn btn-primary"
+                                          style={{ minHeight: '38px', padding: '0.4rem 1.25rem' }}
+                                          onClick={() => handleConfirmMeal(meal.id, 'TAKING')}
+                                        >
+                                          {t('mess.takeFood')}
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          } else {
+                            // Admin/Mess view stats card
+                            const stats = meal.stats || { totalEligible: 0, skippedCount: 0, takingCount: 0, hostelBreakdown: [] };
+                            const skipRate = stats.totalEligible > 0 ? ((stats.skippedCount / stats.totalEligible) * 100).toFixed(1) : '0.0';
+
+                            return (
+                              <div key={meal.id} className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', border: isCancelled ? '1px solid var(--danger-border)' : '1px solid var(--border-color)' }}>
+                                <div className="flex-responsive-between" style={{ alignItems: 'flex-start' }}>
+                                  <div>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                      {formattedDate} · {t('mess.mealTime')}: {new Date(meal.mealTime).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginTop: '0.15rem' }}>
+                                      {t(`mess.${meal.type.toLowerCase()}`)}
+                                    </h3>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                    {isCancelled ? (
+                                      <span className="badge badge-danger">{t('common.cancelled')}</span>
+                                    ) : isClosed ? (
+                                      <span className="badge badge-neutral">{t('mess.mealClosed')}</span>
+                                    ) : (
+                                      <span className="badge badge-success">{t('common.active')}</span>
+                                    )}
+                                    
+                                    {!isCancelled && ['SUPER_ADMIN', 'MESS_MANAGER'].includes(currentUser.role) && (
+                                      <button
+                                        className="btn btn-ghost"
+                                        style={{ color: 'var(--danger)', padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                                        onClick={() => {
+                                          if (confirm(t('mess.cancelConfirmText'))) {
+                                            handleCancelMeal(meal.id);
+                                          }
+                                        }}
+                                      >
+                                        Cancel Meal
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                                  {/* Menu details */}
+                                  <div style={{ background: 'var(--bg-subtle)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                                    <span style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.35rem' }}>Menu</span>
+                                    <span style={{ fontSize: '0.88rem' }}>{meal.menu}</span>
+                                  </div>
+
+                                  {/* Visually Prominent cooking requirement count */}
+                                  <div style={{ background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', padding: '1rem', borderRadius: 'var(--radius-md)', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                    <span style={{ display: 'block', fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.03em' }}>{t('mess.foodWasteGoal')}</span>
+                                    <span style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--primary)', margin: '0.25rem 0' }}>
+                                      {isCancelled ? 0 : stats.takingCount}
+                                    </span>
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t('mess.recommendedCookingCount')}</span>
+                                  </div>
+                                </div>
+
+                                {/* Operational demand breakdown */}
+                                {!isCancelled && (
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', padding: '0.5rem 0', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
+                                    <div>
+                                      <span style={{ color: 'var(--text-muted)' }}>{t('mess.totalEligible')}: </span>
+                                      <strong>{stats.totalEligible}</strong>
+                                    </div>
+                                    <div>
+                                      <span style={{ color: 'var(--text-muted)' }}>{t('mess.takingCount')}: </span>
+                                      <strong style={{ color: 'var(--success)' }}>{stats.takingCount}</strong>
+                                    </div>
+                                    <div>
+                                      <span style={{ color: 'var(--text-muted)' }}>{t('mess.skippedCount')}: </span>
+                                      <strong style={{ color: 'var(--warning)' }}>{stats.skippedCount}</strong>
+                                    </div>
+                                    <div>
+                                      <span style={{ color: 'var(--text-muted)' }}>Skip Rate: </span>
+                                      <strong>{skipRate}%</strong>
+                                    </div>
+                                    <div>
+                                      <span style={{ color: 'var(--text-muted)' }}>{t('mess.skipCutoff')}: </span>
+                                      <strong>{cutoffDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</strong>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Hostel Breakdown */}
+                                {!isCancelled && stats.hostelBreakdown && stats.hostelBreakdown.length > 0 && (
+                                  <div>
+                                    <h5 style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                                      {t('mess.hostelBreakdown')}
+                                    </h5>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.5rem' }}>
+                                      {stats.hostelBreakdown.map((h: any, idx: number) => (
+                                        <div key={idx} style={{ padding: '0.5rem 0.75rem', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.75rem', display: 'flex', flexDirection: 'column' }}>
+                                          <span style={{ fontWeight: 700, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.hostelName}</span>
+                                          <span style={{ marginTop: '0.2rem', color: 'var(--text-muted)' }}>
+                                            Expected: <strong style={{ color: 'var(--primary)' }}>{h.taking}</strong>
+                                          </span>
+                                          <span style={{ color: 'var(--text-subtle)', fontSize: '0.68rem' }}>
+                                            Skipped: {h.skipped} / {h.eligible}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 2: MEAL HISTORY & LOGS */}
+                {activeMessTab === 'history' && (
+                  <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>{t('mess.mealHistory')}</h3>
+                    <div className="table-wrapper">
+                      <table className="table">
+                        <thead>
+                          {currentUser.role === 'STUDENT' ? (
+                            <tr>
+                              <th>Date</th>
+                              <th>Meal</th>
+                              <th>Menu</th>
+                              <th>{t('common.status')}</th>
+                            </tr>
+                          ) : (
+                            <tr>
+                              <th>Date</th>
+                              <th>Meal</th>
+                              <th>Menu</th>
+                              <th>Eligible</th>
+                              <th>Expected / Cooking</th>
+                              <th>Skipped</th>
+                              <th>Skip Rate</th>
+                              <th>Status</th>
+                            </tr>
+                          )}
+                        </thead>
+                        <tbody>
+                          {mealHistory.length === 0 ? (
+                            <tr>
+                              <td colSpan={currentUser.role === 'STUDENT' ? 4 : 8} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
+                                {t('common.noData')}
+                              </td>
+                            </tr>
+                          ) : (
+                            mealHistory.map((hist, idx) => {
+                              const dateStr = new Date(hist.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+                              if (currentUser.role === 'STUDENT') {
+                                return (
+                                  <tr key={idx}>
+                                    <td><strong>{dateStr}</strong></td>
+                                    <td>{t(`mess.${hist.meal.toLowerCase()}`)}</td>
+                                    <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hist.menu}</td>
+                                    <td>
+                                      {hist.status === 'TAKING' ? (
+                                        <span className="badge badge-success">✓ {t('mess.takingFood')}</span>
+                                      ) : (
+                                        <span className="badge badge-warning">{t('mess.mealSkipped')}</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              } else {
+                                const rate = hist.eligible > 0 ? ((hist.skipped / hist.eligible) * 100).toFixed(1) : '0.0';
+                                return (
+                                  <tr key={idx}>
+                                    <td><strong>{dateStr}</strong></td>
+                                    <td>{t(`mess.${hist.meal.toLowerCase()}`)}</td>
+                                    <td style={{ maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={hist.menu}>{hist.menu}</td>
+                                    <td>{hist.eligible}</td>
+                                    <td><strong style={{ color: 'var(--primary)' }}>{hist.taking}</strong></td>
+                                    <td>{hist.skipped}</td>
+                                    <td>{rate}%</td>
+                                    <td>
+                                      {hist.status === 'CANCELLED' ? (
+                                        <span className="badge badge-danger">{t('common.cancelled')}</span>
+                                      ) : (
+                                        <span className="badge badge-success">{t('common.active')}</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              }
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 3: STUDENT PLANS ENROLLMENT (PRESERVED) */}
+                {activeMessTab === 'plans' && currentUser.role === 'STUDENT' && (
                   <div className="glass-panel" style={{ padding: '2rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>{t('mess.currentPlan')}</h3>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>{t('mess.menu')}</p>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('mess.currentPlan')}</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                       {messes.map(m => {
                         const isEnrolled = currentUser.messId === m.id;
@@ -5207,22 +5698,21 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Mess Manager Create Mess */}
-                {['SUPER_ADMIN', 'MESS_MANAGER'].includes(currentUser.role) && (
-                  <div className="glass-panel" style={{ padding: '2rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('mess.addMenu')}</h3>
-                    <form onSubmit={handleCreateMess} style={{ display: 'flex', gap: '1rem' }}>
-                      <input className="form-input" style={{ flex: 1 }} type="text" placeholder={t('mess.menu')} value={newMessName} onChange={e => setNewMessName(e.target.value)} required />
-                      <button className="btn btn-primary" type="submit">{t('common.create')}</button>
-                    </form>
-                  </div>
-                )}
+                {/* TAB 4: DINING REGISTRY (PRESERVED MANUAL MARKING) */}
+                {activeMessTab === 'attendance' && ['SUPER_ADMIN', 'MESS_MANAGER'].includes(currentUser.role) && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    {/* Mess Manager Create Mess */}
+                    <div className="glass-panel" style={{ padding: '2rem' }}>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('mess.addMenu')}</h3>
+                      <form onSubmit={handleCreateMess} style={{ display: 'flex', gap: '1rem' }}>
+                        <input className="form-input" style={{ flex: 1 }} type="text" placeholder={t('mess.menu')} value={newMessName} onChange={e => setNewMessName(e.target.value)} required />
+                        <button className="btn btn-primary" type="submit">{t('common.create')}</button>
+                      </form>
+                    </div>
 
-                {/* Dining Attendance Registry */}
-                {['SUPER_ADMIN', 'MESS_MANAGER'].includes(currentUser.role) && (
-                  <div className="glass-panel" style={{ padding: '2rem' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>{t('mess.title')}</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
+                    <div className="glass-panel" style={{ padding: '2rem' }}>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>Dining Attendance Registry</h3>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
                       {messes.map(m => (
                         <div key={m.id} style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                           <h4 style={{ fontWeight: 700, marginBottom: '1rem', color: 'var(--primary)' }}>{m.name}</h4>
@@ -5253,28 +5743,31 @@ export default function App() {
                       ))}
                     </div>
                   </div>
+                  </div>
                 )}
 
-                {/* Static Weekly Menu reference */}
-                <div className="glass-panel" style={{ padding: '2rem' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>{t('mess.weeklyMenu')}</h3>
-                  <div style={{ display: 'grid', gap: '1rem' }}>
-                    {[
-                      { day: 'Monday', b: 'Idli & Sambar', l: 'Rice, Dal, Veg Salad', d: 'Chapati, Paneer Sabji' },
-                      { day: 'Tuesday', b: 'Puri & Potato Curry', l: 'Pulao, Raita, Fryums', d: 'Rice, Sambar, Cabbage Poriyal' },
-                      { day: 'Wednesday', b: 'Bread & Omelette', l: 'Lemon Rice & Curd Rice', d: 'Chapati, Mix Veg Korma' },
-                      { day: 'Thursday', b: 'Dosa & Coconut Chutney', l: 'Veg Biryani, Onion Raita', d: 'Special Paneer Masala, Parotta' },
-                      { day: 'Friday', b: 'Poha & Jalebi', l: 'Rice, Rasam, Egg Fry', d: 'Chapati, Potato Capsicum' }
-                    ].map((menu, i) => (
-                      <div key={i} className="mess-menu-grid" style={{ padding: '0.75rem', borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
-                        <strong style={{ color: 'var(--primary)' }}>{menu.day}</strong>
-                        <span>{t('mess.breakfast')}: {menu.b}</span>
-                        <span>{t('mess.lunch')}: {menu.l}</span>
-                        <span>{t('mess.dinner')}: {menu.d}</span>
-                      </div>
-                    ))}
+                {/* TAB 5: WEEKLY MENU REFERENCE (PRESERVED) */}
+                {activeMessTab === 'weekly' && (
+                  <div className="glass-panel" style={{ padding: '2rem' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>{t('mess.weeklyMenu')}</h3>
+                    <div style={{ display: 'grid', gap: '1rem' }}>
+                      {[
+                        { day: 'Monday', b: 'Idli & Sambar', l: 'Rice, Dal, Veg Salad', d: 'Chapati, Paneer Sabji' },
+                        { day: 'Tuesday', b: 'Puri & Potato Curry', l: 'Pulao, Raita, Fryums', d: 'Rice, Sambar, Cabbage Poriyal' },
+                        { day: 'Wednesday', b: 'Bread & Omelette', l: 'Lemon Rice & Curd Rice', d: 'Chapati, Mix Veg Korma' },
+                        { day: 'Thursday', b: 'Dosa & Coconut Chutney', l: 'Veg Biryani, Onion Raita', d: 'Special Paneer Masala, Parotta' },
+                        { day: 'Friday', b: 'Poha & Jalebi', l: 'Rice, Rasam, Egg Fry', d: 'Chapati, Potato Capsicum' }
+                      ].map((menu, i) => (
+                        <div key={i} className="mess-menu-grid" style={{ padding: '0.75rem', borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
+                          <strong style={{ color: 'var(--primary)' }}>{menu.day}</strong>
+                          <span>{t('mess.breakfast')}: {menu.b}</span>
+                          <span>{t('mess.lunch')}: {menu.l}</span>
+                          <span>{t('mess.dinner')}: {menu.d}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -8019,6 +8512,82 @@ export default function App() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: STUDENT SKIP MEAL CONFIRMATION */}
+      {showSkipConfirmationModal && selectedMealForSkip && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel animate-scale-in" style={{ maxWidth: '420px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>{t('mess.skipConfirmTitle')}</h3>
+              <button className="btn btn-ghost" style={{ padding: '0.35rem' }} onClick={() => setShowSkipConfirmationModal(false)}><X size={16} /></button>
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              {t('mess.skipConfirmText')}
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowSkipConfirmationModal(false)}>{t('common.cancel')}</button>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1.5, background: 'var(--danger)', borderColor: 'var(--danger)' }}
+                onClick={() => {
+                  handleConfirmMeal(selectedMealForSkip.id, 'SKIPPED');
+                  setShowSkipConfirmationModal(false);
+                }}
+              >
+                {t('mess.skipFood')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADMIN PUBLISH MEAL */}
+      {showPublishMealModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '480px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>{t('mess.publishMeal')}</h3>
+              <button className="btn btn-ghost" style={{ padding: '0.35rem' }} onClick={() => setShowPublishMealModal(false)}><X size={16} /></button>
+            </div>
+            <form onSubmit={handlePublishMeal} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Date</label>
+                <input className="form-input" type="date" value={mealPublishDate} onChange={e => setMealPublishDate(e.target.value)} required />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Meal Type</label>
+                <select className="form-input" value={mealPublishType} onChange={e => setMealPublishType(e.target.value)}>
+                  <option value="BREAKFAST">{t('mess.breakfast')}</option>
+                  <option value="LUNCH">{t('mess.lunch')}</option>
+                  <option value="SNACKS">{t('mess.snacks')}</option>
+                  <option value="DINNER">{t('mess.dinner')}</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('mess.menu')}</label>
+                <textarea className="form-input" rows={2} placeholder="Idli, Sambar, Chutney..." value={mealPublishMenu} onChange={e => setMealPublishMenu(e.target.value)} required />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Meal Time</label>
+                <input className="form-input" type="datetime-local" value={mealPublishTime} onChange={e => setMealPublishTime(e.target.value)} required />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>Skip Cutoff Time</label>
+                <input className="form-input" type="datetime-local" value={mealPublishCutoff} onChange={e => setMealPublishCutoff(e.target.value)} required />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowPublishMealModal(false)}>{t('common.cancel')}</button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1.5 }}>{t('mess.publishMeal')}</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

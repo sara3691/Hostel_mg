@@ -117,6 +117,7 @@ model Hostel {
   gatePasses         GatePass[]
   notices            Notice[]
   emergencies        EmergencyAlert[]
+  meals              Meal[]
 }
 
 model User {
@@ -182,6 +183,7 @@ model User {
   reportedEmergencies EmergencyAlert[] @relation("ReportedEmergencies")
   acknowledgedEmergencies EmergencyAlert[] @relation("AcknowledgedEmergencies")
   pushSubscriptions   PushSubscription[]
+  mealConfirmations   MealConfirmation[]
 }
 
 model Room {
@@ -379,6 +381,7 @@ model Mess {
   expenses    Expense[]
   attendances MessAttendance[]
   inventories Inventory[]
+  meals       Meal[]
 }
 
 model MessAttendance {
@@ -391,6 +394,37 @@ model MessAttendance {
   messId    String
   mess      Mess     @relation(fields: [messId], references: [id])
   hostelId  String
+}
+
+model Meal {
+  id            String             @id @default(uuid()) @map("_id")
+  date          DateTime           // only the date portion
+  type          String             // e.g. BREAKFAST, LUNCH, SNACKS, DINNER
+  menu          String
+  cutoffTime    DateTime
+  mealTime      DateTime
+  status        String             @default("ACTIVE") // ACTIVE, CANCELLED
+  hostelId      String
+  hostel        Hostel             @relation(fields: [hostelId], references: [id])
+  messId        String?
+  mess          Mess?              @relation(fields: [messId], references: [id])
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  confirmations MealConfirmation[]
+
+  @@unique([date, type, hostelId, messId])
+}
+
+model MealConfirmation {
+  id        String   @id @default(uuid()) @map("_id")
+  mealId    String
+  meal      Meal     @relation(fields: [mealId], references: [id])
+  studentId String
+  student   User     @relation(fields: [studentId], references: [id])
+  status    String   @default("TAKING") // TAKING, SKIPPED
+  updatedAt DateTime @updatedAt
+
+  @@unique([mealId, studentId])
 }
 
 model Fee {

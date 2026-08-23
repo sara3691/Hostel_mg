@@ -230,6 +230,413 @@ router.post('/mess-menus', authMiddleware, requirePermission('manage_mess'), asy
 });
 
 // ============================================================
+// MEAL CONFIRMATION & SKIP SYSTEM
+// ============================================================
+
+router.get('/meals', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const { date, hostelId, block, floor } = req.query;
+  const targetDate = date ? new Date(date as string) : new Date();
+  const cleanDate = new Date(targetDate.setUTCHours(0, 0, 0, 0));
+
+  try {
+    if (req.user?.role === 'STUDENT') {
+      const student = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { hostelId: true, messId: true }
+      });
+      if (!student || !student.hostelId) {
+        res.json({ success: true, data: [] });
+        return;
+      }
+      const studentHostelId = student.hostelId;
+      const studentMessId = student.messId;
+
+      // Fetch active meals for student's hostel/mess
+      const meals = await prisma.meal.findMany({
+        where: {
+          date: cleanDate,
+          hostelId: studentHostelId,
+          messId: studentMessId || null
+        },
+        orderBy: { mealTime: 'asc' }
+      });
+
+      // Fetch leaves for this student to check if they are away
+      const isOnLeave = await prisma.leave.findFirst({
+        where: {
+          userId: req.user.id,
+          status: 'APPROVED',
+          startDate: { lte: cleanDate },
+          endDate: { gte: cleanDate }
+        }
+      });
+
+      const data = await Promise.all(meals.map(async (meal) => {
+        const confirmation = await prisma.mealConfirmation.findUnique({
+          where: {
+            mealId_studentId: {
+              mealId: meal.id,
+              studentId: req.user!.id
+            }
+          }
+        });
+
+        // Cutoff check
+        const isClosed = new Date() >= new Date(meal.cutoffTime);
+
+        // If student is on approved leave, they are marked as SKIPPED automatically
+        let displayStatus = 'TAKING';
+        if (isOnLeave) {
+          displayStatus = 'SKIPPED';
+        } else if (confirmation) {
+          displayStatus = confirmation.status;
+        }
+
+        return {
+          ...meal,
+          status: meal.status,
+          userStatus: displayStatus,
+          isClosed,
+          isOnLeave: !!isOnLeave
+        };
+      }));
+
+      res.json({ success: true, data });
+    } else {
+      // Admin / Mess Manager View: get stats
+      const filterHostelId = (hostelId as string) || req.user?.hostelId;
+      
+      const whereClause: any = {
+        date: cleanDate
+      };
+      if (filterHostelId) {
+        whereClause.hostelId = filterHostelId;
+      }
+
+      const meals = await prisma.meal.findMany({
+        where: whereClause,
+        orderBy: { mealTime: 'asc' }
+      });
+
+      const data = await Promise.all(meals.map(async (meal) => {
+        // Find active students eligible for this meal
+        const studentQuery: any = {
+          role: 'STUDENT',
+          isDeleted: false,
+          status: 'APPROVED',
+          hostelId: meal.hostelId
+        };
+        if (meal.messId) studentQuery.messId = meal.messId;
+
+        if (block || floor) {
+          studentQuery.room = {};
+          if (block) studentQuery.room.block = block as string;
+          if (floor) studentQuery.room.floor = parseInt(floor as string);
+        }
+
+        const activeStudents = await prisma.user.findMany({
+          where: studentQuery,
+          select: { id: true, hostelId: true }
+        });
+
+        const activeStudentIds = activeStudents.map(s => s.id);
+
+        // Find approved leaves covering this date
+        const leaves = await prisma.leave.findMany({
+          where: {
+            status: 'APPROVED',
+            startDate: { lte: meal.date },
+            endDate: { gte: meal.date },
+            userId: { in: activeStudentIds }
+          },
+          select: { userId: true }
+        });
+        const onLeaveStudentIds = new Set(leaves.map(l => l.userId));
+
+        // Eligible students
+        const eligibleStudents = activeStudents.filter(s => !onLeaveStudentIds.has(s.id));
+        const eligibleStudentIds = eligibleStudents.map(s => s.id);
+
+        // Find confirmations
+        const confirmations = await prisma.mealConfirmation.findMany({
+          where: {
+            mealId: meal.id,
+            studentId: { in: eligibleStudentIds }
+          }
+        });
+
+        const skippedStudentIds = new Set(
+          confirmations.filter(c => c.status === 'SKIPPED').map(c => c.studentId)
+        );
+
+        const totalEligible = eligibleStudents.length;
+        const skippedCount = skippedStudentIds.size;
+        const takingCount = totalEligible - skippedCount;
+
+        // Hostel-wise Breakdown
+        const hostels = await prisma.hostel.findMany();
+        const hostelBreakdown = await Promise.all(hostels.map(async (h) => {
+          const hActive = activeStudents.filter(s => s.hostelId === h.id);
+          const hActiveIds = hActive.map(s => s.id);
+          const hLeaves = leaves.filter(l => hActiveIds.includes(l.userId));
+          const hLeaveUserIds = new Set(hLeaves.map(l => l.userId));
+          
+          const hEligible = hActive.filter(s => !hLeaveUserIds.has(s.id));
+          const hEligibleIds = hEligible.map(s => s.id);
+          
+          const hConfirmations = confirmations.filter(c => hEligibleIds.includes(c.studentId));
+          const hSkipped = hConfirmations.filter(c => c.status === 'SKIPPED').length;
+          
+          const hEligibleCount = hEligible.length;
+          const hTakingCount = hEligibleCount - hSkipped;
+
+          return {
+            hostelId: h.id,
+            hostelName: h.name,
+            eligible: hEligibleCount,
+            skipped: hSkipped,
+            taking: hTakingCount
+          };
+        }));
+
+        return {
+          ...meal,
+          isClosed: new Date() >= new Date(meal.cutoffTime),
+          stats: {
+            totalEligible,
+            skippedCount,
+            takingCount,
+            hostelBreakdown: hostelBreakdown.filter(h => h.eligible > 0)
+          }
+        };
+      }));
+
+      res.json({ success: true, data });
+    }
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/meals', authMiddleware, requirePermission('manage_mess'), async (req: AuthRequest, res: Response) => {
+  const { date, type, menu, cutoffTime, mealTime, hostelId, messId } = req.body;
+  if (!date || !type || !menu || !cutoffTime || !mealTime || !hostelId) {
+    res.status(400).json({ success: false, error: 'Missing parameters' });
+    return;
+  }
+  const cleanDate = new Date(new Date(date).setUTCHours(0, 0, 0, 0));
+
+  try {
+    const meal = await prisma.meal.upsert({
+      where: {
+        date_type_hostelId_messId: {
+          date: cleanDate,
+          type,
+          hostelId,
+          messId: messId || null
+        }
+      },
+      update: {
+        menu,
+        cutoffTime: new Date(cutoffTime),
+        mealTime: new Date(mealTime),
+        status: 'ACTIVE'
+      },
+      create: {
+        date: cleanDate,
+        type,
+        menu,
+        cutoffTime: new Date(cutoffTime),
+        mealTime: new Date(mealTime),
+        hostelId,
+        messId: messId || null,
+        status: 'ACTIVE'
+      }
+    });
+
+    // Notify eligible students
+    const students = await prisma.user.findMany({
+      where: { role: 'STUDENT', hostelId, messId: messId || null, isDeleted: false }
+    });
+    for (const student of students) {
+      await createNotification(
+        student.id,
+        'New Meal Menu Published',
+        `Menu for ${type} on ${new Date(date).toLocaleDateString()} is published: ${menu}`,
+        'MESS',
+        'mess_confirm'
+      );
+    }
+
+    await logActivity(req, 'Published Meal: ' + type + ' for ' + date, 'MESS');
+    res.status(201).json({ success: true, data: meal });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/meals/:id/confirm', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!status || !['TAKING', 'SKIPPED'].includes(status)) {
+    res.status(400).json({ success: false, error: 'Invalid status' });
+    return;
+  }
+
+  try {
+    const meal = await prisma.meal.findUnique({ where: { id } });
+    if (!meal) {
+      res.status(404).json({ success: false, error: 'Meal not found' });
+      return;
+    }
+
+    if (meal.status === 'CANCELLED') {
+      res.status(400).json({ success: false, error: 'Meal is cancelled' });
+      return;
+    }
+
+    if (new Date() >= new Date(meal.cutoffTime)) {
+      res.status(400).json({ success: false, error: 'Meal confirmation is closed for this meal.' });
+      return;
+    }
+
+    const confirmation = await prisma.mealConfirmation.upsert({
+      where: {
+        mealId_studentId: {
+          mealId: id,
+          studentId: req.user!.id
+        }
+      },
+      update: { status },
+      create: {
+        mealId: id,
+        studentId: req.user!.id,
+        status
+      }
+    });
+
+    res.json({ success: true, data: confirmation });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.patch('/meals/:id/cancel', authMiddleware, requirePermission('manage_mess'), async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const meal = await prisma.meal.update({
+      where: { id },
+      data: { status: 'CANCELLED' }
+    });
+
+    // Notify students
+    const students = await prisma.user.findMany({
+      where: { role: 'STUDENT', hostelId: meal.hostelId, messId: meal.messId || null, isDeleted: false }
+    });
+    for (const student of students) {
+      await createNotification(
+        student.id,
+        'Meal Cancelled',
+        `The ${meal.type} on ${new Date(meal.date).toLocaleDateString()} has been cancelled.`,
+        'MESS'
+      );
+    }
+
+    await logActivity(req, 'Cancelled Meal: ' + meal.type + ' for ' + meal.date, 'MESS');
+    res.json({ success: true, data: meal });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.get('/meals/history', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    if (req.user?.role === 'STUDENT') {
+      const confirmations = await prisma.mealConfirmation.findMany({
+        where: { studentId: req.user.id },
+        include: { meal: true },
+        orderBy: { meal: { date: 'desc' } },
+        take: 100
+      });
+
+      const data = confirmations.map(c => ({
+        date: c.meal.date,
+        meal: c.meal.type,
+        status: c.status,
+        menu: c.meal.menu
+      }));
+
+      res.json({ success: true, data });
+    } else {
+      const filterHostelId = req.query.hostelId as string || req.user?.hostelId;
+      const whereClause: any = {};
+      if (filterHostelId) {
+        whereClause.hostelId = filterHostelId;
+      }
+
+      const meals = await prisma.meal.findMany({
+        where: whereClause,
+        orderBy: { date: 'desc' },
+        take: 150
+      });
+
+      const data = await Promise.all(meals.map(async (meal) => {
+        const studentQuery: any = {
+          role: 'STUDENT',
+          isDeleted: false,
+          status: 'APPROVED',
+          hostelId: meal.hostelId
+        };
+        if (meal.messId) studentQuery.messId = meal.messId;
+
+        const activeStudents = await prisma.user.findMany({
+          where: studentQuery,
+          select: { id: true }
+        });
+        const activeStudentIds = activeStudents.map(s => s.id);
+
+        const leaves = await prisma.leave.findMany({
+          where: {
+            status: 'APPROVED',
+            startDate: { lte: meal.date },
+            endDate: { gte: meal.date },
+            userId: { in: activeStudentIds }
+          },
+          select: { userId: true }
+        });
+        const onLeaveStudentIds = new Set(leaves.map(l => l.userId));
+        const eligibleStudents = activeStudents.filter(s => !onLeaveStudentIds.has(s.id));
+        const eligibleStudentIds = eligibleStudents.map(s => s.id);
+
+        const confirmations = await prisma.mealConfirmation.findMany({
+          where: { mealId: meal.id, studentId: { in: eligibleStudentIds } }
+        });
+
+        const skipped = confirmations.filter(c => c.status === 'SKIPPED').length;
+        const eligible = eligibleStudents.length;
+        const taking = eligible - skipped;
+
+        return {
+          id: meal.id,
+          date: meal.date,
+          meal: meal.type,
+          eligible,
+          taking,
+          skipped,
+          menu: meal.menu,
+          status: meal.status
+        };
+      }));
+
+      res.json({ success: true, data });
+    }
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // FEE MANAGEMENT
 // ============================================================
 router.get('/fees', authMiddleware, async (req: AuthRequest, res: Response) => {
