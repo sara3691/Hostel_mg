@@ -1083,4 +1083,324 @@ router.post('/backup/restore', authMiddleware, requirePermission('manage_setting
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// ============================================================
+// ADMIN DASHBOARD ANALYTICS
+// ============================================================
+router.get('/admin/dashboard-stats', authMiddleware, requireRole(['SUPER_ADMIN', 'WARDEN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN']), async (req: AuthRequest, res: Response) => {
+  const { date, hostelId, block, floor } = req.query;
+  const targetDate = date ? new Date(date as string) : new Date();
+  const startOfDay = new Date(targetDate.setUTCHours(0,0,0,0));
+  const endOfDay = new Date(targetDate.setUTCHours(23,59,59,999));
+
+  try {
+    const activeHostelId = hostelId as string || req.user?.hostelId || undefined;
+    
+    // Construct filters for student/user queries
+    const userFilter: any = { role: 'STUDENT', isDeleted: false, status: 'APPROVED' };
+    if (activeHostelId) userFilter.hostelId = activeHostelId;
+    if (block) userFilter.room = { block: block as string };
+    if (floor) userFilter.room = { ...userFilter.room, floor: parseInt(floor as string) };
+
+    const totalStudents = await prisma.user.count({ where: userFilter });
+
+    const roomFilter: any = { isDeleted: false };
+    if (activeHostelId) roomFilter.hostelId = activeHostelId;
+    if (block) roomFilter.block = block as string;
+    if (floor) roomFilter.floor = parseInt(floor as string);
+
+    const rooms = await prisma.room.findMany({
+      where: roomFilter,
+      include: { users: { where: { role: 'STUDENT', isDeleted: false, status: 'APPROVED' } } }
+    });
+
+    const totalBeds = rooms.reduce((sum, r) => sum + r.capacity, 0);
+    const occupiedBeds = rooms.reduce((sum, r) => sum + r.users.length, 0);
+    const availableBeds = totalBeds - occupiedBeds;
+    const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+
+    const attendanceFilter: any = {
+      date: { gte: startOfDay, lte: endOfDay }
+    };
+    if (activeHostelId) attendanceFilter.hostelId = activeHostelId;
+    if (block || floor) {
+      attendanceFilter.user = {
+        room: {
+          ...(block && { block: block as string }),
+          ...(floor && { floor: parseInt(floor as string) })
+        }
+      };
+    }
+    const todayAttendanceRecords = await prisma.attendance.findMany({ where: attendanceFilter });
+    const presentCount = todayAttendanceRecords.filter(r => r.isPresent).length;
+    const absentCount = totalStudents - presentCount > 0 ? totalStudents - presentCount : 0;
+    const attendanceRate = totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0;
+
+    const complaintFilter: any = { isDeleted: false };
+    if (activeHostelId) complaintFilter.hostelId = activeHostelId;
+    if (block || floor) {
+      complaintFilter.student = {
+        room: {
+          ...(block && { block: block as string }),
+          ...(floor && { floor: parseInt(floor as string) })
+        }
+      };
+    }
+    const complaintsList = await prisma.complaint.findMany({ where: complaintFilter });
+    const openComplaintsCount = complaintsList.filter(c => ['PENDING', 'ASSIGNED', 'ACCEPTED', 'IN_PROGRESS', 'REOPENED'].includes(c.status)).length;
+
+    const activeWorkersCount = await prisma.user.count({
+      where: { role: 'WORKER', isDeleted: false, status: 'APPROVED' }
+    });
+
+    // 7 Days Trend
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setUTCHours(0, 0, 0, 0);
+
+    const historyAttendance = await prisma.attendance.findMany({
+      where: {
+        date: { gte: sevenDaysAgo },
+        ...(activeHostelId && { hostelId: activeHostelId }),
+        ...(block || floor ? {
+          user: {
+            room: {
+              ...(block && { block: block as string }),
+              ...(floor && { floor: parseInt(floor as string) })
+            }
+          }
+        } : {})
+      }
+    });
+
+    const trendMap: { [date: string]: { present: number } } = {};
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateKey = d.toISOString().split('T')[0];
+      trendMap[dateKey] = { present: 0 };
+    }
+
+    historyAttendance.forEach(att => {
+      const dateKey = att.date.toISOString().split('T')[0];
+      if (trendMap[dateKey] && att.isPresent) {
+        trendMap[dateKey].present++;
+      }
+    });
+
+    const attendanceTrend = Object.keys(trendMap).sort().map(k => ({
+      date: k,
+      present: trendMap[k].present,
+      absent: totalStudents - trendMap[k].present > 0 ? totalStudents - trendMap[k].present : 0
+    }));
+
+    const hostelsList = await prisma.hostel.findMany({
+      include: {
+        rooms: {
+          where: { isDeleted: false },
+          include: { users: { where: { role: 'STUDENT', isDeleted: false, status: 'APPROVED' } } }
+        }
+      }
+    });
+    const hostelWiseOccupancy = hostelsList.map(h => {
+      const total = h.rooms.reduce((sum, r) => sum + r.capacity, 0);
+      const occupied = h.rooms.reduce((sum, r) => sum + r.users.length, 0);
+      return {
+        hostelName: h.name,
+        occupied,
+        total,
+        percentage: total > 0 ? Math.round((occupied / total) * 100) : 0
+      };
+    });
+
+    const vacantRooms = rooms.filter(r => r.users.length === 0).length;
+    const fullyOccupiedRooms = rooms.filter(r => r.users.length >= r.capacity).length;
+    const partiallyOccupiedRooms = rooms.filter(r => r.users.length > 0 && r.users.length < r.capacity).length;
+
+    const statusCounts = {
+      PENDING: complaintsList.filter(c => c.status === 'PENDING').length,
+      ASSIGNED: complaintsList.filter(c => c.status === 'ASSIGNED').length,
+      ACCEPTED: complaintsList.filter(c => c.status === 'ACCEPTED').length,
+      IN_PROGRESS: complaintsList.filter(c => c.status === 'IN_PROGRESS').length,
+      COMPLETED: complaintsList.filter(c => c.status === 'COMPLETED').length,
+      RESOLVED: complaintsList.filter(c => c.status === 'RESOLVED').length,
+      REJECTED: complaintsList.filter(c => c.status === 'REJECTED').length
+    };
+
+    const categoryMap: { [cat: string]: number } = { Plumbing: 0, Electrical: 0, Cleaning: 0, Carpentry: 0, AC: 0, Other: 0 };
+    complaintsList.forEach(c => {
+      const cat = c.category;
+      if (categoryMap[cat] !== undefined) categoryMap[cat]++;
+      else categoryMap['Other']++;
+    });
+    const categoryCounts = Object.keys(categoryMap).map(k => ({ name: k, value: categoryMap[k] }));
+
+    const resolvedComplaints = complaintsList.filter(c => ['COMPLETED', 'RESOLVED'].includes(c.status) && c.completedAt);
+    let avgResolutionTime = 0;
+    if (resolvedComplaints.length > 0) {
+      const totalHours = resolvedComplaints.reduce((sum, c) => {
+        const start = new Date(c.createdAt).getTime();
+        const end = new Date(c.completedAt!).getTime();
+        return sum + (end - start) / (1000 * 60 * 60);
+      }, 0);
+      avgResolutionTime = parseFloat((totalHours / resolvedComplaints.length).toFixed(1));
+    }
+
+    const workers = await prisma.user.findMany({
+      where: { role: 'WORKER', isDeleted: false },
+      include: { workerAssignedComplaints: { where: { isDeleted: false } } }
+    });
+
+    const workerWorkloads = workers.map(w => {
+      const complaints = w.workerAssignedComplaints;
+      return {
+        workerName: w.fullName,
+        assigned: complaints.filter(c => c.status === 'ASSIGNED').length,
+        inProgress: complaints.filter(c => c.status === 'IN_PROGRESS').length,
+        completed: complaints.filter(c => ['COMPLETED', 'RESOLVED'].includes(c.status)).length
+      };
+    });
+
+    const todayMeals = await prisma.meal.findMany({
+      where: {
+        date: startOfDay,
+        ...(activeHostelId && { hostelId: activeHostelId })
+      },
+      include: { confirmations: true }
+    });
+
+    const mealWise = todayMeals.map(m => {
+      const skipped = m.confirmations.filter(c => c.status === 'SKIPPED').length;
+      const taking = totalStudents - skipped > 0 ? totalStudents - skipped : 0;
+      return {
+        id: m.id,
+        type: m.type,
+        menu: m.menu,
+        eligible: totalStudents,
+        skipped,
+        taking,
+        skipRate: totalStudents > 0 ? ((skipped / totalStudents) * 100).toFixed(1) : '0.0'
+      };
+    });
+
+    const laundryFilter: any = { date: { gte: startOfDay, lte: endOfDay } };
+    if (activeHostelId) laundryFilter.hostelId = activeHostelId;
+    const laundrySlotsToday = await prisma.laundrySlot.findMany({ where: laundryFilter });
+
+    const laundryStats = {
+      booked: laundrySlotsToday.filter(s => s.status === 'BOOKED').length,
+      completed: laundrySlotsToday.filter(s => s.status === 'DELIVERED').length,
+      cancelled: laundrySlotsToday.filter(s => s.status === 'CANCELLED').length,
+      total: laundrySlotsToday.length,
+      utilization: laundrySlotsToday.length > 0 ? Math.round((laundrySlotsToday.filter(s => s.status === 'BOOKED' || s.status === 'DELIVERED').length / laundrySlotsToday.length) * 100) : 0
+    };
+
+    const leaveFilter: any = {};
+    if (activeHostelId) leaveFilter.hostelId = activeHostelId;
+    const leavesToday = await prisma.leave.findMany({ where: leaveFilter });
+    const leaveStats = {
+      pending: leavesToday.filter(l => l.status === 'PENDING').length,
+      approved: leavesToday.filter(l => l.status === 'APPROVED').length,
+      rejected: leavesToday.filter(l => l.status === 'REJECTED').length
+    };
+
+    const visitorFilter: any = { visitDate: { gte: startOfDay, lte: endOfDay } };
+    if (activeHostelId) visitorFilter.hostelId = activeHostelId;
+    const visitorsToday = await prisma.visitor.findMany({ where: visitorFilter });
+    const visitorStats = {
+      today: visitorsToday.length,
+      inside: visitorsToday.filter(v => v.checkInTime && !v.checkOutTime).length,
+      approved: visitorsToday.filter(v => v.status === 'APPROVED').length,
+      pending: visitorsToday.filter(v => v.status === 'PENDING').length
+    };
+
+    const emergencyFilter: any = {};
+    if (activeHostelId) emergencyFilter.hostelId = activeHostelId;
+    const emergencies = await prisma.emergencyAlert.findMany({ where: emergencyFilter });
+    const emergencyStats = {
+      total: emergencies.length,
+      active: emergencies.filter(e => e.status === 'ACTIVE').length,
+      acknowledged: emergencies.filter(e => e.status === 'ACKNOWLEDGED').length,
+      resolved: emergencies.filter(e => e.status === 'RESOLVED').length,
+      roomLevel: emergencies.filter(e => e.level === 'ROOM').length,
+      floorLevel: emergencies.filter(e => e.level === 'FLOOR').length,
+      hostelLevel: emergencies.filter(e => e.level === 'HOSTEL').length
+    };
+
+    const feeFilter: any = {};
+    if (activeHostelId) feeFilter.hostelId = activeHostelId;
+    const fees = await prisma.fee.findMany({ where: feeFilter });
+    const totalFees = fees.reduce((sum, f) => sum + f.amount, 0);
+    const totalPaid = fees.reduce((sum, f) => sum + f.paidAmount, 0);
+    const totalPending = totalFees - totalPaid;
+    const paymentStats = {
+      totalFees,
+      paid: totalPaid,
+      pending: totalPending,
+      rate: totalFees > 0 ? Math.round((totalPaid / totalFees) * 100) : 0
+    };
+
+    const needsAttention = [];
+    if (statusCounts.PENDING > 0) needsAttention.push({ type: 'complaints', count: statusCounts.PENDING, label: `${statusCounts.PENDING} Pending Complaints` });
+    if (emergencyStats.active > 0) needsAttention.push({ type: 'emergencies', count: emergencyStats.active, label: `${emergencyStats.active} Active Emergencies` });
+    if (leaveStats.pending > 0) needsAttention.push({ type: 'leaves', count: leaveStats.pending, label: `${leaveStats.pending} Pending Leave Requests` });
+
+    const [recentComplaints, recentLeaves, recentEmergencies] = await Promise.all([
+      prisma.complaint.findMany({ where: complaintFilter, orderBy: { createdAt: 'desc' }, take: 5, include: { student: { select: { fullName: true } } } }),
+      prisma.leave.findMany({ where: leaveFilter, orderBy: { createdAt: 'desc' }, take: 5, include: { user: { select: { fullName: true } } } }),
+      prisma.emergencyAlert.findMany({ where: emergencyFilter, orderBy: { createdAt: 'desc' }, take: 5 })
+    ]);
+
+    const recentActivities = [
+      ...recentComplaints.map(c => ({ time: c.createdAt, text: `New complaint raised: "${c.title}" by ${c.student.fullName}`, type: 'complaint' })),
+      ...recentLeaves.map(l => ({ time: l.createdAt, text: `Leave request submitted by ${l.user.fullName} (${l.status})`, type: 'leave' })),
+      ...recentEmergencies.map(e => ({ time: e.createdAt, text: `Emergency Alert triggered: "${e.type}" in level ${e.level}`, type: 'emergency' }))
+    ].sort((a, b) => b.time.getTime() - a.time.getTime()).slice(0, 10);
+
+    res.json({
+      success: true,
+      data: {
+        overview: {
+          totalStudents,
+          totalBeds,
+          occupiedBeds,
+          availableBeds,
+          occupancyRate,
+          todayAttendanceRate: attendanceRate,
+          openComplaints: openComplaintsCount,
+          activeWorkers: activeWorkersCount
+        },
+        attendance: {
+          summary: { present: presentCount, absent: absentCount, rate: attendanceRate },
+          trend: attendanceTrend
+        },
+        occupancy: {
+          hostelWise: hostelWiseOccupancy,
+          roomDistribution: { vacant: vacantRooms, partially: partiallyOccupiedRooms, fully: fullyOccupiedRooms }
+        },
+        complaints: {
+          statusCounts,
+          categoryCounts,
+          avgResolutionTime
+        },
+        workers: {
+          total: workers.length,
+          workloads: workerWorkloads
+        },
+        mess: {
+          mealWise
+        },
+        laundry: laundryStats,
+        leave: leaveStats,
+        visitors: visitorStats,
+        emergency: emergencyStats,
+        payments: paymentStats,
+        needsAttention,
+        recentActivities
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;

@@ -297,32 +297,7 @@ const AttendanceRing = ({ percentage }: { percentage: number }) => {
   );
 };
 
-// Simple SVG Bar Chart Component for Analytics
-const SimpleBarChart = ({ data }: { data: { name: string; value: number }[] }) => {
-  const maxValue = Math.max(...data.map(d => d.value), 1);
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '140px', padding: '0.75rem', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-      {data.map((item, idx) => {
-        const heightPercent = (item.value / maxValue) * 100;
-        return (
-          <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: '4px' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>{item.value}</div>
-            <div style={{
-              width: '20px',
-              height: `${Math.max(heightPercent, 4)}px`,
-              background: 'var(--primary)',
-              borderRadius: 'var(--radius-xs) var(--radius-xs) 0 0',
-              transition: 'height 0.3s ease'
-            }} />
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', width: '55px', textAlign: 'center', fontWeight: 500 }}>
-              {item.name}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
+// Simple SVG Bar Chart Component for Analytics (unused)
 
 // =============================================
 // TOAST NOTIFICATION SYSTEM
@@ -580,6 +555,13 @@ export default function App() {
   const [selectedMealForSkip, setSelectedMealForSkip] = useState<any | null>(null);
   const [showPublishMealModal, setShowPublishMealModal] = useState(false);
   const [activeMessTab, setActiveMessTab] = useState('today');
+  // Admin dashboard stats states
+  const [adminStats, setAdminStats] = useState<any>(null);
+  const [isAdminStatsLoading, setIsAdminStatsLoading] = useState(false);
+  const [dashFilterDate, setDashFilterDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dashFilterHostelId, setDashFilterHostelId] = useState('');
+  const [dashFilterBlock, setDashFilterBlock] = useState('');
+  const [dashFilterFloor, setDashFilterFloor] = useState('');
   const [laundrySlots, setLaundrySlots] = useState<any[]>([]);
   // Gate Pass state
   const [gatePasses, setGatePasses] = useState<any[]>([]);
@@ -1101,6 +1083,12 @@ export default function App() {
     }
   }, [mealFilterDate, mealFilterHostelId, mealFilterBlock, mealFilterFloor]);
 
+  useEffect(() => {
+    if (currentUser && ['SUPER_ADMIN', 'WARDEN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN'].includes(currentUser.role)) {
+      loadAdminStats();
+    }
+  }, [dashFilterDate, dashFilterHostelId, dashFilterBlock, dashFilterFloor]);
+
   const loadWorkerDashboard = async () => {
     try {
       const res = await axios.get('/api/worker/dashboard');
@@ -1417,6 +1405,7 @@ export default function App() {
 
         const resRooms = await axios.get('/api/rooms');
         if (resRooms.data?.success) setRooms(resRooms.data.data);
+        try { loadAdminStats(); } catch (e) {}
       }
       // Load new ERP modules
       try { loadGatePasses(); } catch (e) {}
@@ -2475,6 +2464,25 @@ export default function App() {
       const res = await axios.post('/api/mess-menus', { dayOfWeek: menuDay, breakfast: menuBreakfast, lunch: menuLunch, dinner: menuDinner, hostelId: currentUser?.hostelId || hostels[0]?.id });
       if (res.data?.success) { showToast('success', t('common.success'), `Menu for ${menuDay} updated!`); setMenuBreakfast(''); setMenuLunch(''); setMenuDinner(''); loadMessMenus(); }
     } catch (err: any) { showToast('error', t('common.error'), err.response?.data?.error || ''); }
+  };
+
+  const loadAdminStats = async () => {
+    setIsAdminStatsLoading(true);
+    try {
+      const params: any = { date: dashFilterDate };
+      if (dashFilterHostelId) params.hostelId = dashFilterHostelId;
+      if (dashFilterBlock) params.block = dashFilterBlock;
+      if (dashFilterFloor) params.floor = dashFilterFloor;
+
+      const res = await axios.get('/api/admin/dashboard-stats', { params });
+      if (res.data?.success) {
+        setAdminStats(res.data.data);
+      }
+    } catch (e) {
+      console.error('Error loading admin dashboard stats', e);
+    } finally {
+      setIsAdminStatsLoading(false);
+    }
   };
 
   const loadMeals = async () => {
@@ -3943,7 +3951,7 @@ export default function App() {
 
             {/* 1. ROLE DASHBOARDS */}
             {subView === 'dashboard' && currentUser && (
-              <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 <div className="flex-responsive-header">
                   <div>
                     <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>{t('dashboard.welcome', { name: currentUser.fullName })}</h1>
@@ -3952,98 +3960,80 @@ export default function App() {
                   <span className="badge badge-success" style={{ padding: '0.5rem 1rem' }}>{t('common.active')}</span>
                 </div>
 
-                {/* Dashboard statistics based on role */}
-                <div className="dashboard-grid">
-                  <div className="glass-panel stat-card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('dashboard.overallAttendance')}</span>
-                      <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.25rem' }}>{attendanceStats.percentage}%</h3>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Target: 75% min</p>
-                    </div>
-                    <AttendanceRing percentage={attendanceStats.percentage} />
-                  </div>
-
-                  <div className="glass-panel stat-card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('dashboard.openComplaints')}</span>
-                      <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.25rem' }}>{complaints.length}</h3>
-                      <span className="badge badge-warning" style={{ marginTop: '0.5rem' }}>
-                        {complaints.filter(c => c.status !== 'RESOLVED').length} {t('common.active')}
-                      </span>
-                    </div>
-                    <AlertTriangle size={36} color="#f59e0b" />
-                  </div>
-
-                  <div className="glass-panel stat-card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('dashboard.pendingLeaves')}</span>
-                      <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.25rem' }}>
-                        {leavesHistory.filter(l => l.status === 'APPROVED').length} {t('common.approved')}
-                      </h3>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                        {leavesHistory.filter(l => l.status === 'PENDING').length} {t('common.pending')}
-                      </p>
-                    </div>
-                    <Calendar size={36} color="var(--primary)" />
-                  </div>
-                </div>
-
-                {/* Dashboard Core Content Columns */}
-                <div className="dashboard-layout-grid">
-                  {/* Left Column: Recent Activities & Shortcuts */}
+                {currentUser.role === 'STUDENT' ? (
+                  /* STUDENT DASHBOARD (PRESERVED) */
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    
-                    {/* SVG Analytics Chart for Admin/Warden, Check-in logs for Student */}
-                    {currentUser.role === 'STUDENT' ? (
-                      <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.recentActivity')}</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                          <div style={{ display: 'flex', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '1px solid var(--border-color)' }}>
-                            <Clock size={16} color="var(--primary)" />
-                            <div>
-                              <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>{t('attendance.checkIn')}</p>
-                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t('attendance.today')}</span>
-                            </div>
-                          </div>
-                          {leavesHistory[0] && (
-                            <div style={{ display: 'flex', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '1px solid var(--border-color)' }}>
-                              <Calendar size={16} color="var(--primary)" />
-                              <div>
-                                <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>{t('leaves.title')}: {leavesHistory[0].reason}</p>
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t('common.status')}: {leavesHistory[0].status}</span>
-                              </div>
-                            </div>
-                          )}
-                          {complaints[0] && (
-                            <div style={{ display: 'flex', gap: '0.75rem', padding: '0.5rem 0' }}>
-                              <AlertTriangle size={16} color="#f59e0b" />
-                              <div>
-                                <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>{t('complaints.title')}: {complaints[0].title}</p>
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t('common.status')}: {complaints[0].status}</span>
-                              </div>
-                            </div>
-                          )}
+                    <div className="dashboard-grid">
+                      <div className="glass-panel stat-card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('dashboard.overallAttendance')}</span>
+                          <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.25rem' }}>{attendanceStats.percentage}%</h3>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Target: 75% min</p>
                         </div>
+                        <AttendanceRing percentage={attendanceStats.percentage} />
                       </div>
-                    ) : (
-                      <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>{t('ai.analytics')}</h3>
-                        <SimpleBarChart data={[
-                          { name: t('common.active'), value: pendingUsers.length + 10 },
-                          { name: t('attendance.today'), value: attendanceHistory.filter(a => a.isPresent).length + 3 },
-                          { name: t('leaves.title'), value: leavesHistory.filter(l => l.status === 'APPROVED').length },
-                          { name: t('complaints.title'), value: complaints.filter(c => c.status !== 'RESOLVED').length },
-                          { name: t('visitors.title'), value: visitors.length }
-                        ]} />
-                      </div>
-                    )}
 
-                    {/* Quick Action Card Panels */}
-                    <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('dashboard.quickActions')}</h3>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-                        {currentUser.role === 'STUDENT' && (
-                          <>
+                      <div className="glass-panel stat-card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('dashboard.openComplaints')}</span>
+                          <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.25rem' }}>{complaints.length}</h3>
+                          <span className="badge badge-warning" style={{ marginTop: '0.5rem' }}>
+                            {complaints.filter(c => c.status !== 'RESOLVED').length} {t('common.active')}
+                          </span>
+                        </div>
+                        <AlertTriangle size={36} color="#f59e0b" />
+                      </div>
+
+                      <div className="glass-panel stat-card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t('dashboard.pendingLeaves')}</span>
+                          <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.25rem' }}>
+                            {leavesHistory.filter(l => l.status === 'APPROVED').length} {t('common.approved')}
+                          </h3>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                            {leavesHistory.filter(l => l.status === 'PENDING').length} {t('common.pending')}
+                          </p>
+                        </div>
+                        <Calendar size={36} color="var(--primary)" />
+                      </div>
+                    </div>
+
+                    <div className="dashboard-layout-grid">
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.recentActivity')}</h3>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            <div style={{ display: 'flex', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '1px solid var(--border-color)' }}>
+                              <Clock size={16} color="var(--primary)" />
+                              <div>
+                                <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>{t('attendance.checkIn')}</p>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t('attendance.today')}</span>
+                              </div>
+                            </div>
+                            {leavesHistory[0] && (
+                              <div style={{ display: 'flex', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '1px solid var(--border-color)' }}>
+                                <Calendar size={16} color="var(--primary)" />
+                                <div>
+                                  <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>{t('leaves.title')}: {leavesHistory[0].reason}</p>
+                                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t('common.status')}: {leavesHistory[0].status}</span>
+                                </div>
+                              </div>
+                            )}
+                            {complaints[0] && (
+                              <div style={{ display: 'flex', gap: '0.75rem', padding: '0.5rem 0' }}>
+                                <AlertTriangle size={16} color="#f59e0b" />
+                                <div>
+                                  <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>{t('complaints.title')}: {complaints[0].title}</p>
+                                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t('common.status')}: {complaints[0].status}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('dashboard.quickActions')}</h3>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                             <button className="btn btn-secondary" onClick={() => setSubView('attendance')}>
                               <QrCode size={16} /> {t('attendance.scanQr')}
                             </button>
@@ -4056,59 +4046,449 @@ export default function App() {
                             <button className="btn btn-secondary" onClick={() => setSubView('visitors')}>
                               <Users size={16} /> {t('visitors.createRequest')}
                             </button>
-                          </>
-                        )}
-                        {currentUser.role === 'WARDEN' && (
-                          <>
-                            <button className="btn btn-secondary" onClick={() => setSubView('leave')}>
-                              <Calendar size={16} /> {t('leaves.title')} ({leavesHistory.filter(l => l.status === 'PENDING').length})
-                            </button>
-                            <button className="btn btn-secondary" onClick={() => setSubView('attendance')}>
-                              <QrCode size={16} /> {t('attendance.title')}
-                            </button>
-                            <button className="btn btn-secondary" onClick={() => setSubView('complaints')}>
-                              <AlertTriangle size={16} /> {t('complaints.title')}
-                            </button>
-                          </>
-                        )}
-                        {currentUser.role === 'SUPER_ADMIN' && (
-                          <>
-                            <button className="btn btn-secondary" onClick={() => setSubView('hostels')}>
-                              <PlusCircle size={16} /> {t('hostel.add')}
-                            </button>
-                            <button className="btn btn-secondary" onClick={() => setSubView('rooms')}>
-                              <Layers size={16} /> {t('rooms.title')}
-                            </button>
-                            <button className="btn btn-secondary" onClick={() => setSubView('attendance')}>
-                              <PieChart size={16} /> {t('attendance.title')}
-                            </button>
-                          </>
-                        )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
 
-                  {/* Right Column: Announcements & Upcoming Events */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Bell size={18} color="var(--primary)" /> {t('dashboard.recentAnnouncements')}
-                      </h3>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <div style={{ padding: '0.75rem', background: 'rgba(99, 102, 241, 0.05)', borderRadius: '8px', borderLeft: '3px solid var(--primary)' }}>
-                          <h4 style={{ fontSize: '0.85rem', fontWeight: 700 }}>Hostel Gate Timings Restructuring</h4>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Main gates close strictly at 10:00 PM. Access requests after curfew must file visitor passes in advance.</p>
-                          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.5rem' }}>Warden Â· 2 hours ago</span>
-                        </div>
-                        <div style={{ padding: '0.75rem', background: 'rgba(16, 185, 129, 0.05)', borderRadius: '8px', borderLeft: '3px solid var(--accent)' }}>
-                          <h4 style={{ fontSize: '0.85rem', fontWeight: 700 }}>Mess Menu Enhancements</h4>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>By student request, special dinner Paneer Butter Masala has been rescheduled for Thursday nights.</p>
-                          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.5rem' }}>Mess Committee Â· Yesterday</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Bell size={18} color="var(--primary)" /> {t('dashboard.recentAnnouncements')}
+                          </h3>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ padding: '0.75rem', background: 'rgba(99, 102, 241, 0.05)', borderRadius: '8px', borderLeft: '3px solid var(--primary)' }}>
+                              <h4 style={{ fontSize: '0.85rem', fontWeight: 700 }}>Hostel Gate Timings Restructuring</h4>
+                              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Main gates close strictly at 10:00 PM. Access requests after curfew must file visitor passes in advance.</p>
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.5rem' }}>Warden · 2 hours ago</span>
+                            </div>
+                            <div style={{ padding: '0.75rem', background: 'rgba(16, 185, 129, 0.05)', borderRadius: '8px', borderLeft: '3px solid var(--accent)' }}>
+                              <h4 style={{ fontSize: '0.85rem', fontWeight: 700 }}>Mess Menu Enhancements</h4>
+                              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>By student request, special dinner Paneer Butter Masala has been rescheduled for Thursday nights.</p>
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.5rem' }}>Mess Committee · Yesterday</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  /* UPGRADED ADMIN DATA ANALYTICS DASHBOARD */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    {/* GLOBAL FILTERS */}
+                    <div className="glass-panel" style={{ padding: '1.25rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', background: 'var(--bg-subtle)' }}>
+                      <div>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>Date</span>
+                        <input className="form-input" style={{ height: '36px', width: '140px', padding: '0.4rem' }} type="date" value={dashFilterDate} onChange={e => setDashFilterDate(e.target.value)} />
+                      </div>
+                      
+                      <div>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>Hostel Facility</span>
+                        <select className="form-input" style={{ height: '36px', width: '160px', padding: '0.4rem' }} value={dashFilterHostelId} onChange={e => setDashFilterHostelId(e.target.value)}>
+                          <option value="">All Hostels</option>
+                          {hostels.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                        </select>
+                      </div>
+
+                      <div>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>Block</span>
+                        <input className="form-input" style={{ height: '36px', width: '90px', padding: '0.4rem' }} type="text" placeholder="Block" value={dashFilterBlock} onChange={e => setDashFilterBlock(e.target.value)} />
+                      </div>
+
+                      <div>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>Floor</span>
+                        <input className="form-input" style={{ height: '36px', width: '80px', padding: '0.4rem' }} type="number" placeholder="Floor" value={dashFilterFloor} onChange={e => setDashFilterFloor(e.target.value)} />
+                      </div>
+
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem', marginTop: '12px' }}>
+                        <button className="btn btn-secondary" style={{ height: '36px', padding: '0.4rem 0.75rem', fontSize: '0.75rem' }} onClick={() => {
+                          setDashFilterDate(new Date().toISOString().split('T')[0]);
+                          setDashFilterHostelId('');
+                          setDashFilterBlock('');
+                          setDashFilterFloor('');
+                        }}>Clear Filters</button>
+                      </div>
+                    </div>
+
+                    {/* Needs Attention Alert List */}
+                    {adminStats?.needsAttention && adminStats.needsAttention.length > 0 && (
+                      <div className="glass-panel" style={{ padding: '1.25rem', border: '1px solid var(--warning-border)', background: 'var(--warning-soft)' }}>
+                        <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem' }}>
+                          <AlertTriangle size={16} /> {t('dashboard.needsAttention')}
+                        </h4>
+                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                          {adminStats.needsAttention.map((item: any, idx: number) => (
+                            <button
+                              key={idx}
+                              className="btn btn-secondary"
+                              style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--bg-surface)' }}
+                              onClick={() => setSubView(item.type)}
+                            >
+                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--warning)' }} />
+                              <span>{item.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {isAdminStatsLoading ? (
+                      <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>{t('common.loading')}</div>
+                    ) : !adminStats ? (
+                      <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>No analytics data loaded.</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        {/* 1. OVERVIEW KPI SECTION */}
+                        <div className="dashboard-grid">
+                          <div className="glass-panel stat-card" style={{ padding: '1.25rem', background: 'var(--bg-card)' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dashboard.totalStudents')}</span>
+                            <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.25rem' }}>
+                              {adminStats.overview.totalStudents}
+                            </h3>
+                          </div>
+                          
+                          <div className="glass-panel stat-card" style={{ padding: '1.25rem', background: 'var(--bg-card)' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dashboard.occupancy')}</span>
+                            <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.25rem' }}>
+                              {adminStats.overview.occupancyRate}%
+                            </h3>
+                          </div>
+
+                          <div className="glass-panel stat-card" style={{ padding: '1.25rem', background: 'var(--bg-card)' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dashboard.availableBeds')}</span>
+                            <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.25rem' }}>
+                              {adminStats.overview.availableBeds} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ {adminStats.overview.totalBeds} total</span>
+                            </h3>
+                          </div>
+
+                          <div className="glass-panel stat-card" style={{ padding: '1.25rem', background: 'var(--bg-card)' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('attendance.today')}</span>
+                            <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.25rem' }}>
+                              {adminStats.overview.todayAttendanceRate}%
+                            </h3>
+                          </div>
+
+                          <div className="glass-panel stat-card" style={{ padding: '1.25rem', background: 'var(--bg-card)' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dashboard.openComplaints')}</span>
+                            <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.25rem' }}>
+                              {adminStats.overview.openComplaints}
+                            </h3>
+                          </div>
+
+                          <div className="glass-panel stat-card" style={{ padding: '1.25rem', background: 'var(--bg-card)' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t('dashboard.activeWorkers')}</span>
+                            <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.25rem' }}>
+                              {adminStats.overview.activeWorkers}
+                            </h3>
+                          </div>
+                        </div>
+
+                        {/* SECTION 2: ATTENDANCE TREND & BREAKDOWN */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>{t('attendance.title')} Trend (Last 7 Days)</h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                              {adminStats.attendance.trend.map((t: any, idx: number) => {
+                                const total = t.present + t.absent;
+                                const rate = total > 0 ? Math.round((t.present / total) * 100) : 0;
+                                return (
+                                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div className="flex-responsive-between" style={{ fontSize: '0.75rem' }}>
+                                      <span>{new Date(t.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}</span>
+                                      <strong>{t.present} Present ({rate}%)</strong>
+                                    </div>
+                                    <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                                      <div style={{ height: '100%', background: 'var(--primary)', width: `${rate}%` }} />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                            <div>
+                              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>Attendance Summary</h3>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.85rem' }}>
+                                <div className="flex-responsive-between">
+                                  <span style={{ color: 'var(--text-muted)' }}>Present Today</span>
+                                  <strong style={{ color: 'var(--success)' }}>{adminStats.attendance.summary.present}</strong>
+                                </div>
+                                <div className="flex-responsive-between">
+                                  <span style={{ color: 'var(--text-muted)' }}>Absent Today</span>
+                                  <strong style={{ color: 'var(--danger)' }}>{adminStats.attendance.summary.absent}</strong>
+                                </div>
+                                <div className="flex-responsive-between">
+                                  <span style={{ color: 'var(--text-muted)' }}>Attendance rate</span>
+                                  <strong>{adminStats.attendance.summary.rate}%</strong>
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden', marginTop: '1.5rem' }}>
+                              <div style={{ height: '100%', background: 'var(--primary)', width: `${adminStats.attendance.summary.rate}%` }} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* SECTION 3: OCCUPANCY ANALYTICS */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.occupancyStats')}</h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                              {adminStats.occupancy.hostelWise.map((h: any, idx: number) => (
+                                <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <div className="flex-responsive-between" style={{ fontSize: '0.78rem' }}>
+                                    <span>{h.hostelName}</span>
+                                    <strong>{h.occupied} / {h.total} Beds ({h.percentage}%)</strong>
+                                  </div>
+                                  <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', background: 'var(--primary)', width: `${h.percentage}%` }} />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>Room Distribution</h3>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', textAlign: 'center' }}>
+                              <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('dashboard.vacantRooms')}</span>
+                                <h4 style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.25rem', color: 'var(--primary)' }}>
+                                  {adminStats.occupancy.roomDistribution.vacant}
+                                </h4>
+                              </div>
+                              <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('dashboard.partiallyOccupied')}</span>
+                                <h4 style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.25rem', color: '#f59e0b' }}>
+                                  {adminStats.occupancy.roomDistribution.partially}
+                                </h4>
+                              </div>
+                              <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('dashboard.fullyOccupied')}</span>
+                                <h4 style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.25rem', color: 'var(--text-main)' }}>
+                                  {adminStats.occupancy.roomDistribution.fully}
+                                </h4>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* SECTION 4: COMPLAINTS & WORKER WORKLOADS */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                            <div className="flex-responsive-between" style={{ marginBottom: '1rem', alignItems: 'center' }}>
+                              <h3 style={{ fontSize: '1.05rem', fontWeight: 700 }}>{t('dashboard.complaintStats')}</h3>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                {t('dashboard.avgResolution')}: <strong>{adminStats.complaints.avgResolutionTime} hrs</strong>
+                              </span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+                              <div>
+                                <h4 style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Status Breakdown</h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.78rem' }}>
+                                  <div className="flex-responsive-between">
+                                    <span>Pending</span>
+                                    <strong>{adminStats.complaints.statusCounts.PENDING}</strong>
+                                  </div>
+                                  <div className="flex-responsive-between">
+                                    <span>Assigned</span>
+                                    <strong>{adminStats.complaints.statusCounts.ASSIGNED}</strong>
+                                  </div>
+                                  <div className="flex-responsive-between">
+                                    <span>In Progress</span>
+                                    <strong>{adminStats.complaints.statusCounts.IN_PROGRESS}</strong>
+                                  </div>
+                                  <div className="flex-responsive-between">
+                                    <span>Resolved</span>
+                                    <strong>{adminStats.complaints.statusCounts.RESOLVED}</strong>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div>
+                                <h4 style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>By Category</h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.78rem' }}>
+                                  {adminStats.complaints.categoryCounts.slice(0, 4).map((c: any, idx: number) => (
+                                    <div key={idx} className="flex-responsive-between">
+                                      <span>{c.name}</span>
+                                      <strong>{c.value}</strong>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.workerStats')}</h3>
+                            <div className="table-wrapper" style={{ maxHeight: '170px', overflowY: 'auto' }}>
+                              <table className="table" style={{ fontSize: '0.78rem' }}>
+                                <thead>
+                                  <tr>
+                                    <th>Worker</th>
+                                    <th>{t('dashboard.assigned')}</th>
+                                    <th>{t('dashboard.inProgress')}</th>
+                                    <th>{t('dashboard.completed')}</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {adminStats.workers.workloads.length === 0 ? (
+                                    <tr>
+                                      <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No workers loaded.</td>
+                                    </tr>
+                                  ) : (
+                                    adminStats.workers.workloads.map((w: any, idx: number) => (
+                                      <tr key={idx}>
+                                        <td><strong>{w.workerName}</strong></td>
+                                        <td>{w.assigned}</td>
+                                        <td>{w.inProgress}</td>
+                                        <td style={{ color: 'var(--success)' }}>{w.completed}</td>
+                                      </tr>
+                                    ))
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* SECTION 5: MESS, LAUNDRY, LEAVE & EMERGENCIES */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                          {/* Mess Analytics */}
+                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.messStats')} (Today)</h3>
+                            {adminStats.mess.mealWise.length === 0 ? (
+                              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem 0' }}>No active meal demand logs.</p>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.8rem' }}>
+                                {adminStats.mess.mealWise.map((meal: any, idx: number) => (
+                                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+                                    <div>
+                                      <strong>{t(`mess.${meal.type.toLowerCase()}`)}</strong>
+                                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>Menu: {meal.menu}</span>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                      <span style={{ fontWeight: 700, color: 'var(--primary)' }}>{meal.taking} expected</span>
+                                      <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)' }}>{meal.skipped} skipped ({meal.skipRate}%)</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Laundry Stats */}
+                          <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                            <div>
+                              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.laundryStats')} (Today)</h3>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.85rem' }}>
+                                <div className="flex-responsive-between">
+                                  <span style={{ color: 'var(--text-muted)' }}>Booked Slots</span>
+                                  <strong>{adminStats.laundry.booked}</strong>
+                                </div>
+                                <div className="flex-responsive-between">
+                                  <span style={{ color: 'var(--text-muted)' }}>Completed Slots</span>
+                                  <strong>{adminStats.laundry.completed}</strong>
+                                </div>
+                                <div className="flex-responsive-between">
+                                  <span style={{ color: 'var(--text-muted)' }}>Utilization Rate</span>
+                                  <strong>{adminStats.laundry.utilization}%</strong>
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden', marginTop: '1rem' }}>
+                              <div style={{ height: '100%', background: 'var(--primary)', width: `${adminStats.laundry.utilization}%` }} />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                          {/* Leave & Visitors */}
+                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.leaveStats')}</h3>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', fontSize: '0.8rem' }}>
+                              <div>
+                                <h4 style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Leaves Today</h4>
+                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
+                                  <span>Pending</span>
+                                  <strong>{adminStats.leave.pending}</strong>
+                                </div>
+                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
+                                  <span>Approved</span>
+                                  <strong style={{ color: 'var(--success)' }}>{adminStats.leave.approved}</strong>
+                                </div>
+                              </div>
+                              <div>
+                                <h4 style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Visitors Today</h4>
+                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
+                                  <span>Total Logged</span>
+                                  <strong>{adminStats.visitors.today}</strong>
+                                </div>
+                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
+                                  <span>Inside Facility</span>
+                                  <strong style={{ color: 'var(--warning)' }}>{adminStats.visitors.inside}</strong>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Emergencies & Payments */}
+                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.emergencyStats')} & {t('dashboard.paymentStats')}</h3>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', fontSize: '0.8rem' }}>
+                              <div>
+                                <h4 style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Alert Status</h4>
+                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
+                                  <span>Active Warnings</span>
+                                  <strong style={{ color: 'var(--danger)' }}>{adminStats.emergency.active}</strong>
+                                </div>
+                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
+                                  <span>Resolved Alerts</span>
+                                  <strong style={{ color: 'var(--success)' }}>{adminStats.emergency.resolved}</strong>
+                                </div>
+                              </div>
+                              <div>
+                                <h4 style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Fee Collection</h4>
+                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
+                                  <span>Paid amount</span>
+                                  <strong style={{ color: 'var(--success)' }}>${adminStats.payments.paid.toLocaleString()}</strong>
+                                </div>
+                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
+                                  <span>Pending amount</span>
+                                  <strong style={{ color: 'var(--warning)' }}>${adminStats.payments.pending.toLocaleString()}</strong>
+                                </div>
+                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
+                                  <span>Collection rate</span>
+                                  <strong>{adminStats.payments.rate}%</strong>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* SECTION 6: RECENT ACTIVITY TIMELINE */}
+                        <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.recentActivity')}</h3>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {adminStats.recentActivities.length === 0 ? (
+                              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem 0' }}>No recent activities logged.</p>
+                            ) : (
+                              adminStats.recentActivities.map((act: any, idx: number) => (
+                                <div key={idx} style={{ display: 'flex', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '1px solid var(--border-color)', fontSize: '0.82rem', alignItems: 'center' }}>
+                                  <Clock size={14} color="var(--text-muted)" />
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                                    {new Date(act.time).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                  <span style={{ color: 'var(--text-main)' }}>{act.text}</span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
