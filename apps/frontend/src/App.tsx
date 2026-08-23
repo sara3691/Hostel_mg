@@ -4254,7 +4254,7 @@ export default function App() {
                             />
                             {t('attendance.session')}
                           </label>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem' }}>
                             <div>
                               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Scan Delay (sec)</span>
                               <input 
@@ -5568,7 +5568,7 @@ export default function App() {
                         <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.25rem' }} onClick={() => setShowEditProfileModal(false)}>✕</button>
                       </div>
                       <form onSubmit={handleSaveProfile} style={{ display: 'grid', gap: '1rem' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                           <div>
                             <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('auth.fullName')}</label>
                             <input className="form-input" type="text" value={editProfileName} onChange={e => setEditProfileName(e.target.value)} required />
@@ -5578,7 +5578,7 @@ export default function App() {
                             <input className="form-input" type="text" value={editProfileMobile} onChange={e => setEditProfileMobile(e.target.value)} />
                           </div>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                           <div>
                             <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('profile.emergencyContact')}</label>
                             <input className="form-input" type="text" value={editProfileEmergency} onChange={e => setEditProfileEmergency(e.target.value)} />
@@ -5591,7 +5591,7 @@ export default function App() {
                             </select>
                           </div>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                           <div>
                             <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('auth.department')}</label>
                             <input className="form-input" type="text" value={editProfileDept} onChange={e => setEditProfileDept(e.target.value)} />
@@ -5601,7 +5601,7 @@ export default function App() {
                             <input className="form-input" type="text" value={editProfileYear} onChange={e => setEditProfileYear(e.target.value)} />
                           </div>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                           <div>
                             <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('profile.guardianName')}</label>
                             <input className="form-input" type="text" value={editProfileGuardianName} onChange={e => setEditProfileGuardianName(e.target.value)} />
@@ -7264,6 +7264,140 @@ export default function App() {
       )}
 
           </main>
+
+          {/* Mobile Bottom Navigation */}
+          {currentUser && (
+            <nav className="bottom-nav">
+              {currentUser.role === 'STUDENT' && (
+                <>
+                  <button 
+                    className={`bottom-nav-item ${subView === 'dashboard' ? 'active' : ''}`}
+                    onClick={() => setSubView('dashboard')}
+                  >
+                    <Grid size={18} />
+                    <span>Dashboard</span>
+                  </button>
+                  <button 
+                    className={`bottom-nav-item ${subView === 'leave' ? 'active' : ''}`}
+                    onClick={() => setSubView('leave')}
+                  >
+                    <Calendar size={18} />
+                    <span>Leaves</span>
+                  </button>
+                  <button 
+                    className={`bottom-nav-item ${subView === 'attendance' ? 'active' : ''}`}
+                    onClick={() => setSubView('attendance')}
+                  >
+                    <QrCode size={18} />
+                    <span>Scan</span>
+                  </button>
+                  <button 
+                    className={`bottom-nav-item ${subView === 'profile' ? 'active' : ''}`}
+                    onClick={() => setSubView('profile')}
+                  >
+                    <User size={18} />
+                    <span>Profile</span>
+                  </button>
+                  <button 
+                    className="bottom-nav-item"
+                    onClick={() => setMobileMenuOpen(true)}
+                  >
+                    <Menu size={18} />
+                    <span>More</span>
+                  </button>
+                </>
+              )}
+              {['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN'].includes(currentUser.role) && (
+                <>
+                  <button 
+                    className={`bottom-nav-item ${subView === 'dashboard' ? 'active' : ''}`}
+                    onClick={() => setSubView('dashboard')}
+                  >
+                    <Grid size={18} />
+                    <span>Dashboard</span>
+                  </button>
+                  <button 
+                    className={`bottom-nav-item ${subView === 'students' ? 'active' : ''}`}
+                    onClick={() => setSubView('students')}
+                  >
+                    <Users size={18} />
+                    <span>Students</span>
+                  </button>
+                  <button 
+                    className={`bottom-nav-item ${subView === 'attendance' ? 'active' : ''}`}
+                    onClick={() => setSubView('attendance')}
+                  >
+                    <QrCode size={18} />
+                    <span>Scan</span>
+                  </button>
+                  <button 
+                    className={`bottom-nav-item ${subView === 'emergencies' ? 'active' : ''}`}
+                    onClick={() => setSubView('emergencies')}
+                  >
+                    <ShieldAlert size={18} />
+                    <span>Alerts</span>
+                  </button>
+                  <button 
+                    className="bottom-nav-item"
+                    onClick={() => setMobileMenuOpen(true)}
+                  >
+                    <Menu size={18} />
+                    <span>More</span>
+                  </button>
+                </>
+              )}
+              {currentUser.role === 'WORKER' && (
+                <>
+                  <button 
+                    className={`bottom-nav-item ${subView === 'worker_dashboard' ? 'active' : ''}`}
+                    onClick={() => setSubView('worker_dashboard')}
+                  >
+                    <Wrench size={18} />
+                    <span>Jobs</span>
+                  </button>
+                  <button 
+                    className={`bottom-nav-item ${subView === 'profile' ? 'active' : ''}`}
+                    onClick={() => setSubView('profile')}
+                  >
+                    <User size={18} />
+                    <span>Profile</span>
+                  </button>
+                  <button 
+                    className="bottom-nav-item"
+                    onClick={() => setMobileMenuOpen(true)}
+                  >
+                    <Menu size={18} />
+                    <span>More</span>
+                  </button>
+                </>
+              )}
+              {!['STUDENT', 'SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'WORKER'].includes(currentUser.role) && (
+                <>
+                  <button 
+                    className={`bottom-nav-item ${subView === 'dashboard' ? 'active' : ''}`}
+                    onClick={() => setSubView('dashboard')}
+                  >
+                    <Grid size={18} />
+                    <span>Dashboard</span>
+                  </button>
+                  <button 
+                    className={`bottom-nav-item ${subView === 'profile' ? 'active' : ''}`}
+                    onClick={() => setSubView('profile')}
+                  >
+                    <User size={18} />
+                    <span>Profile</span>
+                  </button>
+                  <button 
+                    className="bottom-nav-item"
+                    onClick={() => setMobileMenuOpen(true)}
+                  >
+                    <Menu size={18} />
+                    <span>More</span>
+                  </button>
+                </>
+              )}
+            </nav>
+          )}
         </div>
       )}
 
