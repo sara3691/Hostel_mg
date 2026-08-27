@@ -992,3 +992,88 @@ select.form-select option {
   }
 }
 
+/* Drawer overlay and sliding content panel styles */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  backdrop-filter: blur(2px);
+}
+.drawer-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer-content {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: -280px;
+  width: 280px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-color);
+  z-index: 1001;
+  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem;
+  overflow-y: auto;
+}
+.drawer-content.active {
+  left: 0;
+}
+
+.drawer-content .sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  margin-bottom: 0.25rem;
+}
+.drawer-content .sidebar-item:hover,
+.drawer-content .sidebar-item.active {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+
+/* Scrollable container for tables on small screens to prevent layout break */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+/* Modal scaling optimization on mobile */
+@media (max-width: 640px) {
+  .modal-container {
+    width: 95vw !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    margin: 1rem auto !important;
+    padding: 1.25rem !important;
+  }
+}
+
+/* Ensure complaints/attendance scanner cameras scale responsively */
+video, canvas {
+  max-width: 100%;
+  height: auto !important;
+}
+

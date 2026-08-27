@@ -99,6 +99,7 @@ const CameraCaptureModal = ({
   onCapture: (base64Image: string) => void;
   onClose: () => void;
 }) => {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -116,7 +117,7 @@ const CameraCaptureModal = ({
         videoRef.current.srcObject = mediaStream;
       }
     } catch (err: any) {
-      setCameraError(err.message || 'Camera permission denied or camera unavailable.');
+      setCameraError(err.message || t('camera.error'));
     }
   };
 
@@ -166,7 +167,7 @@ const CameraCaptureModal = ({
       <div className="modal-container" style={{ maxWidth: '500px', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)' }}>
-            <Camera size={18} color="var(--primary)" /> Live Camera Evidence Capture
+            <Camera size={18} color="var(--primary)" /> {t('camera.title')}
           </h3>
           <button className="btn btn-ghost" onClick={handleClose} style={{ padding: '0.35rem' }}>
             <X size={16} />
@@ -178,15 +179,15 @@ const CameraCaptureModal = ({
             <AlertTriangle size={32} style={{ marginBottom: '0.5rem' }} />
             <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{cameraError}</p>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-              Please allow camera permissions in your browser settings to capture evidence photos.
+              {t('camera.instruction')}
             </p>
           </div>
         ) : capturedPhoto ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
             <img src={capturedPhoto} alt="Captured Evidence" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }} />
             <div style={{ display: 'flex', gap: '0.75rem', width: '100%' }}>
-              <button className="btn btn-secondary" onClick={handleRetake} style={{ flex: 1 }}>Retake Photo</button>
-              <button className="btn btn-primary" onClick={handleUsePhoto} style={{ flex: 1 }}>Use Captured Photo</button>
+              <button className="btn btn-secondary" onClick={handleRetake} style={{ flex: 1 }}>{t('camera.retake')}</button>
+              <button className="btn btn-primary" onClick={handleUsePhoto} style={{ flex: 1 }}>{t('camera.usePhoto')}</button>
             </div>
           </div>
         ) : (
@@ -196,9 +197,9 @@ const CameraCaptureModal = ({
             </div>
             <canvas ref={canvasRef} style={{ display: 'none' }} />
             <div style={{ display: 'flex', gap: '0.75rem', width: '100%' }}>
-              <button className="btn btn-secondary" onClick={handleClose} style={{ flex: 1 }}>Cancel</button>
+              <button className="btn btn-secondary" onClick={handleClose} style={{ flex: 1 }}>{t('common.cancel')}</button>
               <button className="btn btn-primary" onClick={handleCapture} style={{ flex: 1 }}>
-                <Camera size={16} /> Capture Photo
+                <Camera size={16} /> {t('camera.capture')}
               </button>
             </div>
           </div>
@@ -337,6 +338,21 @@ const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast:
 export default function App() {
   const { t, lang, changeLanguage } = useTranslation();
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+
+  const getStatusLabel = (status: string) => {
+    if (!status) return '';
+    const lower = status.toLowerCase();
+    if (lower === 'in_progress') return t('common.inProgress');
+    if (lower === 'picked_up') return t('common.pickedUp') || 'Picked Up';
+    if (lower === 'delivered') return t('common.delivered') || 'Delivered';
+    if (lower === 'paid') return t('common.paid') || 'Paid';
+    if (lower === 'partial') return t('common.partial') || 'Partial';
+    if (lower === 'exited') return t('common.exited') || 'Exited';
+    if (lower === 'returned') return t('common.returned') || 'Returned';
+    if (lower === 'resolved') return t('common.resolved') || 'Resolved';
+    if (lower === 'unpaid') return t('common.unpaid') || 'Unpaid';
+    return t(`common.${lower}`) || status;
+  };
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('theme');
@@ -2859,7 +2875,7 @@ export default function App() {
         })}
         <button className="sidebar-item" onClick={handleLogout} style={{ marginTop: 'auto', color: 'var(--danger)' }}>
           <LogOut size={16} />
-          <span>Logout</span>
+          <span>{t('common.logout')}</span>
         </button>
       </>
     );
@@ -3111,7 +3127,7 @@ export default function App() {
                     <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{t('hostel.name')}: {lastScannedStudent.hostelName} | {t('rooms.roomNumber')}: {lastScannedStudent.roomNumber}</span>
                     <div style={{ marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span className={`badge ${lastScannedStudent.status === 'PRESENT' ? 'badge-success' : 'badge-warning'}`}>
-                        {lastScannedStudent.status}
+                        {getStatusLabel(lastScannedStudent.status)}
                       </span>
                       <span style={{ fontSize: '0.75rem', color: lastScannedStudent.status === 'PRESENT' ? 'var(--success)' : 'var(--warning)', fontWeight: 500 }}>
                         {lastScannedStudent.message}
@@ -3172,13 +3188,13 @@ export default function App() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Student Name</th>
-                    <th>Room</th>
-                    <th>Session</th>
-                    <th>Time</th>
-                    <th>Status</th>
-                    <th>Verified By</th>
-                    <th>Device</th>
+                    <th>{t('auth.fullName')}</th>
+                    <th>{t('common.room')}</th>
+                    <th>{t('attendance.session')}</th>
+                    <th>{t('common.time')}</th>
+                    <th>{t('common.status')}</th>
+                    <th>{t('attendance.scannedBy')}</th>
+                    <th>{t('common.device')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3190,7 +3206,7 @@ export default function App() {
                       <td>{h.time}</td>
                       <td>
                         <span className={`badge ${h.status === 'PRESENT' ? 'badge-success' : 'badge-warning'}`}>
-                          {h.status}
+                          {getStatusLabel(h.status)}
                         </span>
                       </td>
                       <td style={{ color: 'var(--text-muted)' }}>{h.scannedBy}</td>
@@ -6990,9 +7006,9 @@ export default function App() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                   <div>
                     <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>🧺 {t('laundry.title')}</h2>
-                    <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem', fontSize: '0.875rem' }}>Book pickup slots and track laundry delivery status</p>
+                    <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem', fontSize: '0.875rem' }}>{t('laundry.subtitle')}</p>
                   </div>
-                  <button className="btn btn-primary" onClick={loadLaundrySlots}>↻ Refresh</button>
+                  <button className="btn btn-primary" onClick={loadLaundrySlots}>↻ {t('common.refresh')}</button>
                 </div>
 
                 {currentUser.role === 'STUDENT' && (
@@ -7001,11 +7017,11 @@ export default function App() {
                     <form onSubmit={handleBookLaundry}>
                       <div className="responsive-grid" style={{ marginBottom: '1rem' }}>
                         <div>
-                          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Pickup Date</label>
+                          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('common.date')}</label>
                           <input className="form-input" type="date" value={laundryDate} onChange={e => setLaundryDate(e.target.value)} required />
                         </div>
                         <div>
-                          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Time Slot</label>
+                          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('laundry.timeSlot')}</label>
                           <select className="form-input" value={laundryTimeSlot} onChange={e => setLaundryTimeSlot(e.target.value)}>
                             <option>8:00 AM - 10:00 AM</option>
                             <option>10:00 AM - 12:00 PM</option>
@@ -7015,16 +7031,16 @@ export default function App() {
                           </select>
                         </div>
                         <div>
-                          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>No. of Clothes</label>
+                          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('laundry.clothesCount')}</label>
                           <input className="form-input" type="number" min="1" max="50" value={laundryClothes} onChange={e => setLaundryClothes(Number(e.target.value))} />
                         </div>
                         <div>
-                          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Notes (optional)</label>
+                          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>{t('laundry.notes')}</label>
                           <input className="form-input" type="text" placeholder="e.g. Delicate items, handle with care" value={laundryNotes} onChange={e => setLaundryNotes(e.target.value)} />
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                        <button className="btn btn-primary" type="submit">Book Laundry Slot</button>
+                        <button className="btn btn-primary" type="submit">{t('laundry.book')}</button>
                         <button
                           type="button"
                           className="btn btn-secondary"
@@ -7047,19 +7063,19 @@ export default function App() {
                   ) : laundrySlots.map(slot => (
                     <div key={slot.id} style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                       <div>
-                        <div style={{ fontWeight: 600 }}>{slot.user?.fullName || 'Student'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Room: {slot.user?.room?.roomNumber || 'N/A'}</span></div>
+                        <div style={{ fontWeight: 600 }}>{slot.user?.fullName || 'Student'} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('common.room')}: {slot.user?.room?.roomNumber || 'N/A'}</span></div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                          Date: {new Date(slot.date).toLocaleDateString()} · Slot: {slot.timeSlot} · Quantity: {slot.clothesCount} items
+                          {t('common.date')}: {new Date(slot.date).toLocaleDateString()} · {t('laundry.slot')}: {slot.timeSlot} · {t('laundry.quantity')}: {slot.clothesCount} {t('laundry.items')}
                         </div>
-                        {slot.notes && <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Notes: {slot.notes}</div>}
+                        {slot.notes && <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{t('laundry.notes')}: {slot.notes}</div>}
                       </div>
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <span className={`badge ${slot.status === 'DELIVERED' ? 'badge-success' : slot.status === 'PICKED_UP' ? 'badge-info' : slot.status === 'CANCELLED' ? 'badge-danger' : 'badge-warning'}`}>{slot.status}</span>
+                        <span className={`badge ${slot.status === 'DELIVERED' ? 'badge-success' : slot.status === 'PICKED_UP' ? 'badge-info' : slot.status === 'CANCELLED' ? 'badge-danger' : 'badge-warning'}`}>{getStatusLabel(slot.status)}</span>
                         {['LAUNDRY', 'HOSTEL_ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) && slot.status === 'BOOKED' && (
-                          <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateLaundry(slot.id, 'PICKED_UP')}>Picked Up</button>
+                          <button className="btn btn-secondary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateLaundry(slot.id, 'PICKED_UP')}>{t('common.pickedUp')}</button>
                         )}
                         {['LAUNDRY', 'HOSTEL_ADMIN', 'SUPER_ADMIN'].includes(currentUser.role) && slot.status === 'PICKED_UP' && (
-                          <button className="btn btn-primary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateLaundry(slot.id, 'DELIVERED')}>Delivered</button>
+                          <button className="btn btn-primary" style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem' }} onClick={() => handleUpdateLaundry(slot.id, 'DELIVERED')}>{t('common.delivered')}</button>
                         )}
                       </div>
                     </div>

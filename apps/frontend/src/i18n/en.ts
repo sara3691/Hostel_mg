@@ -59,7 +59,26 @@ export const en = {
     occupied: "Occupied",
     busy: "Busy",
     offline: "Offline",
-    onLeave: "On Leave"
+    onLeave: "On Leave",
+    pickedUp: "Picked Up",
+    delivered: "Delivered",
+    paid: "Paid",
+    partial: "Partial",
+    exited: "Exited",
+    returned: "Returned",
+    resolved: "Resolved",
+    unpaid: "Unpaid",
+    logout: "Logout",
+    time: "Time",
+    device: "Device",
+    room: "Room",
+    date: "Date",
+    remarks: "Remarks",
+    evidence: "Evidence",
+    category: "Category",
+    priority: "Priority",
+    description: "Description",
+    title: "Title"
   },
   nav: {
     dashboard: "Dashboard",
@@ -324,7 +343,14 @@ export const en = {
     verified: "Geofence Location Verified",
     outsideRadius: "You are outside the hostel geofence area.",
     distance: "Distance to Hostel",
-    tryAgain: "Retry GPS Detection"
+  },
+  camera: {
+    title: "Capture Evidence",
+    retake: "Retake Photo",
+    usePhoto: "Use Captured Photo",
+    capture: "Capture Photo",
+    error: "Camera permission denied or camera unavailable.",
+    instruction: "Please allow camera permissions in your browser settings to capture evidence photos."
   },
   leaves: {
     title: "Student Leaves & Outpass",
@@ -436,6 +462,9 @@ export const en = {
   },
   laundry: {
     title: "Laundry Slot Management",
+    subtitle: "Book pickup slots and track laundry delivery status",
+    quantity: "Quantity",
+    items: "items",
     slot: "Laundry Slot",
     available: "Slot Available",
     full: "Slot Fully Booked",
