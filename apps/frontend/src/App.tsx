@@ -3020,146 +3020,149 @@ export default function App() {
   const renderSidebarContent = () => {
     if (!currentUser) return null;
 
-    const items = [];
+    const items: Array<{ id: string; label: string; icon: any; section?: string }> = [];
     if (currentUser.role === 'SUPER_ADMIN') {
       items.push(
-        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
-        { id: 'hostels', label: t('nav.hostels'), icon: Home },
-        { id: 'rooms', label: t('nav.rooms'), icon: Layers },
-        { id: 'students', label: t('nav.students'), icon: Users },
-        { id: 'workers', label: t('nav.workers'), icon: Wrench },
-        { id: 'emergencies', label: t('emergency.title'), icon: ShieldAlert },
-        { id: 'attendance', label: t('nav.attendance'), icon: QrCode },
-        { id: 'leave', label: t('nav.leaves'), icon: Calendar },
-        { id: 'complaints', label: t('nav.complaints'), icon: AlertTriangle },
-        { id: 'visitors', label: t('nav.visitors'), icon: Users },
-        { id: 'laundry', label: t('nav.laundry'), icon: Clipboard },
-        { id: 'mess', label: t('nav.mess'), icon: BookOpen },
-        { id: 'payments', label: t('nav.payments'), icon: CreditCard },
-        { id: 'gate_pass', label: t('nav.gatePass'), icon: Shield },
-        { id: 'notices', label: t('nav.noticeBoard'), icon: Bell },
-        { id: 'notifications', label: t('nav.notifications'), icon: Bell },
-        { id: 'reports', label: t('nav.reports'), icon: PieChart },
-        { id: 'users', label: 'User Management', icon: Users },
-        { id: 'audit_logs', label: t('nav.auditLogs'), icon: Activity },
-        { id: 'settings', label: t('nav.settings'), icon: Settings },
-        { id: 'profile', label: t('nav.profile'), icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid, section: 'Overview' },
+        { id: 'hostels', label: t('nav.hostels'), icon: Home, section: 'Management' },
+        { id: 'rooms', label: t('nav.rooms'), icon: Layers, section: 'Management' },
+        { id: 'students', label: t('nav.students'), icon: Users, section: 'Management' },
+        { id: 'workers', label: t('nav.workers'), icon: Wrench, section: 'Management' },
+        { id: 'emergencies', label: t('emergency.title'), icon: ShieldAlert, section: 'Operations' },
+        { id: 'attendance', label: t('nav.attendance'), icon: QrCode, section: 'Operations' },
+        { id: 'leave', label: t('nav.leaves'), icon: Calendar, section: 'Operations' },
+        { id: 'complaints', label: t('nav.complaints'), icon: AlertTriangle, section: 'Operations' },
+        { id: 'visitors', label: t('nav.visitors'), icon: Users, section: 'Operations' },
+        { id: 'laundry', label: t('nav.laundry'), icon: Clipboard, section: 'Operations' },
+        { id: 'mess', label: t('nav.mess'), icon: BookOpen, section: 'Operations' },
+        { id: 'payments', label: t('nav.payments'), icon: CreditCard, section: 'Operations' },
+        { id: 'gate_pass', label: t('nav.gatePass'), icon: Shield, section: 'Operations' },
+        { id: 'notices', label: t('nav.noticeBoard'), icon: Bell, section: 'Operations' },
+        { id: 'notifications', label: t('nav.notifications'), icon: Bell, section: 'Operations' },
+        { id: 'reports', label: t('nav.reports'), icon: PieChart, section: 'System' },
+        { id: 'users', label: 'User Management', icon: Users, section: 'System' },
+        { id: 'audit_logs', label: t('nav.auditLogs'), icon: Activity, section: 'System' },
+        { id: 'settings', label: t('nav.settings'), icon: Settings, section: 'System' },
+        { id: 'profile', label: t('nav.profile'), icon: User, section: 'Account' }
       );
     } else if (currentUser.role === 'HOSTEL_ADMIN') {
       items.push(
-        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
-        { id: 'users', label: 'User Management', icon: Users },
-        { id: 'rooms', label: t('nav.rooms'), icon: Layers },
-        { id: 'students', label: t('nav.students'), icon: Users },
-        { id: 'workers', label: t('nav.workers'), icon: Wrench },
-        { id: 'emergencies', label: t('emergency.title'), icon: ShieldAlert },
-        { id: 'attendance', label: t('nav.attendance'), icon: QrCode },
-        { id: 'leave', label: t('nav.leaves'), icon: Calendar },
-        { id: 'complaints', label: t('nav.complaints'), icon: AlertTriangle },
-        { id: 'visitors', label: t('nav.visitors'), icon: Users },
-        { id: 'laundry', label: t('nav.laundry'), icon: Clipboard },
-        { id: 'mess', label: t('nav.mess'), icon: BookOpen },
-        { id: 'payments', label: t('nav.payments'), icon: CreditCard },
-        { id: 'gate_pass', label: t('nav.gatePass'), icon: Shield },
-        { id: 'notices', label: t('nav.noticeBoard'), icon: Bell },
-        { id: 'notifications', label: t('nav.notifications'), icon: Bell },
-        { id: 'reports', label: t('nav.reports'), icon: PieChart },
-        { id: 'profile', label: t('nav.profile'), icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid, section: 'Overview' },
+        { id: 'users', label: 'User Management', icon: Users, section: 'Management' },
+        { id: 'rooms', label: t('nav.rooms'), icon: Layers, section: 'Management' },
+        { id: 'students', label: t('nav.students'), icon: Users, section: 'Management' },
+        { id: 'workers', label: t('nav.workers'), icon: Wrench, section: 'Management' },
+        { id: 'emergencies', label: t('emergency.title'), icon: ShieldAlert, section: 'Operations' },
+        { id: 'attendance', label: t('nav.attendance'), icon: QrCode, section: 'Operations' },
+        { id: 'leave', label: t('nav.leaves'), icon: Calendar, section: 'Operations' },
+        { id: 'complaints', label: t('nav.complaints'), icon: AlertTriangle, section: 'Operations' },
+        { id: 'visitors', label: t('nav.visitors'), icon: Users, section: 'Operations' },
+        { id: 'laundry', label: t('nav.laundry'), icon: Clipboard, section: 'Operations' },
+        { id: 'mess', label: t('nav.mess'), icon: BookOpen, section: 'Operations' },
+        { id: 'payments', label: t('nav.payments'), icon: CreditCard, section: 'Operations' },
+        { id: 'gate_pass', label: t('nav.gatePass'), icon: Shield, section: 'Operations' },
+        { id: 'notices', label: t('nav.noticeBoard'), icon: Bell, section: 'Operations' },
+        { id: 'notifications', label: t('nav.notifications'), icon: Bell, section: 'Operations' },
+        { id: 'reports', label: t('nav.reports'), icon: PieChart, section: 'System' },
+        { id: 'profile', label: t('nav.profile'), icon: User, section: 'Account' }
       );
     } else if (currentUser.role === 'ASSISTANT_WARDEN') {
       items.push(
-        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
-        { id: 'rooms', label: t('nav.rooms'), icon: Layers },
-        { id: 'students', label: t('nav.students'), icon: Users },
-        { id: 'workers', label: t('nav.workers'), icon: Wrench },
-        { id: 'emergencies', label: t('emergency.title'), icon: ShieldAlert },
-        { id: 'attendance', label: t('nav.attendance'), icon: QrCode },
-        { id: 'leave', label: t('nav.leaves'), icon: Calendar },
-        { id: 'complaints', label: t('nav.complaints'), icon: AlertTriangle },
-        { id: 'visitors', label: t('nav.visitors'), icon: Users },
-        { id: 'laundry', label: t('nav.laundry'), icon: Clipboard },
-        { id: 'mess', label: t('nav.mess'), icon: BookOpen },
-        { id: 'profile', label: t('nav.profile'), icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid, section: 'Overview' },
+        { id: 'rooms', label: t('nav.rooms'), icon: Layers, section: 'Management' },
+        { id: 'students', label: t('nav.students'), icon: Users, section: 'Management' },
+        { id: 'workers', label: t('nav.workers'), icon: Wrench, section: 'Management' },
+        { id: 'emergencies', label: t('emergency.title'), icon: ShieldAlert, section: 'Operations' },
+        { id: 'attendance', label: t('nav.attendance'), icon: QrCode, section: 'Operations' },
+        { id: 'leave', label: t('nav.leaves'), icon: Calendar, section: 'Operations' },
+        { id: 'complaints', label: t('nav.complaints'), icon: AlertTriangle, section: 'Operations' },
+        { id: 'visitors', label: t('nav.visitors'), icon: Users, section: 'Operations' },
+        { id: 'laundry', label: t('nav.laundry'), icon: Clipboard, section: 'Operations' },
+        { id: 'mess', label: t('nav.mess'), icon: BookOpen, section: 'Operations' },
+        { id: 'profile', label: t('nav.profile'), icon: User, section: 'Account' }
       );
     } else if (currentUser.role === 'WORKER') {
       items.push(
-        { id: 'worker_dashboard', label: t('worker.dashboardTitle'), icon: Wrench },
-        { id: 'notifications', label: t('nav.notifications'), icon: Bell },
-        { id: 'profile', label: t('nav.profile'), icon: User }
+        { id: 'worker_dashboard', label: t('worker.dashboardTitle'), icon: Wrench, section: 'Tasks' },
+        { id: 'notifications', label: t('nav.notifications'), icon: Bell, section: 'Tasks' },
+        { id: 'profile', label: t('nav.profile'), icon: User, section: 'Account' }
       );
     } else if (currentUser.role === 'MESS_MANAGER') {
       items.push(
-        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
-        { id: 'mess', label: t('nav.mess'), icon: BookOpen },
-        { id: 'profile', label: t('nav.profile'), icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid, section: 'Overview' },
+        { id: 'mess', label: t('nav.mess'), icon: BookOpen, section: 'Mess Operations' },
+        { id: 'profile', label: t('nav.profile'), icon: User, section: 'Account' }
       );
     } else if (currentUser.role === 'SECURITY') {
       items.push(
-        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
-        { id: 'visitors', label: t('nav.visitors'), icon: Users },
-        { id: 'attendance', label: t('nav.attendance'), icon: QrCode },
-        { id: 'profile', label: t('nav.profile'), icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid, section: 'Overview' },
+        { id: 'visitors', label: t('nav.visitors'), icon: Users, section: 'Security Gate' },
+        { id: 'attendance', label: t('nav.attendance'), icon: QrCode, section: 'Security Gate' },
+        { id: 'profile', label: t('nav.profile'), icon: User, section: 'Account' }
       );
     } else if (currentUser.role === 'MAINTENANCE') {
       items.push(
-        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
-        { id: 'complaints', label: t('nav.complaints'), icon: AlertTriangle },
-        { id: 'profile', label: t('nav.profile'), icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid, section: 'Overview' },
+        { id: 'complaints', label: t('nav.complaints'), icon: AlertTriangle, section: 'Maintenance' },
+        { id: 'profile', label: t('nav.profile'), icon: User, section: 'Account' }
       );
     } else if (currentUser.role === 'ACCOUNTANT') {
       items.push(
-        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
-        { id: 'payments', label: t('nav.payments'), icon: CreditCard },
-        { id: 'profile', label: t('nav.profile'), icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid, section: 'Overview' },
+        { id: 'payments', label: t('nav.payments'), icon: CreditCard, section: 'Finance' },
+        { id: 'profile', label: t('nav.profile'), icon: User, section: 'Account' }
       );
     } else if (currentUser.role === 'STUDENT') {
       items.push(
-        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
-        { id: 'rooms', label: t('nav.rooms'), icon: Home },
-        { id: 'attendance', label: t('nav.attendance'), icon: QrCode },
-        { id: 'leave', label: t('leaves.applyLeave'), icon: Calendar },
-        { id: 'complaints', label: t('complaints.raiseComplaint'), icon: AlertTriangle },
-        { id: 'visitors', label: t('nav.visitors'), icon: Users },
-        { id: 'laundry', label: t('nav.laundry'), icon: Clipboard },
-        { id: 'mess', label: t('nav.mess'), icon: BookOpen },
-        { id: 'payments', label: t('nav.payments'), icon: CreditCard },
-        { id: 'gate_pass', label: t('nav.gatePass'), icon: Shield },
-        { id: 'notices', label: t('nav.noticeBoard'), icon: Bell },
-        { id: 'notifications', label: t('nav.notifications'), icon: Bell },
-        { id: 'ai_assistant', label: t('nav.aiAssistant'), icon: Bot },
-        { id: 'profile', label: t('nav.profile'), icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid, section: 'Portal' },
+        { id: 'rooms', label: t('nav.rooms'), icon: Home, section: 'Living' },
+        { id: 'attendance', label: t('nav.attendance'), icon: QrCode, section: 'Living' },
+        { id: 'leave', label: t('leaves.applyLeave'), icon: Calendar, section: 'Requests' },
+        { id: 'complaints', label: t('complaints.raiseComplaint'), icon: AlertTriangle, section: 'Requests' },
+        { id: 'visitors', label: t('nav.visitors'), icon: Users, section: 'Requests' },
+        { id: 'laundry', label: t('nav.laundry'), icon: Clipboard, section: 'Services' },
+        { id: 'mess', label: t('nav.mess'), icon: BookOpen, section: 'Services' },
+        { id: 'payments', label: t('nav.payments'), icon: CreditCard, section: 'Services' },
+        { id: 'gate_pass', label: t('nav.gatePass'), icon: Shield, section: 'Services' },
+        { id: 'notices', label: t('nav.noticeBoard'), icon: Bell, section: 'Updates' },
+        { id: 'notifications', label: t('nav.notifications'), icon: Bell, section: 'Updates' },
+        { id: 'ai_assistant', label: t('nav.aiAssistant'), icon: Bot, section: 'Updates' },
+        { id: 'profile', label: t('nav.profile'), icon: User, section: 'Account' }
       );
     } else {
       // Fallback
       items.push(
-        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
-        { id: 'profile', label: t('nav.profile'), icon: User }
+        { id: 'dashboard', label: t('nav.dashboard'), icon: Grid, section: 'Overview' },
+        { id: 'profile', label: t('nav.profile'), icon: User, section: 'Account' }
       );
     }
 
     return (
-      <>
-        {items.map(item => {
+      <div className="sidebar-menu">
+        {items.map((item, idx) => {
           const Icon = item.icon;
+          const showSection = item.section && (idx === 0 || items[idx - 1]?.section !== item.section);
           return (
-            <button
-              key={item.id}
-              className={`sidebar-item ${subView === item.id ? 'active' : ''}`}
-              onClick={() => {
-                setSubView(item.id);
-                setMobileMenuOpen(false);
-              }}
-            >
-              <Icon size={16} />
-              <span>{item.label}</span>
-            </button>
+            <React.Fragment key={item.id}>
+              {showSection && <div className="sidebar-group-title">{item.section}</div>}
+              <button
+                className={`sidebar-item ${subView === item.id ? 'active' : ''}`}
+                onClick={() => {
+                  setSubView(item.id);
+                  setMobileMenuOpen(false);
+                }}
+              >
+                <Icon size={16} />
+                <span>{item.label}</span>
+              </button>
+            </React.Fragment>
           );
         })}
         <button className="sidebar-item" onClick={handleLogout} style={{ marginTop: 'auto', color: 'var(--danger)' }}>
           <LogOut size={16} />
           <span>{t('common.logout')}</span>
         </button>
-      </>
+      </div>
     );
   };
 
@@ -3505,7 +3508,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-main)' }}>
 
       {/* Toast Notification System */}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
@@ -4176,11 +4179,7 @@ export default function App() {
         <div className="app-layout">
           {/* Desktop Left Sidebar */}
           <aside className="sidebar">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {renderSidebarContent()}
-              </div>
-            </div>
+            {renderSidebarContent()}
           </aside>
 
           {/* Main Content Area */}
