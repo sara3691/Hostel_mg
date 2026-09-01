@@ -160,6 +160,11 @@ model User {
   roomId           String?
   room             Room?      @relation(fields: [roomId], references: [id])
 
+  bedNumber        String?
+  allocationDate   DateTime?
+  checkOutDate     DateTime?
+  checkOutReason   String?
+
   messId           String?
   mess             Mess?      @relation(fields: [messId], references: [id])
 
@@ -195,7 +200,8 @@ model Room {
   category   RoomCategory @default(NON_AC)
   hostelId   String
   hostel     Hostel       @relation(fields: [hostelId], references: [id])
-  isDeleted  Boolean      @default(false)
+  isDeleted     Boolean      @default(false)
+  isMaintenance Boolean      @default(false)
 
   users      User[]
 
@@ -466,7 +472,8 @@ model Inventory {
   category  String
   quantity  Int
   unit      String
-  minStock  Int                 @default(5)
+  minStock     Int                 @default(5)
+  damagedCount Int                 @default(0)
   hostelId  String
   hostel    Hostel              @relation(fields: [hostelId], references: [id])
   messId    String?

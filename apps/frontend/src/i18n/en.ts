@@ -350,7 +350,12 @@ export const en = {
     usePhoto: "Use Captured Photo",
     capture: "Capture Photo",
     error: "Camera permission denied or camera unavailable.",
-    instruction: "Please allow camera permissions in your browser settings to capture evidence photos."
+    instruction: "Please allow camera permissions in your browser settings to capture evidence photos.",
+    openCamera: "Open Camera",
+    capturePhoto: "Capture Photo",
+    permissionRequired: "Camera Permission Required",
+    unavailable: "Camera Unavailable",
+    captured: "Photo Captured"
   },
   leaves: {
     title: "Student Leaves & Outpass",
@@ -422,15 +427,6 @@ export const en = {
     rateResolution: "Rate Resolution Quality",
     confirm: "Confirm Resolution",
     confirmDesc: "Are you satisfied with the work done by the worker?"
-  },
-  camera: {
-    openCamera: "Open Camera",
-    capturePhoto: "Capture Photo",
-    retake: "Retake Photo",
-    usePhoto: "Use Photo",
-    permissionRequired: "Camera Permission Required",
-    unavailable: "Camera Unavailable",
-    captured: "Photo Captured"
   },
   visitors: {
     title: "Visitor Gate Pass Entry",

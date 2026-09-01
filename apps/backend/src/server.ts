@@ -247,20 +247,93 @@ app.post('/api/admin/reject-user', authMiddleware, requireRole(['SUPER_ADMIN', '
 // Hostels management
 app.get('/api/hostels', async (req, res) => {
   try {
-    const hostels = await prisma.hostel.findMany();
-    res.json({ success: true, data: hostels });
+    const { search, status, gender } = req.query;
+    const where: any = {};
+    if (status) where.status = status as string;
+    if (gender) where.gender = gender as string;
+    if (search) {
+      where.OR = [
+        { name: { contains: search as string, mode: 'insensitive' } },
+        { code: { contains: search as string, mode: 'insensitive' } },
+        { collegeName: { contains: search as string, mode: 'insensitive' } }
+      ];
+    }
+
+    const hostels = await prisma.hostel.findMany({
+      where,
+      include: {
+        rooms: {
+          where: { isDeleted: false },
+          include: { users: { select: { id: true, fullName: true, role: true, status: true }, where: { role: 'STUDENT', isDeleted: false, status: 'APPROVED' } } }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const enrichedHostels = hostels.map(h => {
+      const totalBeds = h.rooms.reduce((sum, r) => sum + r.capacity, 0);
+      const occupiedBeds = h.rooms.reduce((sum, r) => sum + r.users.length, 0);
+      const availableBeds = totalBeds - occupiedBeds;
+      const maintenanceRoomsCount = h.rooms.filter(r => r.isMaintenance).length;
+      return {
+        ...h,
+        totalBeds,
+        occupiedBeds,
+        availableBeds,
+        maintenanceRoomsCount,
+        roomCount: h.rooms.length
+      };
+    });
+
+    res.json({ success: true, data: enrichedHostels });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
 app.post('/api/hostels', authMiddleware, requireRole(['SUPER_ADMIN']), async (req, res) => {
-  const { name, code, collegeName, address, capacity } = req.body;
+  const { name, code, collegeName, address, capacity, phone, email, gender, academicYear, wardenId, locationCode } = req.body;
+  if (!name || !code || !collegeName || !address) {
+    res.status(400).json({ success: false, error: 'Name, code, college name, and address are required' });
+    return;
+  }
   try {
+    const existingCode = await prisma.hostel.findUnique({ where: { code } });
+    if (existingCode) {
+      res.status(400).json({ success: false, error: 'Hostel code must be unique' });
+      return;
+    }
     const hostel = await prisma.hostel.create({
-      data: { name, code, collegeName, address, capacity }
+      data: {
+        name,
+        code,
+        collegeName,
+        address,
+        capacity: capacity ? Number(capacity) : 0,
+        phone,
+        email,
+        gender: gender || 'MIXED',
+        academicYear: academicYear || '2025-2026',
+        wardenId: wardenId || null,
+        locationCode: locationCode || `HSTL-${code.toUpperCase()}`
+      }
     });
     res.status(201).json({ success: true, data: hostel });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/hostels/:id', authMiddleware, requireRole(['SUPER_ADMIN']), async (req, res) => {
+  const { id } = req.params;
+  try {
+    const activeStudents = await prisma.user.count({ where: { hostelId: id, role: 'STUDENT', status: 'APPROVED', isDeleted: false } });
+    if (activeStudents > 0) {
+      res.status(400).json({ success: false, error: `Cannot delete hostel with ${activeStudents} active students assigned.` });
+      return;
+    }
+    await prisma.hostel.update({ where: { id }, data: { status: 'INACTIVE' } });
+    res.json({ success: true, message: 'Hostel deactivated successfully' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -269,14 +342,47 @@ app.post('/api/hostels', authMiddleware, requireRole(['SUPER_ADMIN']), async (re
 // Rooms Management
 app.get('/api/rooms', authMiddleware, async (req: AuthRequest, res) => {
   try {
-    const where: any = {};
+    const { hostelId, block, floor, category, status, search } = req.query;
+    const where: any = { isDeleted: false };
+    
     if (req.user?.role !== 'SUPER_ADMIN' && req.user?.hostelId) {
       where.hostelId = req.user.hostelId;
+    } else if (hostelId) {
+      where.hostelId = hostelId as string;
     }
-    const rooms = await prisma.room.findMany({
+
+    if (block) where.block = block as string;
+    if (floor) where.floor = Number(floor);
+    if (category) where.category = category as any;
+    if (search) {
+      where.OR = [
+        { roomNumber: { contains: search as string, mode: 'insensitive' } },
+        { block: { contains: search as string, mode: 'insensitive' } }
+      ];
+    }
+
+    let rooms = await prisma.room.findMany({
       where,
-      include: { users: { select: { id: true, fullName: true, email: true } } }
+      include: {
+        hostel: { select: { id: true, name: true, code: true } },
+        users: {
+          where: { isDeleted: false, status: 'APPROVED', role: 'STUDENT' },
+          select: { id: true, fullName: true, email: true, registerNumber: true, bedNumber: true }
+        }
+      },
+      orderBy: [{ block: 'asc' }, { floor: 'asc' }, { roomNumber: 'asc' }]
     });
+
+    if (status) {
+      if (status === 'available') {
+        rooms = rooms.filter(r => !r.isMaintenance && r.users.length < r.capacity);
+      } else if (status === 'full') {
+        rooms = rooms.filter(r => !r.isMaintenance && r.users.length >= r.capacity);
+      } else if (status === 'maintenance') {
+        rooms = rooms.filter(r => r.isMaintenance);
+      }
+    }
+
     res.json({ success: true, data: rooms });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -284,12 +390,46 @@ app.get('/api/rooms', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 app.post('/api/rooms', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN']), async (req, res) => {
-  const { block, floor, roomNumber, capacity, hostelId } = req.body;
+  const { block, floor, roomNumber, capacity, category, hostelId, isMaintenance } = req.body;
+  if (!block || floor === undefined || !roomNumber || !capacity || !hostelId) {
+    res.status(400).json({ success: false, error: 'Block, floor, room number, capacity, and hostel ID are required' });
+    return;
+  }
   try {
+    const existingRoom = await prisma.room.findFirst({
+      where: { hostelId, block, floor: Number(floor), roomNumber, isDeleted: false }
+    });
+    if (existingRoom) {
+      res.status(400).json({ success: false, error: `Room ${roomNumber} already exists in Block ${block}, Floor ${floor}` });
+      return;
+    }
     const room = await prisma.room.create({
-      data: { block, floor: Number(floor), roomNumber, capacity: Number(capacity), hostelId }
+      data: {
+        block,
+        floor: Number(floor),
+        roomNumber,
+        capacity: Number(capacity),
+        category: category || 'NON_AC',
+        hostelId,
+        isMaintenance: Boolean(isMaintenance)
+      }
     });
     res.status(201).json({ success: true, data: room });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/rooms/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN']), async (req, res) => {
+  const { id } = req.params;
+  try {
+    const occupiedCount = await prisma.user.count({ where: { roomId: id, isDeleted: false, status: 'APPROVED' } });
+    if (occupiedCount > 0) {
+      res.status(400).json({ success: false, error: `Cannot delete room with ${occupiedCount} assigned students.` });
+      return;
+    }
+    await prisma.room.update({ where: { id }, data: { isDeleted: true } });
+    res.json({ success: true, message: 'Room deleted successfully' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -706,13 +846,35 @@ app.post('/api/leaves', authMiddleware, async (req: AuthRequest, res) => {
     return;
   }
 
+  const sDate = new Date(startDate);
+  const eDate = new Date(endDate);
+  if (sDate > eDate) {
+    res.status(400).json({ success: false, error: 'Start date cannot be after end date' });
+    return;
+  }
+
   try {
+    const overlapping = await prisma.leave.findFirst({
+      where: {
+        userId: req.user.id,
+        status: { in: ['PENDING', 'APPROVED'] },
+        startDate: { lte: eDate },
+        endDate: { gte: sDate }
+      }
+    });
+
+    if (overlapping) {
+      res.status(400).json({ success: false, error: 'You already have an active or pending leave request overlapping with these dates.' });
+      return;
+    }
+
     const leave = await prisma.leave.create({
       data: {
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
+        startDate: sDate,
+        endDate: eDate,
         reason,
         userId: req.user.id,
+        hostelId: req.user.hostelId || null,
         status: 'PENDING'
       }
     });

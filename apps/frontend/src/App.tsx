@@ -6,6 +6,7 @@ import {
   User,
   Users,
   Home,
+  Plus,
   PlusCircle,
   CheckCircle,
   CheckCircle2,
@@ -218,6 +219,15 @@ interface Hostel {
   collegeName: string;
   address: string;
   capacity: number;
+  gender?: string;
+  status?: string;
+  phone?: string;
+  email?: string;
+  totalBeds?: number;
+  occupiedBeds?: number;
+  availableBeds?: number;
+  roomCount?: number;
+  wardenId?: string;
 }
 
 interface UserProfile {
@@ -494,18 +504,85 @@ export default function App() {
   const [manualIsPresent, setManualIsPresent] = useState(true);
   const [leavesHistory, setLeavesHistory] = useState<any[]>([]);
 
-  // Hostel creation state
+  // Hostel creation & filter states
   const [newHostelName, setNewHostelName] = useState('');
   const [newHostelCode, setNewHostelCode] = useState('');
   const [newHostelCollege, setNewHostelCollege] = useState('');
   const [newHostelAddress, setNewHostelAddress] = useState('');
   const [newHostelCapacity, setNewHostelCapacity] = useState<string | number>(120);
+  const [newHostelGender, setNewHostelGender] = useState('MIXED');
+  const [newHostelPhone, setNewHostelPhone] = useState('');
+  const [newHostelEmail, setNewHostelEmail] = useState('');
+  const [newHostelWardenId, setNewHostelWardenId] = useState('');
+  const [hostelSearchQuery, setHostelSearchQuery] = useState('');
+  const [hostelGenderFilter, setHostelGenderFilter] = useState('ALL');
+  const [hostelStatusFilter, setHostelStatusFilter] = useState('ALL');
+  const [showEditHostelModal, setShowEditHostelModal] = useState(false);
+  const [editingHostel, setEditingHostel] = useState<any | null>(null);
 
-  // Room creation state
+  // Room creation & filter states
   const [newRoomBlock, setNewRoomBlock] = useState('');
   const [newRoomFloor, setNewRoomFloor] = useState('0');
   const [newRoomNumber, setNewRoomNumber] = useState('');
   const [newRoomCapacity, setNewRoomCapacity] = useState('4');
+  const [newRoomCategory, setNewRoomCategory] = useState('NON_AC');
+  const [newRoomHostelId, setNewRoomHostelId] = useState('');
+  const [newRoomIsMaintenance, setNewRoomIsMaintenance] = useState(false);
+  const [roomHostelFilter, setRoomHostelFilter] = useState('ALL');
+  const [_roomBlockFilter, _setRoomBlockFilter] = useState('ALL');
+  const [_roomSearchQuery, _setRoomSearchQuery] = useState('');
+  const [roomCategoryFilter, setRoomCategoryFilter] = useState('ALL');
+
+  // Allocation & Transfer & Checkout Modal states
+  const [showAllocateModal, setShowAllocateModal] = useState(false);
+  const [selectedStudentForAllocate, setSelectedStudentForAllocate] = useState<any | null>(null);
+  const [allocHostelId, setAllocHostelId] = useState('');
+  const [allocRoomId, setAllocRoomId] = useState('');
+  const [allocBedNumber, setAllocBedNumber] = useState('');
+
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [selectedStudentForTransfer, setSelectedStudentForTransfer] = useState<any | null>(null);
+  const [targetHostelId, setTargetHostelId] = useState('');
+  const [targetRoomId, setTargetRoomId] = useState('');
+  const [targetBedNumber, setTargetBedNumber] = useState('');
+  const [transferReason, setTransferReason] = useState('');
+  const [transferRemarks, setTransferRemarks] = useState('');
+
+  const [showCheckOutModal, setShowCheckOutModal] = useState(false);
+  const [selectedStudentForCheckOut, setSelectedStudentForCheckOut] = useState<any | null>(null);
+  const [checkOutDateInput, setCheckOutDateInput] = useState('');
+  const [checkOutReasonInput, setCheckOutReasonInput] = useState('Routine Check-out');
+  const [checkOutRemarksInput, setCheckOutRemarksInput] = useState('');
+
+  // Fee & Receipt Modal states
+  const [showPayFeeModal, setShowPayFeeModal] = useState(false);
+  const [selectedFeeForPay, setSelectedFeeForPay] = useState<any | null>(null);
+  const [payAmountInput, setPayAmountInput] = useState('');
+  const [payModeInput, setPayModeInput] = useState('UPI');
+  const [payTransactionIdInput, setPayTransactionIdInput] = useState('');
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [selectedPaymentForReceipt, setSelectedPaymentForReceipt] = useState<any | null>(null);
+
+  // Damaged inventory modal states
+  const [showDamageModal, setShowDamageModal] = useState(false);
+  const [selectedInventoryForDamage, setSelectedInventoryForDamage] = useState<any | null>(null);
+  const [damageQtyInput, setDamageQtyInput] = useState(1);
+  const [damageReasonInput, setDamageReasonInput] = useState('Damaged/Expired');
+
+  // Admin User Management & Dev Seeding states
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [adminUsersTotal, setAdminUsersTotal] = useState(0);
+  const [userRoleFilter, setUserRoleFilter] = useState('ALL');
+  const [userStatusFilter, setUserStatusFilter] = useState('ALL');
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [showResetPassModal, setShowResetPassModal] = useState(false);
+  const [selectedUserForResetPass, setSelectedUserForResetPass] = useState<any | null>(null);
+  const [newTestPasswordInput, setNewTestPasswordInput] = useState('Password123!');
+  const [showSeedModal, setShowSeedModal] = useState(false);
+  const [seedSizeInput, setSeedSizeInput] = useState<'small' | 'medium' | 'large'>('medium');
+  const [seedClearInput, setSeedClearInput] = useState(true);
+  const [seedLoading, setSeedLoading] = useState(false);
+  const [latestSeedReport, setLatestSeedReport] = useState<any | null>(null);
 
   // ERP modules state
   const [messes, setMesses] = useState<any[]>([]);
@@ -546,9 +623,9 @@ export default function App() {
   const [feeDueDate, setFeeDueDate] = useState('');
   const [feeStudentId, setFeeStudentId] = useState('');
 
-  const [payAmount, setPayAmount] = useState(0);
-  const [payMode, setPayMode] = useState('UPI');
-  const [payTxId, setPayTxId] = useState('');
+  const [_payAmount, _setPayAmount] = useState(0);
+  const [_payMode, _setPayMode] = useState('UPI');
+  const [_payTxId, _setPayTxId] = useState('');
 
   const [docName, setDocName] = useState('');
   const [docUrl, setDocUrl] = useState('');
@@ -715,7 +792,6 @@ export default function App() {
 
 
   const [rooms, setRooms] = useState<any[]>([]);
-  const [newRoomHostelId, setNewRoomHostelId] = useState('');
   const [leaveStartDate, setLeaveStartDate] = useState('');
   const [leaveEndDate, setLeaveEndDate] = useState('');
   const [leaveReason, setLeaveReason] = useState('');
@@ -1733,19 +1809,25 @@ export default function App() {
         code: newHostelCode,
         collegeName: newHostelCollege,
         address: newHostelAddress,
-        capacity: Number(newHostelCapacity)
+        capacity: Number(newHostelCapacity),
+        phone: newHostelPhone,
+        email: newHostelEmail,
+        gender: newHostelGender,
+        wardenId: newHostelWardenId || null
       });
       if (res.data?.success) {
-        showToast('success', 'Done', '');
+        showToast('success', 'Hostel Added!', 'New hostel created successfully');
         loadHostels();
         setNewHostelName('');
         setNewHostelCode('');
         setNewHostelCollege('');
         setNewHostelAddress('');
-        setNewHostelCapacity('');
+        setNewHostelCapacity(120);
+        setNewHostelPhone('');
+        setNewHostelEmail('');
       }
-    } catch (err) {
-      showToast('info', 'Notice', '');
+    } catch (err: any) {
+      showToast('error', 'Error Creating Hostel', err.response?.data?.error || 'Failed to create hostel');
     }
   };
 
@@ -1757,16 +1839,17 @@ export default function App() {
         floor: Number(newRoomFloor),
         roomNumber: newRoomNumber,
         capacity: Number(newRoomCapacity),
-        hostelId: newRoomHostelId
+        category: newRoomCategory,
+        hostelId: newRoomHostelId || (hostels[0] ? hostels[0].id : ''),
+        isMaintenance: newRoomIsMaintenance
       });
       if (res.data?.success) {
-        showToast('success', 'Done', '');
-        setNewRoomBlock('');
+        showToast('success', 'Room Created!', `Room ${newRoomNumber} added successfully.`);
         setNewRoomNumber('');
         if (currentUser) loadDashboardData(currentUser);
       }
-    } catch (err) {
-      showToast('info', 'Notice', '');
+    } catch (err: any) {
+      showToast('error', 'Error Creating Room', err.response?.data?.error || 'Failed to create room');
     }
   };
 
@@ -2135,30 +2218,154 @@ export default function App() {
         title: feeTitle, amount: feeAmount, dueDate: feeDueDate, studentId: feeStudentId, hostelId: currentUser?.hostelId || hostels[0]?.id
       });
       if (res.data?.success) {
-        showToast('success', 'Done', '');
+        showToast('success', 'Fee Created', 'Fee invoice created successfully');
         setFeeTitle('');
         setFeeAmount(0);
         setFeeStudentId('');
         if (currentUser) loadDashboardData(currentUser);
       }
     } catch (err: any) {
-      showToast('error', 'Error', err.response?.data?.error || '');
+      showToast('error', 'Error', err.response?.data?.error || 'Failed to create fee');
     }
   };
 
-  const handlePayFee = async (feeId: string) => {
+  const handleUpdateHostel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingHostel) return;
     try {
-      const res = await axios.post(`/api/fees/${feeId}/pay`, {
-        amount: payAmount || 1200, paymentMode: payMode, transactionId: payTxId
-      });
+      const res = await axios.patch(`/api/hostels/${editingHostel.id}`, editingHostel);
       if (res.data?.success) {
-        showToast('success', 'Done', '');
-        setPayAmount(0);
-        setPayTxId('');
+        showToast('success', 'Hostel Updated', 'Hostel details updated successfully!');
+        setShowEditHostelModal(false);
+        setEditingHostel(null);
         if (currentUser) loadDashboardData(currentUser);
       }
     } catch (err: any) {
-      showToast('error', 'Error', err.response?.data?.error || '');
+      showToast('error', 'Update Failed', err.response?.data?.error || 'Could not update hostel');
+    }
+  };
+
+  const handleDeleteHostel = async (id: string) => {
+    try {
+      const res = await axios.delete(`/api/hostels/${id}`);
+      if (res.data?.success) {
+        showToast('success', 'Hostel Deactivated', 'Hostel status updated to INACTIVE');
+        if (currentUser) loadDashboardData(currentUser);
+      }
+    } catch (err: any) {
+      showToast('error', 'Action Failed', err.response?.data?.error || 'Failed to update hostel status');
+    }
+  };
+
+  const handleAllocateStudent = async () => {
+    if (!selectedStudentForAllocate || !allocHostelId || !allocRoomId) {
+      showToast('info', 'Notice', 'Hostel and Room selection are required');
+      return;
+    }
+    try {
+      const res = await axios.post(`/api/students/${selectedStudentForAllocate.id}/allocate`, {
+        hostelId: allocHostelId,
+        roomId: allocRoomId,
+        bedNumber: allocBedNumber
+      });
+      if (res.data?.success) {
+        showToast('success', 'Room Allocated!', `Student allocated to room successfully.`);
+        setShowAllocateModal(false);
+        setSelectedStudentForAllocate(null);
+        setAllocHostelId(''); setAllocRoomId(''); setAllocBedNumber('');
+        if (currentUser) loadDashboardData(currentUser);
+      }
+    } catch (err: any) {
+      showToast('error', 'Allocation Error', err.response?.data?.error || 'Failed to allocate room');
+    }
+  };
+
+  const handleTransferStudent = async () => {
+    if (!selectedStudentForTransfer || !targetRoomId) {
+      showToast('info', 'Notice', 'Target room selection is required');
+      return;
+    }
+    try {
+      const res = await axios.post(`/api/students/${selectedStudentForTransfer.id}/transfer`, {
+        targetHostelId,
+        targetRoomId,
+        targetBedNumber,
+        reason: transferReason,
+        remarks: transferRemarks
+      });
+      if (res.data?.success) {
+        showToast('success', 'Transfer Completed', 'Student room transfer processed successfully!');
+        setShowTransferModal(false);
+        setSelectedStudentForTransfer(null);
+        setTargetHostelId(''); setTargetRoomId(''); setTargetBedNumber(''); setTransferReason(''); setTransferRemarks('');
+        if (currentUser) loadDashboardData(currentUser);
+      }
+    } catch (err: any) {
+      showToast('error', 'Transfer Failed', err.response?.data?.error || 'Room transfer failed');
+    }
+  };
+
+  const handleCheckOutStudent = async () => {
+    if (!selectedStudentForCheckOut) return;
+    try {
+      const res = await axios.post(`/api/students/${selectedStudentForCheckOut.id}/checkout`, {
+        checkOutDate: checkOutDateInput,
+        reason: checkOutReasonInput,
+        remarks: checkOutRemarksInput
+      });
+      if (res.data?.success) {
+        showToast('success', 'Check-Out Processed', 'Student checked out and room bed freed!');
+        setShowCheckOutModal(false);
+        setSelectedStudentForCheckOut(null);
+        setCheckOutDateInput(''); setCheckOutReasonInput('Routine Check-out'); setCheckOutRemarksInput('');
+        if (currentUser) loadDashboardData(currentUser);
+      }
+    } catch (err: any) {
+      showToast('error', 'Check-out Error', err.response?.data?.error || 'Check-out failed');
+    }
+  };
+
+  const handlePayFeePartial = async () => {
+    if (!selectedFeeForPay || !payAmountInput) {
+      showToast('info', 'Notice', 'Payment amount is required');
+      return;
+    }
+    try {
+      const res = await axios.post(`/api/fees/${selectedFeeForPay.id}/pay`, {
+        amount: Number(payAmountInput),
+        paymentMode: payModeInput,
+        transactionId: payTransactionIdInput
+      });
+      if (res.data?.success) {
+        showToast('success', 'Payment Recorded!', `Receipt Number: ${res.data.data.payment.receiptNumber}`);
+        setShowPayFeeModal(false);
+        setSelectedPaymentForReceipt(res.data.data.payment);
+        setShowReceiptModal(true);
+        setSelectedFeeForPay(null);
+        setPayAmountInput(''); setPayTransactionIdInput('');
+        if (currentUser) loadDashboardData(currentUser);
+      }
+    } catch (err: any) {
+      showToast('error', 'Payment Error', err.response?.data?.error || 'Failed to record payment');
+    }
+  };
+
+  const handleDamageInventory = async () => {
+    if (!selectedInventoryForDamage || !damageQtyInput) return;
+    try {
+      const res = await axios.post(`/api/inventory/${selectedInventoryForDamage.id}/damage`, {
+        quantity: Number(damageQtyInput),
+        purpose: damageReasonInput
+      });
+      if (res.data?.success) {
+        showToast('success', 'Damaged Stock Logged', `Updated damaged quantity for ${selectedInventoryForDamage.itemName}`);
+        setShowDamageModal(false);
+        setSelectedInventoryForDamage(null);
+        setDamageQtyInput(1); setDamageReasonInput('Damaged/Expired');
+        if (currentUser) loadDashboardData(currentUser);
+      }
+    } catch (err: any) {
+      showToast('error', 'Inventory Error', err.response?.data?.error || 'Failed to record damaged stock');
     }
   };
 
@@ -2239,11 +2446,84 @@ export default function App() {
       if (res.data?.success) {
         showToast('success', 'Done', '');
         setNewPayStaffId('');
-        setNewPayBase(0);
         if (currentUser) loadDashboardData(currentUser);
       }
     } catch (err: any) {
       showToast('error', 'Error', err.response?.data?.error || '');
+    }
+  };
+
+  // Admin User Management Handlers
+  const fetchAdminUsers = useCallback(async () => {
+    try {
+      const res = await axios.get('/api/admin/users', {
+        params: {
+          role: userRoleFilter,
+          status: userStatusFilter,
+          search: userSearchQuery
+        }
+      });
+      if (res.data?.success) {
+        setAdminUsers(res.data.users || []);
+        setAdminUsersTotal(res.data.pagination?.total || 0);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch admin users', err);
+    }
+  }, [userRoleFilter, userStatusFilter, userSearchQuery]);
+
+  useEffect(() => {
+    if (subView === 'users' && currentUser && ['SUPER_ADMIN', 'HOSTEL_ADMIN'].includes(currentUser.role)) {
+      fetchAdminUsers();
+    }
+  }, [subView, currentUser, fetchAdminUsers]);
+
+  const handleUpdateUserStatus = async (userId: string, newStatus: string) => {
+    try {
+      const res = await axios.put(`/api/admin/users/${userId}/status`, { status: newStatus });
+      if (res.data?.success) {
+        showToast('success', 'User Status Updated', `Account status updated to ${newStatus}`);
+        fetchAdminUsers();
+      }
+    } catch (err: any) {
+      showToast('error', 'Update Failed', err.response?.data?.error || 'Failed to update user status');
+    }
+  };
+
+  const handleResetUserPassword = async () => {
+    if (!selectedUserForResetPass || !newTestPasswordInput) return;
+    try {
+      const res = await axios.post(`/api/admin/users/${selectedUserForResetPass.id}/reset-password`, {
+        newPassword: newTestPasswordInput
+      });
+      if (res.data?.success) {
+        showToast('success', 'Password Reset Successful', `New hashed password set for ${selectedUserForResetPass.email}`);
+        setShowResetPassModal(false);
+        setSelectedUserForResetPass(null);
+        setNewTestPasswordInput('Password123!');
+      }
+    } catch (err: any) {
+      showToast('error', 'Reset Failed', err.response?.data?.error || 'Failed to reset user password');
+    }
+  };
+
+  const handleTriggerDevSeed = async () => {
+    setSeedLoading(true);
+    try {
+      const res = await axios.post('/api/dev/seed', {
+        size: seedSizeInput,
+        clearExisting: seedClearInput
+      });
+      if (res.data?.success) {
+        setLatestSeedReport(res.data.report);
+        showToast('success', 'Seeding Completed!', `${seedSizeInput.toUpperCase()} dataset populated with 30-day historical data.`);
+        if (currentUser) loadDashboardData(currentUser);
+        fetchAdminUsers();
+      }
+    } catch (err: any) {
+      showToast('error', 'Seeding Failed', err.response?.data?.error || 'Database seeding failed');
+    } finally {
+      setSeedLoading(false);
     }
   };
 
@@ -2760,6 +3040,7 @@ export default function App() {
         { id: 'notices', label: t('nav.noticeBoard'), icon: Bell },
         { id: 'notifications', label: t('nav.notifications'), icon: Bell },
         { id: 'reports', label: t('nav.reports'), icon: PieChart },
+        { id: 'users', label: 'User Management', icon: Users },
         { id: 'audit_logs', label: t('nav.auditLogs'), icon: Activity },
         { id: 'settings', label: t('nav.settings'), icon: Settings },
         { id: 'profile', label: t('nav.profile'), icon: User }
@@ -2767,6 +3048,7 @@ export default function App() {
     } else if (currentUser.role === 'HOSTEL_ADMIN') {
       items.push(
         { id: 'dashboard', label: t('nav.dashboard'), icon: Grid },
+        { id: 'users', label: 'User Management', icon: Users },
         { id: 'rooms', label: t('nav.rooms'), icon: Layers },
         { id: 'students', label: t('nav.students'), icon: Users },
         { id: 'workers', label: t('nav.workers'), icon: Wrench },
@@ -5343,26 +5625,135 @@ export default function App() {
 
             {/* 7. OTHER PLACEHOLDER SIDEBAR VIEWS TO PREVENT SIDEBAR CRASHES */}
             {subView === 'hostels' && currentUser?.role === 'SUPER_ADMIN' && (
-              <div className="glass-panel animate-slide-up" style={{ padding: '2rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>{t('hostel.addHostel')}</h3>
-                <form onSubmit={handleCreateHostel} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-                  <input className="form-input" type="text" value={newHostelName} onChange={e => setNewHostelName(e.target.value)} placeholder={t('hostel.name')} required />
-                  <input className="form-input" type="text" value={newHostelCode} onChange={e => setNewHostelCode(e.target.value)} placeholder={t('hostel.code')} required />
-                  <input className="form-input" type="text" value={newHostelCollege} onChange={e => setNewHostelCollege(e.target.value)} placeholder={t('hostel.collegeName')} required />
-                  <input className="form-input" type="text" value={newHostelAddress} onChange={e => setNewHostelAddress(e.target.value)} placeholder={t('hostel.address')} required />
-                  <input className="form-input" type="number" value={newHostelCapacity} onChange={e => setNewHostelCapacity(e.target.value)} placeholder={t('hostel.capacity')} required />
-                  <button className="btn btn-primary" type="submit">{t('hostel.add')}</button>
-                </form>
+              <div className="glass-panel animate-slide-up" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Home size={22} color="var(--primary)" />
+                      <span>Hostel Management</span>
+                    </h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Configure hostels, blocks, capacities, warden details and gender categories.</p>
+                  </div>
+                </div>
+
+                {/* Add Hostel Form */}
+                <div className="glass-panel" style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.01)' }}>
+                  <h4 style={{ fontWeight: 700, marginBottom: '1rem', fontSize: '0.95rem' }}>{t('hostel.addHostel')}</h4>
+                  <form onSubmit={handleCreateHostel} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                    <input className="form-input" type="text" value={newHostelName} onChange={e => setNewHostelName(e.target.value)} placeholder={`${t('hostel.name')} *`} required />
+                    <input className="form-input" type="text" value={newHostelCode} onChange={e => setNewHostelCode(e.target.value)} placeholder={`${t('hostel.code')} (e.g. H1) *`} required />
+                    <input className="form-input" type="text" value={newHostelCollege} onChange={e => setNewHostelCollege(e.target.value)} placeholder={`${t('hostel.collegeName')} *`} required />
+                    <input className="form-input" type="text" value={newHostelAddress} onChange={e => setNewHostelAddress(e.target.value)} placeholder={`${t('hostel.address')} *`} required />
+                    <input className="form-input" type="number" value={newHostelCapacity} onChange={e => setNewHostelCapacity(e.target.value)} placeholder={t('hostel.capacity')} required />
+                    <select className="form-input" value={newHostelGender} onChange={e => setNewHostelGender(e.target.value)}>
+                      <option value="MIXED">Gender: Mixed</option>
+                      <option value="MALE">Gender: Male Only</option>
+                      <option value="FEMALE">Gender: Female Only</option>
+                    </select>
+                    <input className="form-input" type="tel" value={newHostelPhone} onChange={e => setNewHostelPhone(e.target.value)} placeholder="Contact Phone" />
+                    <input className="form-input" type="email" value={newHostelEmail} onChange={e => setNewHostelEmail(e.target.value)} placeholder="Contact Email" />
+                    <select className="form-input" value={newHostelWardenId} onChange={e => setNewHostelWardenId(e.target.value)}>
+                      <option value="">-- Select Chief Warden (Optional) --</option>
+                      {allStudents.filter(u => u.role === 'WARDEN' || u.role === 'HOSTEL_ADMIN').map(w => (
+                        <option key={w.id} value={w.id}>{w.fullName} ({w.role})</option>
+                      ))}
+                    </select>
+                    <button className="btn btn-primary" type="submit" style={{ gridColumn: '1 / -1' }}>
+                      <Plus size={16} /> {t('hostel.add')}
+                    </button>
+                  </form>
+                </div>
+
+                {/* Filters & Search */}
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', flex: 1, minWidth: '240px' }}>
+                    <input className="form-input" type="text" placeholder="Search hostels by name, code or college..." value={hostelSearchQuery} onChange={e => setHostelSearchQuery(e.target.value)} style={{ width: '100%' }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <select className="form-input" value={hostelGenderFilter} onChange={e => setHostelGenderFilter(e.target.value)} style={{ width: '140px' }}>
+                      <option value="ALL">All Genders</option>
+                      <option value="MALE">Male</option>
+                      <option value="FEMALE">Female</option>
+                      <option value="MIXED">Mixed</option>
+                    </select>
+                    <select className="form-input" value={hostelStatusFilter} onChange={e => setHostelStatusFilter(e.target.value)} style={{ width: '140px' }}>
+                      <option value="ALL">All Status</option>
+                      <option value="ACTIVE">Active</option>
+                      <option value="INACTIVE">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Hostels Directory Cards */}
                 <div>
-                  <h4 style={{ fontWeight: 700, marginBottom: '0.75rem' }}>{t('hostel.hostels')} ({hostels.length})</h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                    {hostels.map(h => (
-                      <div key={h.id} style={{ padding: '1rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-                        <h4 style={{ fontWeight: 700 }}>{h.name}</h4>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{t('hostel.code')}: {h.code} | {t('hostel.capacity')}: {h.capacity}</p>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('hostel.collegeName')}: {h.collegeName}</p>
-                      </div>
-                    ))}
+                  <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>Active Hostels ({hostels.length})</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.25rem' }}>
+                    {hostels
+                      .filter(h => {
+                        if (hostelGenderFilter !== 'ALL' && h.gender !== hostelGenderFilter) return false;
+                        if (hostelStatusFilter !== 'ALL' && h.status !== hostelStatusFilter) return false;
+                        if (hostelSearchQuery) {
+                          const q = hostelSearchQuery.toLowerCase();
+                          return h.name.toLowerCase().includes(q) || h.code.toLowerCase().includes(q) || (h.collegeName || '').toLowerCase().includes(q);
+                        }
+                        return true;
+                      })
+                      .map(h => {
+                        const totalBeds = h.totalBeds ?? h.capacity;
+                        const occupiedBeds = h.occupiedBeds ?? 0;
+                        const availableBeds = h.availableBeds ?? (totalBeds - occupiedBeds);
+                        const pct = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+
+                        return (
+                          <div key={h.id} className="glass-panel" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div>
+                                <h4 style={{ fontWeight: 800, fontSize: '1.1rem' }}>{h.name}</h4>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Code: <strong style={{ color: 'var(--primary)' }}>{h.code}</strong> | {h.collegeName}</span>
+                              </div>
+                              <span className={`badge ${h.status === 'INACTIVE' ? 'badge-danger' : 'badge-success'}`}>
+                                {h.status || 'ACTIVE'}
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', padding: '0.6rem', borderRadius: '8px' }}>
+                              <div>
+                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Rooms</div>
+                                <div style={{ fontWeight: 800, fontSize: '1rem' }}>{h.roomCount ?? 0}</div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Occupied</div>
+                                <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--warning)' }}>{occupiedBeds}/{totalBeds}</div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Available</div>
+                                <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--success)' }}>{availableBeds}</div>
+                              </div>
+                            </div>
+
+                            <div className="occupancy-bar">
+                              <div className="occupancy-bar-fill partial" style={{ width: `${pct}%` }} />
+                            </div>
+
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
+                              <span>Gender: <strong>{h.gender || 'MIXED'}</strong></span>
+                              <span>{h.phone ? `Phone: ${h.phone}` : ''}</span>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                              <button className="btn btn-secondary" style={{ flex: 1, fontSize: '0.75rem', padding: '0.4rem' }} onClick={() => {
+                                setEditingHostel({ ...h });
+                                setShowEditHostelModal(true);
+                              }}>
+                                <Edit size={14} /> Edit Details
+                              </button>
+                              <button className="btn btn-secondary" style={{ color: h.status === 'INACTIVE' ? 'var(--success)' : 'var(--danger)', fontSize: '0.75rem', padding: '0.4rem' }} onClick={() => handleDeleteHostel(h.id)}>
+                                {h.status === 'INACTIVE' ? 'Activate' : 'Deactivate'}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               </div>
@@ -5499,6 +5890,100 @@ export default function App() {
                         </div>
                       )}
                     </div>
+
+                    {/* Phase 3: Complete Student Directory & Allocation Management */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <h4 style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '1.1rem' }}>
+                          Student Roster & Allocation Management ({allStudents.length})
+                        </h4>
+                        <input className="form-input" type="text" placeholder="Search student name, reg no, department..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ width: '260px', height: '36px' }} />
+                      </div>
+
+                      <div className="table-container">
+                        <table className="data-table">
+                          <thead>
+                            <tr>
+                              <th>Student Name</th>
+                              <th>Reg No</th>
+                              <th>Department / Year</th>
+                              <th>Assigned Room & Bed</th>
+                              <th>Status</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {allStudents.length === 0 ? (
+                              <tr>
+                                <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No student records found.</td>
+                              </tr>
+                            ) : (
+                              allStudents
+                                .filter(s => {
+                                  if (!searchQuery) return true;
+                                  const q = searchQuery.toLowerCase();
+                                  return s.fullName.toLowerCase().includes(q) || (s.registerNumber || '').toLowerCase().includes(q) || (s.department || '').toLowerCase().includes(q);
+                                })
+                                .map(s => (
+                                  <tr key={s.id}>
+                                    <td>
+                                      <div style={{ fontWeight: 700 }}>{s.fullName}</div>
+                                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.email}</div>
+                                    </td>
+                                    <td><span style={{ fontWeight: 600 }}>{s.registerNumber || 'N/A'}</span></td>
+                                    <td>{s.department || 'General'} ({s.year || '1st Year'})</td>
+                                    <td>
+                                      {s.room ? (
+                                        <span className="badge badge-info">
+                                          Room {s.room.roomNumber} ({s.room.block}) - {s.bedNumber || 'Bed-1'}
+                                        </span>
+                                      ) : (
+                                        <span className="badge badge-warning">Unassigned</span>
+                                      )}
+                                    </td>
+                                    <td>
+                                      <span className={`badge ${s.status === 'APPROVED' ? 'badge-success' : s.status === 'VERIFIED' ? 'badge-info' : 'badge-warning'}`}>
+                                        {s.status}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                        {!s.roomId ? (
+                                          <button className="btn btn-primary" style={{ fontSize: '0.7rem', padding: '0.3rem 0.6rem' }} onClick={() => {
+                                            setSelectedStudentForAllocate(s);
+                                            setAllocHostelId(s.hostelId || (hostels[0] ? hostels[0].id : ''));
+                                            setShowAllocateModal(true);
+                                          }}>
+                                            Allocate
+                                          </button>
+                                        ) : (
+                                          <>
+                                            <button className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '0.3rem 0.6rem' }} onClick={() => {
+                                              setSelectedStudentForTransfer(s);
+                                              setShowTransferModal(true);
+                                            }}>
+                                              Transfer
+                                            </button>
+                                            <button className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '0.3rem 0.6rem', color: 'var(--danger)' }} onClick={() => {
+                                              setSelectedStudentForCheckOut(s);
+                                              setShowCheckOutModal(true);
+                                            }}>
+                                              Check-Out
+                                            </button>
+                                          </>
+                                        )}
+                                        <button className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '0.3rem 0.6rem' }} onClick={() => setSelectedStudentProfile(s)}>
+                                          Profile
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -5598,34 +6083,58 @@ export default function App() {
                   </div>
                 ) : (
                   <div>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>{t('rooms.addRoom')}</h3>
-                    <form onSubmit={handleCreateRoom} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-                      <input className="form-input" type="text" value={newRoomBlock} onChange={e => setNewRoomBlock(e.target.value)} placeholder={t('rooms.block')} required />
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>{t('rooms.addRoom')}</h3>
+                    <form onSubmit={handleCreateRoom} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+                      <input className="form-input" type="text" value={newRoomBlock} onChange={e => setNewRoomBlock(e.target.value)} placeholder={`${t('rooms.block')} (e.g. Block A)`} required />
                       <input className="form-input" type="number" value={newRoomFloor} onChange={e => setNewRoomFloor(e.target.value)} placeholder={t('rooms.floor')} required />
                       <input className="form-input" type="text" value={newRoomNumber} onChange={e => setNewRoomNumber(e.target.value)} placeholder={t('rooms.roomNumber')} required />
                       <input className="form-input" type="number" value={newRoomCapacity} onChange={e => setNewRoomCapacity(e.target.value)} placeholder={t('rooms.capacity')} required />
+                      <select className="form-input" value={newRoomCategory} onChange={e => setNewRoomCategory(e.target.value)}>
+                        <option value="NON_AC_DOUBLE">Non-AC Double Sharing</option>
+                        <option value="NON_AC_TRIPLE">Non-AC Triple Sharing</option>
+                        <option value="AC_DOUBLE">AC Double Sharing</option>
+                        <option value="AC_SINGLE">AC Single Deluxe</option>
+                        <option value="DORMITORY">Dormitory</option>
+                      </select>
                       <select className="form-input" value={newRoomHostelId} onChange={e => setNewRoomHostelId(e.target.value)}>
                         {hostels.map(h => (
                           <option key={h.id} value={h.id}>{h.name}</option>
                         ))}
                       </select>
-                      <button className="btn btn-primary" type="submit">{t('rooms.addRoom')}</button>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={newRoomIsMaintenance} onChange={e => setNewRoomIsMaintenance(e.target.checked)} />
+                        <span>Under Maintenance</span>
+                      </label>
+                      <button className="btn btn-primary" type="submit" style={{ gridColumn: '1 / -1' }}>{t('rooms.addRoom')}</button>
                     </form>
 
-                    <div className="flex-responsive-between" style={{ marginBottom: '1rem', marginTop: '1.5rem' }}>
-                      <h4 style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {/* Filter & Search Bar */}
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                      <h4 style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <Building2 size={18} color="var(--primary)" /> {t('rooms.title')} ({rooms.length})
                       </h4>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        {['all', 'available', 'full'].map(filter => (
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <select className="form-input" value={roomHostelFilter} onChange={e => setRoomHostelFilter(e.target.value)} style={{ width: '130px', height: '34px', fontSize: '0.75rem' }}>
+                          <option value="ALL">All Hostels</option>
+                          {hostels.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                        </select>
+                        <select className="form-input" value={roomCategoryFilter} onChange={e => setRoomCategoryFilter(e.target.value)} style={{ width: '140px', height: '34px', fontSize: '0.75rem' }}>
+                          <option value="ALL">All Categories</option>
+                          <option value="NON_AC_DOUBLE">Non-AC Double</option>
+                          <option value="NON_AC_TRIPLE">Non-AC Triple</option>
+                          <option value="AC_DOUBLE">AC Double</option>
+                          <option value="AC_SINGLE">AC Single</option>
+                          <option value="DORMITORY">Dormitory</option>
+                        </select>
+                        {['all', 'available', 'full', 'maintenance'].map(filter => (
                           <button
                             key={filter}
                             type="button"
                             className={`btn ${roomFilter === filter ? 'btn-primary' : 'btn-secondary'}`}
-                            style={{ padding: '0.3rem 0.75rem', fontSize: '0.75rem', textTransform: 'capitalize' }}
+                            style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem', textTransform: 'capitalize' }}
                             onClick={() => setRoomFilter(filter)}
                           >
-                            {filter === 'all' ? t('common.all') : filter === 'available' ? t('common.available') : t('common.occupied')}
+                            {filter}
                           </button>
                         ))}
                       </div>
@@ -5634,43 +6143,56 @@ export default function App() {
                     <div className="occupancy-grid">
                       {rooms
                         .filter(r => {
+                          if (roomHostelFilter !== 'ALL' && r.hostelId !== roomHostelFilter) return false;
+                          if (roomCategoryFilter !== 'ALL' && r.category !== roomCategoryFilter) return false;
+                          if (roomFilter === 'maintenance') return r.isMaintenance;
                           const occupied = r.users?.length || 0;
-                          if (roomFilter === 'available') return occupied < (r.capacity || 4);
-                          if (roomFilter === 'full') return occupied >= (r.capacity || 4);
+                          if (roomFilter === 'available') return !r.isMaintenance && occupied < (r.capacity || 4);
+                          if (roomFilter === 'full') return !r.isMaintenance && occupied >= (r.capacity || 4);
                           return true;
                         })
                         .map((r, idx) => {
                           const occupied = r.users?.length || 0;
                           const cap = r.capacity || 4;
                           const pct = Math.round((occupied / cap) * 100);
-                          const statusClass = occupied >= cap ? 'full' : occupied > 0 ? 'partial' : 'available';
+                          const statusClass = r.isMaintenance ? 'full' : occupied >= cap ? 'full' : occupied > 0 ? 'partial' : 'available';
 
                           return (
                             <div
                               key={idx}
                               className={`occupancy-card ${statusClass}`}
                               onClick={() => setSelectedRoom(r)}
+                              style={{ position: 'relative', border: r.isMaintenance ? '1px dashed var(--danger)' : undefined }}
                             >
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>{t('rooms.roomNumber')} {r.roomNumber}</span>
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t('rooms.floor')} {r.floor}</span>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Flr {r.floor}</span>
                               </div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                                {r.block}
-                              </div>
-
-                              <div className="bed-dots">
-                                {Array.from({ length: cap }).map((_, i) => (
-                                  <div key={i} className={`bed-dot ${i < occupied ? 'occupied' : 'empty'}`} />
-                                ))}
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem', display: 'flex', justifyContent: 'space-between' }}>
+                                <span>{r.block}</span>
+                                <span>{r.category || 'Standard'}</span>
                               </div>
 
-                              <div className="occupancy-bar">
-                                <div className={`occupancy-bar-fill ${statusClass}`} style={{ width: `${pct}%` }} />
-                              </div>
-                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.4rem', textAlign: 'right' }}>
-                                {occupied}/{cap} {t('rooms.totalBeds')}
-                              </div>
+                              {r.isMaintenance ? (
+                                <div style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 800, textAlign: 'center', padding: '0.4rem', borderRadius: '6px', margin: '0.5rem 0' }}>
+                                  UNDER MAINTENANCE
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="bed-dots" style={{ margin: '0.5rem 0' }}>
+                                    {Array.from({ length: cap }).map((_, i) => (
+                                      <div key={i} className={`bed-dot ${i < occupied ? 'occupied' : 'empty'}`} />
+                                    ))}
+                                  </div>
+
+                                  <div className="occupancy-bar">
+                                    <div className={`occupancy-bar-fill ${statusClass}`} style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.4rem', textAlign: 'right' }}>
+                                    {occupied}/{cap} {t('rooms.totalBeds')}
+                                  </div>
+                                </>
+                              )}
                             </div>
                           );
                         })}
@@ -6195,6 +6717,29 @@ export default function App() {
                   </div>
                 )}
 
+                {/* Summary Cards */}
+                {(() => {
+                  const totalDue = fees.reduce((sum, f) => sum + f.amount, 0);
+                  const totalPaid = fees.reduce((sum, f) => sum + (f.paidAmount || 0), 0);
+                  const outstanding = totalDue - totalPaid;
+                  return (
+                    <div className="dashboard-grid" style={{ marginBottom: '1.5rem' }}>
+                      <div className="glass-panel stat-card" style={{ padding: '1rem' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total Fee Dues</span>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: 900, marginTop: '0.2rem' }}>Rs. {totalDue.toLocaleString()}</h3>
+                      </div>
+                      <div className="glass-panel stat-card" style={{ padding: '1rem' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total Collected</span>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--success)', marginTop: '0.2rem' }}>Rs. {totalPaid.toLocaleString()}</h3>
+                      </div>
+                      <div className="glass-panel stat-card" style={{ padding: '1rem' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Outstanding Balance</span>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--danger)', marginTop: '0.2rem' }}>Rs. {outstanding.toLocaleString()}</h3>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Main Fees List */}
                 <div className="glass-panel" style={{ padding: '2rem' }}>
                   <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>{t('payments.history')}</h3>
@@ -6207,41 +6752,46 @@ export default function App() {
                         const belongsToMe = f.studentId === currentUser.id;
                         if (isStudent && !belongsToMe) return null;
 
+                        const paid = f.paidAmount || 0;
+                        const pendingBalance = f.amount - paid;
+
                         return (
                           <div key={f.id} className="flex-responsive-between" style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px', alignItems: 'center' }}>
                             <div>
-                              <h4 style={{ fontWeight: 700 }}>{f.title}</h4>
-                              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                {t('students.student')}: {f.student?.fullName || 'Warden'} | {t('payments.dueDate')}: {new Date(f.dueDate).toLocaleDateString()}
+                              <h4 style={{ fontWeight: 800, fontSize: '1.05rem' }}>{f.title}</h4>
+                              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                                Student: <strong>{f.student?.fullName || 'Resident'}</strong> | Due Date: {new Date(f.dueDate).toLocaleDateString()}
                               </p>
+                              <div style={{ fontSize: '0.75rem', marginTop: '0.35rem', display: 'flex', gap: '1rem' }}>
+                                <span>Total: <strong>Rs. {f.amount}</strong></span>
+                                <span style={{ color: 'var(--success)' }}>Paid: <strong>Rs. {paid}</strong></span>
+                                <span style={{ color: 'var(--danger)' }}>Pending: <strong>Rs. {pendingBalance}</strong></span>
+                              </div>
                               {f.payments && f.payments.length > 0 && (
-                                <div style={{ marginTop: '0.5rem', background: 'rgba(0,0,0,0.1)', padding: '0.5rem', borderRadius: '6px', fontSize: '0.75rem' }}>
-                                  <strong style={{ color: 'var(--primary)' }}>{t('payments.receipt')}:</strong> Mode: {f.payments[0].paymentMode} | Ref ID: {f.payments[0].transactionId || 'CASH'} | Date: {new Date(f.payments[0].paymentDate).toLocaleDateString()}
+                                <div style={{ marginTop: '0.5rem', background: 'rgba(0,0,0,0.1)', padding: '0.5rem', borderRadius: '6px', fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <span><strong style={{ color: 'var(--primary)' }}>Receipt:</strong> {f.payments[0].receiptNumber} ({f.payments[0].paymentMode})</span>
+                                  <button className="btn btn-secondary" style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem' }} onClick={() => {
+                                    setSelectedPaymentForReceipt(f.payments[0]);
+                                    setShowReceiptModal(true);
+                                  }}>
+                                    <Printer size={12} /> Print Receipt
+                                  </button>
                                 </div>
                               )}
                             </div>
                             <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
-                              <span style={{ fontSize: '1.25rem', fontWeight: 800 }}>${f.amount.toFixed(2)}</span>
-                              <span className={`badge ${f.status === 'PAID' ? 'badge-success' : 'badge-warning'}`}>{f.status}</span>
+                              <span style={{ fontSize: '1.25rem', fontWeight: 800 }}>Rs. {f.amount}</span>
+                              <span className={`badge ${f.status === 'PAID' ? 'badge-success' : f.status === 'PARTIAL' ? 'badge-info' : 'badge-warning'}`}>
+                                {f.status}
+                              </span>
                               
-                              {f.status === 'PENDING' && belongsToMe && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.5rem' }}>
-                                  <select className="form-input" style={{ height: '32px', fontSize: '0.8rem', padding: '0.2rem' }} value={payMode} onChange={e => setPayMode(e.target.value)}>
-                                    <option value="UPI">UPI Transfer</option>
-                                    <option value="CASH">Cash payment</option>
-                                    <option value="CARD">Debit/Credit Card</option>
-                                  </select>
-                                  <input className="form-input" style={{ height: '32px', fontSize: '0.8rem' }} type="text" placeholder={t('payments.transaction')} onChange={e => setPayTxId(e.target.value)} />
-                                  <button className="btn btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => handlePayFee(f.id)}>{t('payments.payNow')}</button>
-                                </div>
-                              )}
-
-                              {f.status === 'PENDING' && !isStudent && ['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ACCOUNTANT'].includes(currentUser.role) && (
-                                <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', marginTop: '0.5rem' }} onClick={() => {
-                                  setPayMode('CASH');
-                                  handlePayFee(f.id);
+                              {f.status !== 'PAID' && (
+                                <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', marginTop: '0.25rem' }} onClick={() => {
+                                  setSelectedFeeForPay(f);
+                                  setPayAmountInput(String(pendingBalance));
+                                  setShowPayFeeModal(true);
                                 }}>
-                                  {t('payments.paid')} (Cash)
+                                  Record Payment
                                 </button>
                               )}
                             </div>
@@ -6561,6 +7111,11 @@ export default function App() {
                             </div>
                             <div style={{ textAlign: 'right' }}>
                               <span style={{ fontSize: '1.25rem', fontWeight: 800 }}>{item.quantity} {item.unit}</span>
+                              {item.damagedCount > 0 && (
+                                <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--warning)', fontWeight: 600 }}>
+                                  Damaged: {item.damagedCount} {item.unit}
+                                </span>
+                              )}
                               {isLow && <span className="badge badge-danger" style={{ display: 'block', marginTop: '0.25rem', fontSize: '0.65rem' }}>Low Stock!</span>}
                             </div>
                           </div>
@@ -6571,6 +7126,12 @@ export default function App() {
                               <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <input className="form-input" style={{ height: '32px', fontSize: '0.8rem' }} type="number" placeholder="Qty" onChange={e => setInvUseQty(Number(e.target.value))} />
                                 <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={() => handleUseInventory(item.id)}>Consume</button>
+                                <button className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--warning)' }} onClick={() => {
+                                  setSelectedInventoryForDamage(item);
+                                  setShowDamageModal(true);
+                                }}>
+                                  Damage
+                                </button>
                               </div>
                               <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <input className="form-input" style={{ height: '32px', fontSize: '0.8rem' }} type="number" placeholder="Qty" onChange={e => setInvBuyQty(Number(e.target.value))} />
@@ -6698,6 +7259,193 @@ export default function App() {
                             <td style={{ fontWeight: 700, color: '#ef4444' }}>-${e.amount.toFixed(2)}</td>
                           </tr>
                         ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* USER MANAGEMENT & DATA SEEDING MODULE */}
+            {subView === 'users' && currentUser && ['SUPER_ADMIN', 'HOSTEL_ADMIN'].includes(currentUser.role) && (
+              <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Users size={24} color="var(--primary)" /> User Directory & Account Governance
+                    </h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.2rem' }}>
+                      Manage user roles, verify accounts, securely reset test passwords, and trigger historical data seeding.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button className="btn btn-secondary" onClick={() => fetchAdminUsers()}>
+                      <RefreshCw size={14} /> Refresh Roster
+                    </button>
+                    <button className="btn btn-primary" onClick={() => setShowSeedModal(true)} style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderColor: '#059669' }}>
+                      <Database size={16} /> Seed Test Data (30-Day Logs)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Summary KPI Cards */}
+                <div className="dashboard-grid">
+                  <div className="glass-panel stat-card" style={{ padding: '1.25rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total Accounts</span>
+                    <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginTop: '0.25rem' }}>{adminUsersTotal || adminUsers.length}</h3>
+                  </div>
+                  <div className="glass-panel stat-card" style={{ padding: '1.25rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Approved Users</span>
+                    <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.25rem' }}>
+                      {adminUsers.filter(u => u.status === 'APPROVED' || u.status === 'VERIFIED').length}
+                    </h3>
+                  </div>
+                  <div className="glass-panel stat-card" style={{ padding: '1.25rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Students</span>
+                    <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.25rem' }}>
+                      {adminUsers.filter(u => u.role === 'STUDENT').length}
+                    </h3>
+                  </div>
+                  <div className="glass-panel stat-card" style={{ padding: '1.25rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Staff & Administration</span>
+                    <h3 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--info)', marginTop: '0.25rem' }}>
+                      {adminUsers.filter(u => u.role !== 'STUDENT').length}
+                    </h3>
+                  </div>
+                </div>
+
+                {/* Filters & Search */}
+                <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', flex: 1, minWidth: '280px' }}>
+                    <input
+                      className="form-input"
+                      type="text"
+                      placeholder="Search by name, email, register number..."
+                      value={userSearchQuery}
+                      onChange={e => setUserSearchQuery(e.target.value)}
+                      style={{ flex: 1, minWidth: '220px' }}
+                    />
+                    <select className="form-input" value={userRoleFilter} onChange={e => setUserRoleFilter(e.target.value)} style={{ width: '160px' }}>
+                      <option value="ALL">All Roles</option>
+                      <option value="SUPER_ADMIN">Super Admin</option>
+                      <option value="HOSTEL_ADMIN">Hostel Admin</option>
+                      <option value="WARDEN">Warden</option>
+                      <option value="ASSISTANT_WARDEN">Assistant Warden</option>
+                      <option value="MESS_MANAGER">Mess Manager</option>
+                      <option value="SECURITY">Security</option>
+                      <option value="MAINTENANCE">Maintenance</option>
+                      <option value="ACCOUNTANT">Accountant</option>
+                      <option value="WORKER">Worker</option>
+                      <option value="STAFF">Staff</option>
+                      <option value="STUDENT">Student</option>
+                    </select>
+                    <select className="form-input" value={userStatusFilter} onChange={e => setUserStatusFilter(e.target.value)} style={{ width: '150px' }}>
+                      <option value="ALL">All Statuses</option>
+                      <option value="APPROVED">Approved</option>
+                      <option value="VERIFIED">Verified</option>
+                      <option value="PENDING">Pending</option>
+                      <option value="REJECTED">Rejected</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* User Directory Roster Table */}
+                <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                          <th style={{ padding: '0.75rem' }}>User Profile</th>
+                          <th>Role</th>
+                          <th>Department / Reg No</th>
+                          <th>Assigned Room / Bed</th>
+                          <th>Account Status</th>
+                          <th>Created Date</th>
+                          <th style={{ textAlign: 'right' }}>Governance Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminUsers.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                              No users match the selected filters.
+                            </td>
+                          </tr>
+                        ) : (
+                          adminUsers.map(u => (
+                            <tr key={u.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                              <td style={{ padding: '0.875rem 0.75rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary)', color: 'var(--primary-contrast)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.9rem' }}>
+                                    {u.fullName?.charAt(0) || 'U'}
+                                  </div>
+                                  <div>
+                                    <div style={{ fontWeight: 700 }}>{u.fullName}</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.email} · {u.mobileNumber || 'N/A'}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td>
+                                <span className={`badge ${u.role === 'SUPER_ADMIN' || u.role === 'HOSTEL_ADMIN' ? 'badge-primary' : u.role === 'STUDENT' ? 'badge-info' : 'badge-warning'}`} style={{ fontSize: '0.7rem' }}>
+                                  {u.role}
+                                </span>
+                              </td>
+                              <td>
+                                <div>{u.department || 'N/A'}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.registerNumber || u.year || '-'}</div>
+                              </td>
+                              <td>
+                                {u.room ? (
+                                  <div>
+                                    <strong>{u.room.roomNumber}</strong> ({u.room.block})
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.bedNumber || 'Bed Assigned'}</div>
+                                  </div>
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Unassigned</span>
+                                )}
+                              </td>
+                              <td>
+                                <span className={`badge ${u.status === 'APPROVED' || u.status === 'VERIFIED' ? 'badge-success' : u.status === 'PENDING' ? 'badge-warning' : 'badge-danger'}`} style={{ fontSize: '0.7rem' }}>
+                                  {u.status}
+                                </span>
+                              </td>
+                              <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                {new Date(u.createdAt).toLocaleDateString()}
+                              </td>
+                              <td style={{ textAlign: 'right' }}>
+                                <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                                  {u.status === 'APPROVED' ? (
+                                    <button
+                                      className="btn btn-secondary"
+                                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.72rem', color: 'var(--warning)', borderColor: 'var(--warning)' }}
+                                      onClick={() => handleUpdateUserStatus(u.id, 'PENDING')}
+                                    >
+                                      Deactivate
+                                    </button>
+                                  ) : (
+                                    <button
+                                      className="btn btn-secondary"
+                                      style={{ padding: '0.25rem 0.5rem', fontSize: '0.72rem', color: 'var(--success)', borderColor: 'var(--success)' }}
+                                      onClick={() => handleUpdateUserStatus(u.id, 'APPROVED')}
+                                    >
+                                      Approve
+                                    </button>
+                                  )}
+                                  <button
+                                    className="btn btn-secondary"
+                                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.72rem' }}
+                                    onClick={() => {
+                                      setSelectedUserForResetPass(u);
+                                      setShowResetPassModal(true);
+                                    }}
+                                  >
+                                    Reset Pass
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -8586,7 +9334,443 @@ export default function App() {
               </div>
             )}
 
-            <button className="btn btn-secondary" onClick={() => setSelectedStudentProfile(null)}>{t('common.close')}</button>
+            <button className="btn btn-secondary" style={{ marginTop: '1rem' }} onClick={() => setSelectedStudentProfile(null)}>{t('common.close')}</button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT HOSTEL */}
+      {showEditHostelModal && editingHostel && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '500px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Edit Hostel Details</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowEditHostelModal(false)}><X size={16} /></button>
+            </div>
+            <form onSubmit={handleUpdateHostel} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Hostel Name</label>
+                <input className="form-input" type="text" value={editingHostel.name} onChange={e => setEditingHostel({ ...editingHostel, name: e.target.value })} required />
+              </div>
+              <div className="responsive-grid">
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Code</label>
+                  <input className="form-input" type="text" value={editingHostel.code} onChange={e => setEditingHostel({ ...editingHostel, code: e.target.value })} required />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Gender Category</label>
+                  <select className="form-input" value={editingHostel.gender || 'MIXED'} onChange={e => setEditingHostel({ ...editingHostel, gender: e.target.value })}>
+                    <option value="MIXED">Mixed</option>
+                    <option value="MALE">Male Only</option>
+                    <option value="FEMALE">Female Only</option>
+                  </select>
+                </div>
+              </div>
+              <div className="responsive-grid">
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>College Name</label>
+                  <input className="form-input" type="text" value={editingHostel.collegeName} onChange={e => setEditingHostel({ ...editingHostel, collegeName: e.target.value })} required />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Total Capacity</label>
+                  <input className="form-input" type="number" value={editingHostel.capacity} onChange={e => setEditingHostel({ ...editingHostel, capacity: e.target.value })} required />
+                </div>
+              </div>
+              <div className="responsive-grid">
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Phone</label>
+                  <input className="form-input" type="tel" value={editingHostel.phone || ''} onChange={e => setEditingHostel({ ...editingHostel, phone: e.target.value })} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Email</label>
+                  <input className="form-input" type="email" value={editingHostel.email || ''} onChange={e => setEditingHostel({ ...editingHostel, email: e.target.value })} />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Address</label>
+                <input className="form-input" type="text" value={editingHostel.address} onChange={e => setEditingHostel({ ...editingHostel, address: e.target.value })} required />
+              </div>
+              <button className="btn btn-primary" type="submit">Save Hostel Details</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: STUDENT ALLOCATION */}
+      {showAllocateModal && selectedStudentForAllocate && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '460px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Allocate Room & Bed</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowAllocateModal(false)}><X size={16} /></button>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontWeight: 800 }}>{selectedStudentForAllocate.fullName}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Reg No: {selectedStudentForAllocate.registerNumber || 'STU-NEW'} | Dept: {selectedStudentForAllocate.department || 'General'}</div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>1. Select Hostel *</label>
+                <select className="form-input" value={allocHostelId} onChange={e => setAllocHostelId(e.target.value)}>
+                  <option value="">-- Choose Hostel --</option>
+                  {hostels.map(h => (
+                    <option key={h.id} value={h.id}>{h.name} ({h.code})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>2. Select Room *</label>
+                <select className="form-input" value={allocRoomId} onChange={e => setAllocRoomId(e.target.value)}>
+                  <option value="">-- Choose Available Room --</option>
+                  {rooms
+                    .filter(r => (!allocHostelId || r.hostelId === allocHostelId) && !r.isMaintenance && (r.users?.length || 0) < r.capacity)
+                    .map(r => (
+                      <option key={r.id} value={r.id}>
+                        Block {r.block} - Room {r.roomNumber} (Flr {r.floor}, {r.category}) - Free: {r.capacity - (r.users?.length || 0)} beds
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>3. Bed Number (Optional)</label>
+                <input className="form-input" type="text" placeholder="e.g. Bed-1, Bed-A" value={allocBedNumber} onChange={e => setAllocBedNumber(e.target.value)} />
+              </div>
+
+              <button className="btn btn-primary" onClick={handleAllocateStudent}>Confirm Allocation</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ROOM TRANSFER */}
+      {showTransferModal && selectedStudentForTransfer && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '480px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Student Room Transfer</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowTransferModal(false)}><X size={16} /></button>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontWeight: 800 }}>{selectedStudentForTransfer.fullName}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Current Location: <strong style={{ color: 'var(--warning)' }}>Room {selectedStudentForTransfer.room?.roomNumber || 'Unassigned'} ({selectedStudentForTransfer.room?.block || 'N/A'})</strong>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Target Room *</label>
+                <select className="form-input" value={targetRoomId} onChange={e => setTargetRoomId(e.target.value)}>
+                  <option value="">-- Choose New Room --</option>
+                  {rooms
+                    .filter(r => r.id !== selectedStudentForTransfer.roomId && !r.isMaintenance && (r.users?.length || 0) < r.capacity)
+                    .map(r => (
+                      <option key={r.id} value={r.id}>
+                        {r.hostel?.name || 'Hostel'} - Block {r.block}, Room {r.roomNumber} ({r.users?.length || 0}/{r.capacity})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Target Bed Number</label>
+                <input className="form-input" type="text" placeholder="e.g. Bed-2" value={targetBedNumber} onChange={e => setTargetBedNumber(e.target.value)} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Reason for Transfer</label>
+                <input className="form-input" type="text" placeholder="e.g. Mutual swap, Maintenance, Medical reason" value={transferReason} onChange={e => setTransferReason(e.target.value)} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Remarks</label>
+                <textarea className="form-input" rows={2} placeholder="Additional notes" value={transferRemarks} onChange={e => setTransferRemarks(e.target.value)} />
+              </div>
+
+              <button className="btn btn-primary" onClick={handleTransferStudent}>Execute Room Transfer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: STUDENT CHECK-OUT */}
+      {showCheckOutModal && selectedStudentForCheckOut && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '440px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--danger)' }}>Process Student Check-Out</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowCheckOutModal(false)}><X size={16} /></button>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontWeight: 800 }}>{selectedStudentForCheckOut.fullName}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Releasing Room: <strong>{selectedStudentForCheckOut.room?.roomNumber || 'N/A'}</strong></div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Check-Out Date</label>
+                <input className="form-input" type="date" value={checkOutDateInput} onChange={e => setCheckOutDateInput(e.target.value)} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Reason</label>
+                <select className="form-input" value={checkOutReasonInput} onChange={e => setCheckOutReasonInput(e.target.value)}>
+                  <option value="Routine Check-out">Routine Check-out</option>
+                  <option value="Course Completion">Course Completion / Graduation</option>
+                  <option value="Hostel Withdrawal">Hostel Withdrawal</option>
+                  <option value="Disciplinary">Disciplinary Action</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Remarks</label>
+                <textarea className="form-input" rows={2} placeholder="Check-out remarks" value={checkOutRemarksInput} onChange={e => setCheckOutRemarksInput(e.target.value)} />
+              </div>
+
+              <button className="btn btn-primary" style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={handleCheckOutStudent}>Confirm Check-Out</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: PAY FEE */}
+      {showPayFeeModal && selectedFeeForPay && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '440px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Record Fee Payment</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowPayFeeModal(false)}><X size={16} /></button>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <div style={{ fontWeight: 800, fontSize: '1rem' }}>{selectedFeeForPay.title}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Student: {selectedFeeForPay.student?.fullName || 'Student'}</div>
+              <div style={{ fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
+                <span>Total Fee: <strong>Rs. {selectedFeeForPay.amount}</strong></span>
+                <span>Paid So Far: <strong style={{ color: 'var(--success)' }}>Rs. {selectedFeeForPay.paidAmount || 0}</strong></span>
+              </div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--danger)', marginTop: '0.2rem' }}>
+                Outstanding Balance: Rs. {selectedFeeForPay.amount - (selectedFeeForPay.paidAmount || 0)}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Payment Amount (Rs.) *</label>
+                <input className="form-input" type="number" placeholder={`Max Rs. ${selectedFeeForPay.amount - (selectedFeeForPay.paidAmount || 0)}`} value={payAmountInput} onChange={e => setPayAmountInput(e.target.value)} required />
+              </div>
+              <div className="responsive-grid">
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Mode *</label>
+                  <select className="form-input" value={payModeInput} onChange={e => setPayModeInput(e.target.value)}>
+                    <option value="UPI">UPI / GPay</option>
+                    <option value="CASH">Cash</option>
+                    <option value="CARD">Credit / Debit Card</option>
+                    <option value="NET_BANKING">Net Banking</option>
+                    <option value="CHEQUE">Cheque / DD</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Transaction ID / Ref</label>
+                  <input className="form-input" type="text" placeholder="e.g. TXN987654" value={payTransactionIdInput} onChange={e => setPayTransactionIdInput(e.target.value)} />
+                </div>
+              </div>
+
+              <button className="btn btn-primary" onClick={handlePayFeePartial}>Record Payment & Issue Receipt</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: PRINTABLE RECEIPT */}
+      {showReceiptModal && selectedPaymentForReceipt && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '480px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', background: '#ffffff', color: '#0f172a' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #e2e8f0', paddingBottom: '1rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#1e293b' }}>HOSTEL FEE PAYMENT RECEIPT</h3>
+                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Official System Generated Receipt</span>
+              </div>
+              <button className="btn btn-secondary" style={{ padding: '0.3rem', color: '#000' }} onClick={() => setShowReceiptModal(false)}><X size={16} /></button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.85rem' }}>
+              <div>
+                <span style={{ color: '#64748b', fontSize: '0.7rem' }}>RECEIPT NO</span>
+                <div style={{ fontWeight: 800, color: '#2563eb' }}>{selectedPaymentForReceipt.receiptNumber}</div>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', fontSize: '0.7rem' }}>DATE & TIME</span>
+                <div style={{ fontWeight: 700 }}>{new Date(selectedPaymentForReceipt.createdAt).toLocaleString()}</div>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', fontSize: '0.7rem' }}>STUDENT</span>
+                <div style={{ fontWeight: 700 }}>{selectedPaymentForReceipt.student?.fullName || 'Student'}</div>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', fontSize: '0.7rem' }}>PAYMENT MODE</span>
+                <div style={{ fontWeight: 700 }}>{selectedPaymentForReceipt.paymentMode}</div>
+              </div>
+            </div>
+
+            <div style={{ borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', padding: '1rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: 700 }}>AMOUNT RECEIVED</span>
+              <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#16a34a' }}>Rs. {selectedPaymentForReceipt.amount}</span>
+            </div>
+
+            <div style={{ fontSize: '0.75rem', color: '#64748b', textAlign: 'center' }}>
+              Transaction Ref: {selectedPaymentForReceipt.transactionId || 'N/A'}
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => window.print()}>
+                <Printer size={16} /> Print Receipt
+              </button>
+              <button className="btn btn-secondary" style={{ flex: 1, color: '#0f172a' }} onClick={() => setShowReceiptModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: LOG DAMAGED INVENTORY */}
+      {showDamageModal && selectedInventoryForDamage && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '420px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--warning)' }}>Log Damaged Stock</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowDamageModal(false)}><X size={16} /></button>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontWeight: 800 }}>{selectedInventoryForDamage.itemName}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Current Available Stock: {selectedInventoryForDamage.quantity} {selectedInventoryForDamage.unit}</div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Damaged Quantity ({selectedInventoryForDamage.unit}) *</label>
+                <input className="form-input" type="number" min={1} max={selectedInventoryForDamage.quantity} value={damageQtyInput} onChange={e => setDamageQtyInput(Number(e.target.value))} required />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Reason / Details</label>
+                <input className="form-input" type="text" placeholder="e.g. Expired, Broken during handling" value={damageReasonInput} onChange={e => setDamageReasonInput(e.target.value)} />
+              </div>
+
+              <button className="btn btn-primary" style={{ background: 'var(--warning)', borderColor: 'var(--warning)' }} onClick={handleDamageInventory}>Log Damaged Stock</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: RESET TEST USER PASSWORD */}
+      {showResetPassModal && selectedUserForResetPass && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '440px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Reset User Password</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowResetPassModal(false)}><X size={16} /></button>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontWeight: 800 }}>{selectedUserForResetPass.fullName}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{selectedUserForResetPass.email} · Role: <strong>{selectedUserForResetPass.role}</strong></div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>New Test Password *</label>
+                <input className="form-input" type="text" value={newTestPasswordInput} onChange={e => setNewTestPasswordInput(e.target.value)} required />
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.2rem', display: 'block' }}>
+                  🔒 Password will be securely hashed with argon2. Plaintext is never stored.
+                </span>
+              </div>
+
+              <button className="btn btn-primary" onClick={handleResetUserPassword}>Set New Password</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DEV SEEDING & RESET CONTROL PANEL */}
+      {showSeedModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel animate-slide-up" style={{ maxWidth: '640px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Database size={22} color="var(--primary)" /> Seed 30-Day Development & Test Data
+              </h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowSeedModal(false)}><X size={16} /></button>
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              Populates realistic, interconnected historical data (previous 30 days → today) across all modules (Hostels, Rooms, Beds, Students, Attendance, Leaves, Complaints, Fees, Payments, Mess, Visitors, Inventory, Payroll, Activity Logs).
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', background: 'rgba(255,255,255,0.02)', padding: '1.25rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.5rem', display: 'block' }}>1. Select Dataset Size Preset</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
+                  {[
+                    { id: 'small', title: 'Small (Dev)', desc: '50 Students, 2 Hostels, 80 Beds' },
+                    { id: 'medium', title: 'Medium (Standard)', desc: '250 Students, 4 Hostels, 400 Beds' },
+                    { id: 'large', title: 'Large (Perf)', desc: '1,000 Students, 8 Hostels, 2,000 Beds' }
+                  ].map(item => (
+                    <div
+                      key={item.id}
+                      onClick={() => setSeedSizeInput(item.id as any)}
+                      style={{
+                        padding: '0.75rem',
+                        borderRadius: '8px',
+                        border: seedSizeInput === item.id ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                        background: seedSizeInput === item.id ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.01)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ fontWeight: 800, fontSize: '0.85rem' }}>{item.title}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{item.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}>
+                <input type="checkbox" checked={seedClearInput} onChange={e => setSeedClearInput(e.target.checked)} />
+                <span>Clear existing test records before seeding (Recommended)</span>
+              </label>
+
+              <button
+                className="btn btn-primary"
+                disabled={seedLoading}
+                onClick={handleTriggerDevSeed}
+                style={{ padding: '0.75rem', fontSize: '0.9rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+              >
+                {seedLoading ? '🌱 Seeding 30-Day Historical Data (Please wait)...' : '🚀 Trigger Seeding Engine'}
+              </button>
+            </div>
+
+            {/* Seed Report Summary Card */}
+            {latestSeedReport && (
+              <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid var(--success)', borderRadius: '10px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h4 style={{ fontWeight: 800, color: 'var(--success)', fontSize: '0.95rem' }}>
+                    ✅ Seeding Completed ({latestSeedReport.durationMs}ms)
+                  </h4>
+                  <span className="badge badge-success">Validation Passed</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', fontSize: '0.78rem' }}>
+                  <div>Hostels: <strong>{latestSeedReport.counts.hostels}</strong></div>
+                  <div>Rooms: <strong>{latestSeedReport.counts.rooms}</strong></div>
+                  <div>Beds: <strong>{latestSeedReport.counts.beds}</strong></div>
+                  <div>Occupancy: <strong>{latestSeedReport.counts.occupancyPercentage}%</strong></div>
+                  <div>Students: <strong>{latestSeedReport.counts.students}</strong></div>
+                  <div>Attendance: <strong>{latestSeedReport.counts.attendanceRecords}</strong></div>
+                  <div>Leaves: <strong>{latestSeedReport.counts.leaveRecords}</strong></div>
+                  <div>Complaints: <strong>{latestSeedReport.counts.complaints}</strong></div>
+                  <div>Paid Fees: <strong>Rs. {latestSeedReport.counts.totalPaidAmount?.toLocaleString()}</strong></div>
+                  <div>Pending Fees: <strong>Rs. {latestSeedReport.counts.totalPendingAmount?.toLocaleString()}</strong></div>
+                </div>
+              </div>
+            )}
+
+            <button className="btn btn-secondary" onClick={() => setShowSeedModal(false)}>Close</button>
           </div>
         </div>
       )}
