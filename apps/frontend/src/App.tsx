@@ -5088,7 +5088,7 @@ export default function App() {
                       {/* Sessions List */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '180px', overflowY: 'auto' }}>
                         {attendanceSessions.map(s => (
-                          <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                          <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
                             {editingSessionId === s.id ? (
                               <div style={{ display: 'flex', gap: '0.25rem', width: '100%' }}>
                                 <input 
@@ -5459,7 +5459,7 @@ export default function App() {
                         {filteredVisitors.map(v => (
                           <div key={v.id} className="flex-responsive-between" style={{
                             padding: '1rem',
-                            background: 'rgba(255,255,255,0.01)',
+                            background: 'var(--bg-secondary)',
                             border: '1px solid var(--border-color)',
                             borderRadius: '12px',
                             alignItems: 'center'
@@ -5637,7 +5637,7 @@ export default function App() {
                 </div>
 
                 {/* Add Hostel Form */}
-                <div className="glass-panel" style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.01)' }}>
+                <div className="glass-panel" style={{ padding: '1.25rem', background: 'var(--bg-secondary)' }}>
                   <h4 style={{ fontWeight: 700, marginBottom: '1rem', fontSize: '0.95rem' }}>{t('hostel.addHostel')}</h4>
                   <form onSubmit={handleCreateHostel} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
                     <input className="form-input" type="text" value={newHostelName} onChange={e => setNewHostelName(e.target.value)} placeholder={`${t('hostel.name')} *`} required />
@@ -5766,7 +5766,7 @@ export default function App() {
                 {currentUser.role === 'STUDENT' ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                     {/* Document Upload section */}
-                    <div className="glass-panel" style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.01)' }}>
+                    <div className="glass-panel" style={{ padding: '1.5rem', background: 'var(--bg-secondary)' }}>
                       <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>{t('onboarding.step1')}</h4>
                       <form onSubmit={handleUploadDocument} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                         <input className="form-input" type="text" placeholder={t('onboarding.docType')} value={docName} onChange={e => setDocName(e.target.value)} required />
@@ -5788,7 +5788,7 @@ export default function App() {
                     </div>
 
                     {/* Status Tracker */}
-                    <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center', background: 'rgba(255,255,255,0.01)' }}>
+                    <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center', background: 'var(--bg-secondary)' }}>
                       <h4 style={{ fontWeight: 700, marginBottom: '1rem' }}>{t('onboarding.step2')}</h4>
                       <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginTop: '1.5rem' }}>
                         <div style={{ opacity: currentUser.status === 'PENDING' ? 1 : 0.4 }}>
@@ -5815,7 +5815,7 @@ export default function App() {
                       ) : (
                         <div style={{ display: 'grid', gap: '1rem' }}>
                           {pendingUsers.filter(u => u.status === 'PENDING').map(u => (
-                            <div key={u.id} className="flex-responsive-between" style={{ padding: '1rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                            <div key={u.id} className="flex-responsive-between" style={{ padding: '1rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                               <div>
                                 <strong style={{ fontSize: '0.95rem' }}>{u.fullName}</strong> ({u.role.replace('_', ' ')})
                                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('auth.email')}: {u.email} | {t('auth.mobile')}: {u.mobileNumber}</p>
@@ -5857,7 +5857,7 @@ export default function App() {
                       ) : (
                         <div style={{ display: 'grid', gap: '1rem' }}>
                           {pendingUsers.filter(u => u.status === 'VERIFIED' && u.role === 'STUDENT').map(u => (
-                            <div key={u.id} className="flex-responsive-between" style={{ padding: '1rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px', alignItems: 'center' }}>
+                            <div key={u.id} className="flex-responsive-between" style={{ padding: '1rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', alignItems: 'center' }}>
                               <div>
                                 <strong style={{ fontSize: '0.95rem' }}>{u.fullName}</strong>
                                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('students.department')}: {u.department} | {t('students.year')}: {u.year}</p>
@@ -6601,7 +6601,7 @@ export default function App() {
                       {messes.map(m => {
                         const isEnrolled = currentUser.messId === m.id;
                         return (
-                          <div key={m.id} style={{ padding: '1.5rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                          <div key={m.id} style={{ padding: '1.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{m.name}</span>
                             <span className="badge badge-info">{m.students?.length || 0} {t('hostel.students')}</span>
                             {isEnrolled ? (
@@ -6632,7 +6632,7 @@ export default function App() {
                       <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem' }}>Dining Attendance Registry</h3>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
                       {messes.map(m => (
-                        <div key={m.id} style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                        <div key={m.id} style={{ padding: '1.25rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                           <h4 style={{ fontWeight: 700, marginBottom: '1rem', color: 'var(--primary)' }}>{m.name}</h4>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             {allStudents.filter(s => s.messId === m.id).length === 0 ? (
@@ -6756,7 +6756,7 @@ export default function App() {
                         const pendingBalance = f.amount - paid;
 
                         return (
-                          <div key={f.id} className="flex-responsive-between" style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px', alignItems: 'center' }}>
+                          <div key={f.id} className="flex-responsive-between" style={{ padding: '1.25rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', alignItems: 'center' }}>
                             <div>
                               <h4 style={{ fontWeight: 800, fontSize: '1.05rem' }}>{f.title}</h4>
                               <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
@@ -7103,7 +7103,7 @@ export default function App() {
                     {inventory.map(item => {
                       const isLow = item.quantity <= item.minStock;
                       return (
-                        <div key={item.id} style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                        <div key={item.id} style={{ padding: '1.25rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <div>
                               <h4 style={{ fontWeight: 700, fontSize: '1rem' }}>{item.itemName}</h4>
@@ -9145,7 +9145,7 @@ export default function App() {
                 level="M"
               />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem', textAlign: 'left', background: 'rgba(255,255,255,0.01)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem', textAlign: 'left', background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <div><strong style={{ color: 'var(--text-muted)' }}>{t('visitors.name')}:</strong> {activeVisitorForQR.name}</div>
               <div><strong style={{ color: 'var(--text-muted)' }}>{t('visitors.purpose')}:</strong> {activeVisitorForQR.purpose}</div>
               <div><strong style={{ color: 'var(--text-muted)' }}>{t('visitors.expectedDate')}:</strong> {new Date(activeVisitorForQR.visitDate).toLocaleDateString()}</div>
