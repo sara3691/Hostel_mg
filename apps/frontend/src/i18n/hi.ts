@@ -108,7 +108,21 @@ export const hi = {
     logout: "लॉगआउट",
     login: "लॉगिन",
     register: "पंजीकरण करें",
-    qrPortal: "QR पोर्टल"
+    qrPortal: "QR पोर्टल",
+    admissions: "प्रवेश",
+    bedManagement: "बिस्तर प्रबंधन",
+    academicYears: "शैक्षणिक वर्ष",
+    assets: "छात्रावास संपत्ति",
+    inspections: "कमरा निरीक्षण",
+    incidents: "घटनाएँ",
+    hostelConfig: "छात्रावास विन्यास",
+    liveTracking: "लाइव गेट ट्रैकिंग",
+    preventiveMaintenance: "निवारक रखरखाव",
+    messWaste: "मेस अपशिष्ट और पूर्वानुमान",
+    inventoryLedger: "स्टॉक खाता",
+    feeStructures: "शुल्क संरचना",
+    guardianPortal: "अभिभावक पोर्टल",
+    hostelId: "डिजिटल छात्रावास आईडी"
   },
   auth: {
     welcomeBack: "पुनः स्वागत है",

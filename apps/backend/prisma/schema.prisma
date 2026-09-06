@@ -154,6 +154,10 @@ model User {
   experience       String?
   staffType        StaffType?
 
+  // Hostel lifecycle status (additive)
+  hostelStatus     String?    @default("REGISTERED")
+  admissionId      String?
+
   hostelId         String?
   hostel           Hostel?    @relation(fields: [hostelId], references: [id])
 
@@ -189,6 +193,11 @@ model User {
   acknowledgedEmergencies EmergencyAlert[] @relation("AcknowledgedEmergencies")
   pushSubscriptions   PushSubscription[]
   mealConfirmations   MealConfirmation[]
+  hostelAdmissions    HostelAdmission[]
+  bedAllocations      BedAllocation[]
+  assetAssignments    AssetAssignment[]
+  conductedInspections RoomInspection[] @relation("InspectorUser")
+  incidentsInvolved   IncidentReport[]
 }
 
 model Room {
@@ -202,8 +211,12 @@ model Room {
   hostel     Hostel       @relation(fields: [hostelId], references: [id])
   isDeleted     Boolean      @default(false)
   isMaintenance Boolean      @default(false)
+  // bedStatus: map of bedNumber -> status (AVAILABLE/OCCUPIED/RESERVED/MAINTENANCE)
+  bedStatus  Json?        @default("{}")
 
-  users      User[]
+  users        User[]
+  inspections  RoomInspection[]
+  bedAllocations BedAllocation[]
 
   @@unique([hostelId, block, floor, roomNumber])
 }
@@ -274,6 +287,12 @@ model Complaint {
   updatedAt       DateTime          @updatedAt
   isDeleted       Boolean           @default(false)
 
+  // SLA fields (additive)
+  slaDeadline     DateTime?
+  slaBreached     Boolean           @default(false)
+  responseTime    Int?              // minutes to first assignment
+  resolutionTime  Int?              // minutes to completion
+
   hostelId        String
   hostel          Hostel            @relation(fields: [hostelId], references: [id])
 
@@ -298,6 +317,8 @@ model Complaint {
   reopenReason    String?
 
   timeline        ComplaintTimeline[]
+  linkedInspection RoomInspection?   @relation(fields: [linkedInspectionId], references: [id])
+  linkedInspectionId String?
 }
 
 
@@ -417,6 +438,7 @@ model Meal {
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   confirmations MealConfirmation[]
+  wasteLog      MessWasteLog?
 
   @@unique([date, type, hostelId, messId])
 }
@@ -480,6 +502,7 @@ model Inventory {
   mess      Mess?               @relation(fields: [messId], references: [id])
   usages    InventoryUsage[]
   purchases InventoryPurchase[]
+  ledger    InventoryLedger[]
 }
 
 model InventoryUsage {
@@ -507,15 +530,19 @@ model InventoryPurchase {
 }
 
 model Expense {
-  id          String   @id @default(uuid()) @map("_id")
-  category    String
-  amount      Float
-  description String?
-  expenseDate DateTime @default(now())
-  hostelId    String
-  hostel      Hostel   @relation(fields: [hostelId], references: [id])
-  messId      String?
-  mess        Mess?    @relation(fields: [messId], references: [id])
+  id           String   @id @default(uuid()) @map("_id")
+  category     String
+  amount       Float
+  description  String?
+  expenseDate  DateTime @default(now())
+  // Expense lifecycle (additive)
+  approvalStatus String? @default("APPROVED") // DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, PAID
+  approvedBy   String?
+  approvedAt   DateTime?
+  hostelId     String
+  hostel       Hostel   @relation(fields: [hostelId], references: [id])
+  messId       String?
+  mess         Mess?    @relation(fields: [messId], references: [id])
 }
 
 model Payroll {
@@ -695,5 +722,338 @@ model PushSubscription {
   userAgent String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// ACADEMIC YEAR
+// ============================================================
+
+model AcademicYear {
+  id          String   @id @default(uuid()) @map("_id")
+  label       String   @unique  // e.g. "2025-2026"
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean  @default(false)
+  status      String   @default("ACTIVE") // ACTIVE, CLOSED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  admissions  HostelAdmission[]
+  bedAllocations BedAllocation[]
+}
+
+// ============================================================
+// BED ALLOCATION HISTORY
+// ============================================================
+
+model BedAllocation {
+  id             String       @id @default(uuid()) @map("_id")
+  studentId      String
+  student        User         @relation(fields: [studentId], references: [id])
+  hostelId       String
+  roomId         String
+  room           Room         @relation(fields: [roomId], references: [id])
+  bedNumber      String
+  academicYearId String?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id])
+  status         String       @default("ACTIVE") // ACTIVE, RELEASED, TRANSFERRED
+  allocationDate DateTime     @default(now())
+  releaseDate    DateTime?
+  releaseReason  String?
+  transferredTo  String?      // new roomId if transferred
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+// ============================================================
+// HOSTEL ADMISSION WORKFLOW
+// ============================================================
+
+model HostelAdmission {
+  id              String       @id @default(uuid()) @map("_id")
+  studentId       String
+  student         User         @relation(fields: [studentId], references: [id])
+  hostelId        String?
+  academicYearId  String?
+  academicYear    AcademicYear? @relation(fields: [academicYearId], references: [id])
+
+  // Application details
+  preferredRoomCategory String?
+  requestedHostelId     String?
+  applicationNote       String?
+
+  // Workflow status
+  status          String       @default("PENDING")
+  // PENDING | VERIFIED | APPROVED | REJECTED | WAITLIST | ALLOCATED | CHECKED_IN | CANCELLED
+
+  // Admin fields
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+  waitlistPosition Int?
+
+  // Allocation fields
+  allocatedRoomId String?
+  allocatedBed    String?
+  allocationDate  DateTime?
+
+  // Check-in
+  checkInDate     DateTime?
+  checkInBy       String?
+
+  // Fee reference
+  feeGenerated    Boolean      @default(false)
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+// ============================================================
+// ASSET MANAGEMENT
+// ============================================================
+
+model HostelAsset {
+  id           String   @id @default(uuid()) @map("_id")
+  assetCode    String   @unique
+  category     String   // BED, MATTRESS, CHAIR, TABLE, CUPBOARD, FAN, KEY, OTHER
+  description  String?
+  hostelId     String
+  roomId       String?
+  roomNumber   String?
+  block        String?
+  condition    String   @default("GOOD") // GOOD, FAIR, POOR, DAMAGED, REPLACED
+  status       String   @default("AVAILABLE") // AVAILABLE, ASSIGNED, UNDER_REPAIR, DISPOSED
+  purchaseDate DateTime?
+  purchaseCost Float?
+  isDeleted    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignments  AssetAssignment[]
+}
+
+model AssetAssignment {
+  id           String      @id @default(uuid()) @map("_id")
+  assetId      String
+  asset        HostelAsset @relation(fields: [assetId], references: [id])
+  studentId    String
+  student      User        @relation(fields: [studentId], references: [id])
+  assignedDate DateTime    @default(now())
+  returnedDate DateTime?
+  conditionAtAssign String @default("GOOD")
+  conditionAtReturn String?
+  damageNotes  String?
+  damageAmount Float?      @default(0)
+  status       String      @default("ASSIGNED") // ASSIGNED, RETURNED, DAMAGED
+  assignedBy   String?
+  returnedBy   String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+// ============================================================
+// ROOM INSPECTION
+// ============================================================
+
+model RoomInspection {
+  id             String   @id @default(uuid()) @map("_id")
+  roomId         String
+  room           Room     @relation(fields: [roomId], references: [id])
+  hostelId       String
+  inspectedById  String
+  inspectedBy    User     @relation("InspectorUser", fields: [inspectedById], references: [id])
+  inspectionDate DateTime @default(now())
+  overallRating  String   @default("GOOD") // EXCELLENT, GOOD, FAIR, POOR
+
+  // Per-item checks (stored as JSON for flexibility)
+  checklist      Json?    // { cleanliness, bed, fan, light, door, lock, bathroom, furniture }
+
+  damageFound    Boolean  @default(false)
+  damageNotes    String?
+  photosUrls     String[] @default([])
+  actionRequired String?
+  status         String   @default("OPEN") // OPEN, ACTION_TAKEN, CLOSED
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  linkedComplaints Complaint[]
+}
+
+// ============================================================
+// PREVENTIVE MAINTENANCE
+// ============================================================
+
+model PreventiveMaintenance {
+  id              String   @id @default(uuid()) @map("_id")
+  hostelId        String
+  equipmentName   String   // Fire Extinguisher, Water Tank, Generator, RO Plant, etc.
+  equipmentCode   String?
+  category        String   @default("GENERAL") // FIRE_SAFETY, WATER, ELECTRICAL, CCTV, MECHANICAL, OTHER
+  location        String?
+  responsiblePerson String?
+  frequencyDays   Int      @default(90) // service every N days
+  lastServiceDate DateTime?
+  nextServiceDate DateTime?
+  status          String   @default("OK") // OK, DUE, OVERDUE, IN_PROGRESS
+  notes           String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  history         MaintenanceServiceLog[]
+}
+
+model MaintenanceServiceLog {
+  id             String                @id @default(uuid()) @map("_id")
+  scheduleId     String
+  schedule       PreventiveMaintenance @relation(fields: [scheduleId], references: [id])
+  serviceDate    DateTime              @default(now())
+  servicedBy     String
+  notes          String?
+  cost           Float?                @default(0)
+  nextServiceDate DateTime?
+  createdAt      DateTime              @default(now())
+}
+
+// ============================================================
+// MESS WASTE TRACKING
+// ============================================================
+
+model MessWasteLog {
+  id                String   @id @default(uuid()) @map("_id")
+  mealId            String
+  meal              Meal     @relation(fields: [mealId], references: [id])
+  hostelId          String
+  preparedQuantity  Float    @default(0)  // kg or litres
+  consumedQuantity  Float    @default(0)
+  wastedQuantity    Float    @default(0)
+  unit              String   @default("kg")
+  wastePercentage   Float?   @default(0)
+  estimatedCost     Float?   @default(0)
+  costPerStudent    Float?   @default(0)
+  notes             String?
+  loggedBy          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([mealId])
+}
+
+// ============================================================
+// COMPLAINT SLA CONFIGURATION
+// ============================================================
+
+model ComplaintSLAConfig {
+  id             String   @id @default(uuid()) @map("_id")
+  hostelId       String   @unique
+  highPriorityHours   Int @default(2)
+  mediumPriorityHours Int @default(12)
+  lowPriorityHours    Int @default(48)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// ============================================================
+// INVENTORY STOCK LEDGER
+// ============================================================
+
+model InventoryLedger {
+  id          String    @id @default(uuid()) @map("_id")
+  inventoryId String
+  inventory   Inventory @relation(fields: [inventoryId], references: [id])
+  hostelId    String
+  txnType     String    // OPENING, PURCHASE, ISSUE, RETURN, DAMAGE, ADJUSTMENT, CLOSING
+  quantity    Int       // positive = in, negative = out
+  balanceAfter Int      // running balance after this txn
+  referenceId String?   // purchase/usage id
+  reason      String?
+  performedBy String?
+  createdAt   DateTime  @default(now())
+}
+
+// ============================================================
+// FEE STRUCTURE TEMPLATES
+// ============================================================
+
+model FeeStructure {
+  id           String   @id @default(uuid()) @map("_id")
+  title        String
+  feeType      String   @default("HOSTEL")
+  amount       Float
+  dueAfterDays Int      @default(30)  // due N days after generation
+  hostelId     String
+  academicYear String?
+  description  String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ============================================================
+// DISCIPLINE / INCIDENT MANAGEMENT
+// ============================================================
+
+model IncidentReport {
+  id           String   @id @default(uuid()) @map("_id")
+  studentId    String
+  student      User     @relation(fields: [studentId], references: [id])
+  hostelId     String
+  incidentType String   // LATE_RETURN, UNAUTHORIZED_VISITOR, ROOM_DAMAGE, RULE_VIOLATION, NOISE, OTHER
+  severity     String   @default("MINOR") // MINOR, MODERATE, SEVERE
+  incidentDate DateTime @default(now())
+  description  String
+  actionTaken  String?
+  warningIssued Boolean @default(false)
+  fineAmount   Float?   @default(0)
+  fineStatus   String?  @default("PENDING") // PENDING, PAID, WAIVED
+  remarks      String?
+  status       String   @default("OPEN") // OPEN, ACKNOWLEDGED, CLOSED
+  reportedBy   String?
+  linkedGatePassId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ============================================================
+// HOSTEL CONFIG (Rules, Timings, Calendar)
+// ============================================================
+
+model HostelConfig {
+  id        String   @id @default(uuid()) @map("_id")
+  hostelId  String   @unique
+  // Gate timings
+  gateOpenTime     String?  @default("06:00")
+  gateCloseTime    String?  @default("22:00")
+  visitorStartTime String?  @default("09:00")
+  visitorEndTime   String?  @default("20:00")
+  nightAttendanceTime String? @default("21:30")
+  outpassDeadline  String?  @default("20:00")
+  // Mess timings
+  breakfastStart   String?  @default("07:00")
+  breakfastEnd     String?  @default("09:00")
+  lunchStart       String?  @default("12:00")
+  lunchEnd         String?  @default("14:00")
+  snacksStart      String?  @default("16:00")
+  snacksEnd        String?  @default("17:00")
+  dinnerStart      String?  @default("19:00")
+  dinnerEnd        String?  @default("21:00")
+  // Rules
+  hostelRules      String[] @default([])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model HostelCalendar {
+  id        String   @id @default(uuid()) @map("_id")
+  hostelId  String
+  date      DateTime
+  dayType   String   // WORKING, WEEKEND, HOLIDAY, VACATION, EXAM
+  label     String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@unique([hostelId, date])
 }
 

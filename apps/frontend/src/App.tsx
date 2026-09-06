@@ -59,9 +59,17 @@ import {
   Save,
   Printer,
   Edit,
-  Trash2
+  Trash2,
+  Copy
 } from 'lucide-react';
 import { useTranslation, languages } from './i18n';
+import {
+  AdmissionsPanel, AcademicYearPanel, BedManagementPanel,
+  AssetManagementPanel, InspectionsPanel, IncidentPanel,
+  HostelConfigPanel, DigitalIDPanel, LiveTrackingPanel,
+  PreventiveMaintenancePanel, MessWasteForecastPanel, InventoryLedgerPanel,
+  FeeStructurePanel, GuardianPortalPanel
+} from './ErpPanels';
 
 
 // Setup base url
@@ -370,6 +378,7 @@ export default function App() {
     return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   });
 
+  const [dismissPushBanner, setDismissPushBanner] = useState(false);
   // ── Dynamic 5-min Temporary QR states ──
   const [tempQrData, setTempQrData] = useState<any | null>(null);
   const [qrCountdownSeconds, setQrCountdownSeconds] = useState<number>(0);
@@ -578,6 +587,14 @@ export default function App() {
   const [showResetPassModal, setShowResetPassModal] = useState(false);
   const [selectedUserForResetPass, setSelectedUserForResetPass] = useState<any | null>(null);
   const [newTestPasswordInput, setNewTestPasswordInput] = useState('Password123!');
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [selectedUserForEdit, setSelectedUserForEdit] = useState<any | null>(null);
+  const [editUserFullName, setEditUserFullName] = useState('');
+  const [editUserEmail, setEditUserEmail] = useState('');
+  const [editUserMobile, setEditUserMobile] = useState('');
+  const [editUserDept, setEditUserDept] = useState('');
+  const [editUserRole, setEditUserRole] = useState('');
+  const [editUserHostelId, setEditUserHostelId] = useState('');
   const [showSeedModal, setShowSeedModal] = useState(false);
   const [seedSizeInput, setSeedSizeInput] = useState<'small' | 'medium' | 'large'>('medium');
   const [seedClearInput, setSeedClearInput] = useState(true);
@@ -830,7 +847,11 @@ export default function App() {
     // Load public hostels
     loadHostels();
 
-    // Register Service Worker and listen for push notifications
+    // Register Service Worker and listen for push notifications.
+    // Registering unconditionally (dev included) is required so the browser keeps
+    // checking sw.js for updates — that's what lets a fixed sw.js replace a stale
+    // one already installed from a previous visit. sw.js itself is scoped to only
+    // ever cache-first hashed /assets/ build output, so it's a no-op during `vite dev`.
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW registration failed:', err));
 
@@ -2507,6 +2528,48 @@ export default function App() {
     }
   };
 
+  const handleCopyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('success', 'Copied', `${label} copied to clipboard`);
+    } catch {
+      showToast('error', 'Copy Failed', `Could not copy ${label.toLowerCase()}`);
+    }
+  };
+
+  const handleOpenEditUser = (u: any) => {
+    setSelectedUserForEdit(u);
+    setEditUserFullName(u.fullName || '');
+    setEditUserEmail(u.email || '');
+    setEditUserMobile(u.mobileNumber || '');
+    setEditUserDept(u.department || '');
+    setEditUserRole(u.role || '');
+    setEditUserHostelId(u.hostelId || '');
+    setShowEditUserModal(true);
+  };
+
+  const handleSaveEditUser = async () => {
+    if (!selectedUserForEdit) return;
+    try {
+      const res = await axios.patch(`/api/admin/users/${selectedUserForEdit.id}`, {
+        fullName: editUserFullName,
+        email: editUserEmail,
+        mobileNumber: editUserMobile,
+        department: editUserDept,
+        role: editUserRole,
+        hostelId: editUserHostelId
+      });
+      if (res.data?.success) {
+        showToast('success', 'User Updated', `${editUserFullName}'s profile was updated`);
+        setShowEditUserModal(false);
+        setSelectedUserForEdit(null);
+        fetchAdminUsers();
+      }
+    } catch (err: any) {
+      showToast('error', 'Update Failed', err.response?.data?.error || 'Failed to update user');
+    }
+  };
+
   const handleTriggerDevSeed = async () => {
     setSeedLoading(true);
     try {
@@ -3027,20 +3090,33 @@ export default function App() {
         { id: 'hostels', label: t('nav.hostels'), icon: Home, section: 'Management' },
         { id: 'rooms', label: t('nav.rooms'), icon: Layers, section: 'Management' },
         { id: 'students', label: t('nav.students'), icon: Users, section: 'Management' },
+        { id: 'admissions', label: t('nav.admissions'), icon: GraduationCap, section: 'Management' },
+        { id: 'bed_management', label: t('nav.bedManagement'), icon: Home, section: 'Management' },
+        { id: 'academic_years', label: t('nav.academicYears'), icon: Calendar, section: 'Management' },
         { id: 'workers', label: t('nav.workers'), icon: Wrench, section: 'Management' },
+        { id: 'assets', label: t('nav.assets'), icon: Database, section: 'Operations' },
+        { id: 'inspections', label: t('nav.inspections'), icon: CheckCheck, section: 'Operations' },
         { id: 'emergencies', label: t('emergency.title'), icon: ShieldAlert, section: 'Operations' },
         { id: 'attendance', label: t('nav.attendance'), icon: QrCode, section: 'Operations' },
         { id: 'leave', label: t('nav.leaves'), icon: Calendar, section: 'Operations' },
         { id: 'complaints', label: t('nav.complaints'), icon: AlertTriangle, section: 'Operations' },
+        { id: 'incidents', label: t('nav.incidents'), icon: ShieldAlert, section: 'Operations' },
         { id: 'visitors', label: t('nav.visitors'), icon: Users, section: 'Operations' },
         { id: 'laundry', label: t('nav.laundry'), icon: Clipboard, section: 'Operations' },
         { id: 'mess', label: t('nav.mess'), icon: BookOpen, section: 'Operations' },
         { id: 'payments', label: t('nav.payments'), icon: CreditCard, section: 'Operations' },
         { id: 'gate_pass', label: t('nav.gatePass'), icon: Shield, section: 'Operations' },
+        { id: 'live_tracking', label: t('nav.liveTracking'), icon: Activity, section: 'Operations' },
+        { id: 'preventive_maintenance', label: t('nav.preventiveMaintenance'), icon: Wrench, section: 'Operations' },
+        { id: 'mess_waste', label: t('nav.messWaste'), icon: BookOpen, section: 'Operations' },
+        { id: 'inventory_ledger', label: t('nav.inventoryLedger'), icon: Database, section: 'Operations' },
+        { id: 'fee_structures', label: t('nav.feeStructures'), icon: CreditCard, section: 'Management' },
+        { id: 'guardian_portal', label: t('nav.guardianPortal'), icon: Users, section: 'Management' },
         { id: 'notices', label: t('nav.noticeBoard'), icon: Bell, section: 'Operations' },
         { id: 'notifications', label: t('nav.notifications'), icon: Bell, section: 'Operations' },
         { id: 'reports', label: t('nav.reports'), icon: PieChart, section: 'System' },
         { id: 'users', label: 'User Management', icon: Users, section: 'System' },
+        { id: 'hostel_config', label: 'Hostel Config', icon: Settings, section: 'System' },
         { id: 'audit_logs', label: t('nav.auditLogs'), icon: Activity, section: 'System' },
         { id: 'settings', label: t('nav.settings'), icon: Settings, section: 'System' },
         { id: 'profile', label: t('nav.profile'), icon: User, section: 'Account' }
@@ -3051,19 +3127,26 @@ export default function App() {
         { id: 'users', label: 'User Management', icon: Users, section: 'Management' },
         { id: 'rooms', label: t('nav.rooms'), icon: Layers, section: 'Management' },
         { id: 'students', label: t('nav.students'), icon: Users, section: 'Management' },
+        { id: 'admissions', label: 'Admissions', icon: GraduationCap, section: 'Management' },
+        { id: 'bed_management', label: 'Bed Management', icon: Home, section: 'Management' },
         { id: 'workers', label: t('nav.workers'), icon: Wrench, section: 'Management' },
+        { id: 'assets', label: 'Assets', icon: Database, section: 'Operations' },
+        { id: 'inspections', label: 'Inspections', icon: CheckCheck, section: 'Operations' },
         { id: 'emergencies', label: t('emergency.title'), icon: ShieldAlert, section: 'Operations' },
         { id: 'attendance', label: t('nav.attendance'), icon: QrCode, section: 'Operations' },
         { id: 'leave', label: t('nav.leaves'), icon: Calendar, section: 'Operations' },
         { id: 'complaints', label: t('nav.complaints'), icon: AlertTriangle, section: 'Operations' },
+        { id: 'incidents', label: 'Incidents', icon: ShieldAlert, section: 'Operations' },
         { id: 'visitors', label: t('nav.visitors'), icon: Users, section: 'Operations' },
         { id: 'laundry', label: t('nav.laundry'), icon: Clipboard, section: 'Operations' },
         { id: 'mess', label: t('nav.mess'), icon: BookOpen, section: 'Operations' },
         { id: 'payments', label: t('nav.payments'), icon: CreditCard, section: 'Operations' },
         { id: 'gate_pass', label: t('nav.gatePass'), icon: Shield, section: 'Operations' },
+        { id: 'live_tracking', label: 'Live Tracking', icon: Activity, section: 'Operations' },
         { id: 'notices', label: t('nav.noticeBoard'), icon: Bell, section: 'Operations' },
         { id: 'notifications', label: t('nav.notifications'), icon: Bell, section: 'Operations' },
         { id: 'reports', label: t('nav.reports'), icon: PieChart, section: 'System' },
+        { id: 'hostel_config', label: 'Hostel Config', icon: Settings, section: 'System' },
         { id: 'profile', label: t('nav.profile'), icon: User, section: 'Account' }
       );
     } else if (currentUser.role === 'ASSISTANT_WARDEN') {
@@ -3072,13 +3155,17 @@ export default function App() {
         { id: 'rooms', label: t('nav.rooms'), icon: Layers, section: 'Management' },
         { id: 'students', label: t('nav.students'), icon: Users, section: 'Management' },
         { id: 'workers', label: t('nav.workers'), icon: Wrench, section: 'Management' },
+        { id: 'assets', label: 'Assets', icon: Database, section: 'Operations' },
+        { id: 'inspections', label: 'Inspections', icon: CheckCheck, section: 'Operations' },
         { id: 'emergencies', label: t('emergency.title'), icon: ShieldAlert, section: 'Operations' },
         { id: 'attendance', label: t('nav.attendance'), icon: QrCode, section: 'Operations' },
         { id: 'leave', label: t('nav.leaves'), icon: Calendar, section: 'Operations' },
         { id: 'complaints', label: t('nav.complaints'), icon: AlertTriangle, section: 'Operations' },
+        { id: 'incidents', label: 'Incidents', icon: ShieldAlert, section: 'Operations' },
         { id: 'visitors', label: t('nav.visitors'), icon: Users, section: 'Operations' },
         { id: 'laundry', label: t('nav.laundry'), icon: Clipboard, section: 'Operations' },
         { id: 'mess', label: t('nav.mess'), icon: BookOpen, section: 'Operations' },
+        { id: 'live_tracking', label: 'Live Tracking', icon: Activity, section: 'Operations' },
         { id: 'profile', label: t('nav.profile'), icon: User, section: 'Account' }
       );
     } else if (currentUser.role === 'WORKER') {
@@ -3124,6 +3211,7 @@ export default function App() {
         { id: 'mess', label: t('nav.mess'), icon: BookOpen, section: 'Services' },
         { id: 'payments', label: t('nav.payments'), icon: CreditCard, section: 'Services' },
         { id: 'gate_pass', label: t('nav.gatePass'), icon: Shield, section: 'Services' },
+        { id: 'hostel_id', label: 'My Hostel ID', icon: CreditCard, section: 'Services' },
         { id: 'notices', label: t('nav.noticeBoard'), icon: Bell, section: 'Updates' },
         { id: 'notifications', label: t('nav.notifications'), icon: Bell, section: 'Updates' },
         { id: 'ai_assistant', label: t('nav.aiAssistant'), icon: Bot, section: 'Updates' },
@@ -3554,8 +3642,7 @@ export default function App() {
         justifyContent: 'space-between',
         padding: '0 1.25rem',
         background: 'var(--bg-surface)',
-        position: 'sticky',
-        top: 0,
+        position: 'relative',
         zIndex: 50
       }}>
         {/* Logo and Collapsible Side Menu Icon on Mobile */}
@@ -3572,8 +3659,8 @@ export default function App() {
             <div style={{ width: '30px', height: '30px', borderRadius: 'var(--radius-md)', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Building2 size={18} color="var(--primary-contrast)" />
             </div>
-            <span style={{ fontSize: '1.05rem', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-main)' }}>
-              SmartHostel <span style={{ color: 'var(--primary)', fontSize: '0.85rem', fontWeight: 600, border: '1px solid var(--primary-border)', padding: '0.1rem 0.35rem', borderRadius: 'var(--radius-sm)', background: 'var(--primary-soft)' }}>ERP</span>
+            <span style={{ fontSize: '1.05rem', fontWeight: 700, letterSpacing: '-0.02em', color: '#FFFFFF' }}>
+              SmartHostel <span style={{ color: '#FFFFFF', fontSize: '0.85rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.4)', padding: '0.1rem 0.35rem', borderRadius: 'var(--radius-sm)', background: 'rgba(255,255,255,0.15)' }}>ERP</span>
             </span>
           </div>
         </div>
@@ -3810,7 +3897,7 @@ export default function App() {
               </div>
 
               {/* Feature Highlights Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginTop: '3.5rem', textAlign: 'left' }}>
+              <div style={{ alignSelf: 'stretch', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginTop: '3.5rem', textAlign: 'left' }}>
                 <div className="glass-panel" style={{ padding: '1.25rem' }}>
                   <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-md)', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.75rem' }}>
                     <QrCode size={18} color="var(--primary)" />
@@ -4026,11 +4113,11 @@ export default function App() {
                   <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
                     {loginTab === 'STUDENT' ? t('loginPortal.studentEmailLabel') : loginTab === 'WARDEN' ? t('loginPortal.wardenEmailLabel') : loginTab === 'WORKER' ? t('loginPortal.staffEmailLabel') : t('loginPortal.adminEmailLabel')}
                   </label>
-                  <input className="form-input" type="text" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="email@example.com" required />
+                  <input className="form-input" type="text" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.password')}</label>
-                  <input className="form-input" type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••" required />
+                  <input className="form-input" type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
                 </div>
                 <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.65rem', fontSize: '0.88rem', fontWeight: 600, marginTop: '0.25rem' }}>
                   {t('auth.signIn')} ({loginTab === 'STUDENT' ? t('loginPortal.studentRole') : loginTab === 'WARDEN' ? t('loginPortal.wardenRole') : loginTab === 'WORKER' ? t('loginPortal.staffRole') : t('loginPortal.adminRole')})
@@ -4208,7 +4295,7 @@ export default function App() {
             )}
 
             {/* Notification Permission Card (Prompt when permission is default) */}
-            {currentUser && pushPermissionStatus === 'default' && (
+            {currentUser && pushPermissionStatus === 'default' && !dismissPushBanner && (
               <div className="glass-panel animate-slide-up" style={{ padding: '0.85rem 1.25rem', background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <BellRing size={20} color="var(--primary)" />
@@ -4217,9 +4304,14 @@ export default function App() {
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Receive emergency alerts on your device even when this app is backgrounded or closed.</p>
                   </div>
                 </div>
-                <button className="btn btn-primary" style={{ padding: '0.35rem 0.85rem', fontSize: '0.8rem' }} onClick={registerPushNotifications}>
-                  Enable Alerts
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <button className="btn btn-primary" style={{ padding: '0.35rem 0.85rem', fontSize: '0.8rem' }} onClick={registerPushNotifications}>
+                    Enable Alerts
+                  </button>
+                  <button className="btn btn-ghost" style={{ padding: '0.35rem' }} onClick={() => setDismissPushBanner(true)} title="Dismiss">
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
             )}
 
@@ -7380,7 +7472,18 @@ export default function App() {
                                   </div>
                                   <div>
                                     <div style={{ fontWeight: 700 }}>{u.fullName}</div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.email} · {u.mobileNumber || 'N/A'}</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                      <span>{u.email} · {u.mobileNumber || 'N/A'}</span>
+                                      <button
+                                        type="button"
+                                        className="btn btn-ghost"
+                                        style={{ padding: '0.15rem', minWidth: 'auto' }}
+                                        title="Copy username (email)"
+                                        onClick={() => handleCopyToClipboard(u.email, 'Username')}
+                                      >
+                                        <Copy size={12} />
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
                               </td>
@@ -7430,6 +7533,13 @@ export default function App() {
                                       Approve
                                     </button>
                                   )}
+                                  <button
+                                    className="btn btn-secondary"
+                                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.72rem' }}
+                                    onClick={() => handleOpenEditUser(u)}
+                                  >
+                                    <Edit size={12} /> Edit
+                                  </button>
                                   <button
                                     className="btn btn-secondary"
                                     style={{ padding: '0.25rem 0.5rem', fontSize: '0.72rem' }}
@@ -8899,6 +9009,76 @@ export default function App() {
         </div>
       )}
 
+      {/* ─── ADMISSIONS (Phase 3+4) ─── */}
+      {subView === 'admissions' && currentUser && ['SUPER_ADMIN','HOSTEL_ADMIN','ASSISTANT_WARDEN'].includes(currentUser.role) && (
+        <AdmissionsPanel currentUser={currentUser} showToast={showToast} hostels={hostels} />
+      )}
+
+      {/* ─── ACADEMIC YEARS (Phase 1+2) ─── */}
+      {subView === 'academic_years' && currentUser && ['SUPER_ADMIN','HOSTEL_ADMIN'].includes(currentUser.role) && (
+        <AcademicYearPanel currentUser={currentUser} showToast={showToast} />
+      )}
+
+      {/* ─── BED MANAGEMENT (Phase 1+2) ─── */}
+      {subView === 'bed_management' && currentUser && ['SUPER_ADMIN','HOSTEL_ADMIN','ASSISTANT_WARDEN'].includes(currentUser.role) && (
+        <BedManagementPanel currentUser={currentUser} showToast={showToast} hostels={hostels} />
+      )}
+
+      {/* ─── ASSETS (Phase 5) ─── */}
+      {subView === 'assets' && currentUser && ['SUPER_ADMIN','HOSTEL_ADMIN','ASSISTANT_WARDEN'].includes(currentUser.role) && (
+        <AssetManagementPanel currentUser={currentUser} showToast={showToast} hostels={hostels} />
+      )}
+
+      {/* ─── INSPECTIONS (Phase 6+7) ─── */}
+      {subView === 'inspections' && currentUser && ['SUPER_ADMIN','HOSTEL_ADMIN','ASSISTANT_WARDEN'].includes(currentUser.role) && (
+        <InspectionsPanel currentUser={currentUser} showToast={showToast} hostels={hostels} rooms={rooms} />
+      )}
+
+      {/* ─── INCIDENTS (Phase 13) ─── */}
+      {subView === 'incidents' && currentUser && ['SUPER_ADMIN','HOSTEL_ADMIN','ASSISTANT_WARDEN','WARDEN','SECURITY'].includes(currentUser.role) && (
+        <IncidentPanel currentUser={currentUser} showToast={showToast} hostels={hostels} />
+      )}
+
+      {/* ─── HOSTEL CONFIG (Phase 16) ─── */}
+      {subView === 'hostel_config' && currentUser && ['SUPER_ADMIN','HOSTEL_ADMIN'].includes(currentUser.role) && (
+        <HostelConfigPanel currentUser={currentUser} showToast={showToast} hostels={hostels} />
+      )}
+
+      {/* ─── DIGITAL HOSTEL ID (Phase 15) ─── */}
+      {subView === 'hostel_id' && currentUser && currentUser.role === 'STUDENT' && (
+        <DigitalIDPanel currentUser={currentUser} showToast={showToast} />
+      )}
+
+      {/* ─── LIVE TRACKING (Phase 19+20) ─── */}
+      {subView === 'live_tracking' && currentUser && ['SUPER_ADMIN','HOSTEL_ADMIN','ASSISTANT_WARDEN','WARDEN','SECURITY'].includes(currentUser.role) && (
+        <LiveTrackingPanel currentUser={currentUser} showToast={showToast} />
+      )}
+
+      {/* ─── PREVENTIVE MAINTENANCE (Phase 7) ─── */}
+      {subView === 'preventive_maintenance' && currentUser && ['SUPER_ADMIN','HOSTEL_ADMIN','ASSISTANT_WARDEN','MAINTENANCE'].includes(currentUser.role) && (
+        <PreventiveMaintenancePanel currentUser={currentUser} showToast={showToast} hostels={hostels} />
+      )}
+
+      {/* ─── MESS WASTE & DEMAND FORECAST (Phase 9+10) ─── */}
+      {subView === 'mess_waste' && currentUser && ['SUPER_ADMIN','HOSTEL_ADMIN','ASSISTANT_WARDEN','MESS_MANAGER'].includes(currentUser.role) && (
+        <MessWasteForecastPanel currentUser={currentUser} showToast={showToast} hostels={hostels} />
+      )}
+
+      {/* ─── INVENTORY LEDGER (Phase 11) ─── */}
+      {subView === 'inventory_ledger' && currentUser && ['SUPER_ADMIN','HOSTEL_ADMIN','MESS_MANAGER'].includes(currentUser.role) && (
+        <InventoryLedgerPanel currentUser={currentUser} showToast={showToast} hostels={hostels} />
+      )}
+
+      {/* ─── FEE STRUCTURES (Phase 12) ─── */}
+      {subView === 'fee_structures' && currentUser && ['SUPER_ADMIN','HOSTEL_ADMIN','ACCOUNTANT'].includes(currentUser.role) && (
+        <FeeStructurePanel currentUser={currentUser} showToast={showToast} hostels={hostels} />
+      )}
+
+      {/* ─── GUARDIAN PORTAL (Phase 17) ─── */}
+      {subView === 'guardian_portal' && currentUser && (
+        <GuardianPortalPanel currentUser={currentUser} showToast={showToast} hostels={hostels} />
+      )}
+
           </main>
 
           {/* Mobile Bottom Navigation */}
@@ -8906,130 +9086,33 @@ export default function App() {
             <nav className="bottom-nav">
               {currentUser.role === 'STUDENT' && (
                 <>
-                  <button 
-                    className={`bottom-nav-item ${subView === 'dashboard' ? 'active' : ''}`}
-                    onClick={() => setSubView('dashboard')}
-                  >
-                    <Grid size={18} />
-                    <span>Dashboard</span>
-                  </button>
-                  <button 
-                    className={`bottom-nav-item ${subView === 'leave' ? 'active' : ''}`}
-                    onClick={() => setSubView('leave')}
-                  >
-                    <Calendar size={18} />
-                    <span>Leaves</span>
-                  </button>
-                  <button 
-                    className={`bottom-nav-item ${subView === 'attendance' ? 'active' : ''}`}
-                    onClick={() => setSubView('attendance')}
-                  >
-                    <QrCode size={18} />
-                    <span>Scan</span>
-                  </button>
-                  <button 
-                    className={`bottom-nav-item ${subView === 'profile' ? 'active' : ''}`}
-                    onClick={() => setSubView('profile')}
-                  >
-                    <User size={18} />
-                    <span>Profile</span>
-                  </button>
-                  <button 
-                    className="bottom-nav-item"
-                    onClick={() => setMobileMenuOpen(true)}
-                  >
-                    <Menu size={18} />
-                    <span>More</span>
-                  </button>
+                  <button className={`bottom-nav-item ${subView === 'dashboard' ? 'active' : ''}`} onClick={() => setSubView('dashboard')}><Grid size={18}/><span>Home</span></button>
+                  <button className={`bottom-nav-item ${subView === 'leave' ? 'active' : ''}`} onClick={() => setSubView('leave')}><Calendar size={18}/><span>Leave</span></button>
+                  <button className={`bottom-nav-item ${subView === 'attendance' ? 'active' : ''}`} onClick={() => setSubView('attendance')}><QrCode size={18}/><span>Attend</span></button>
+                  <button className={`bottom-nav-item ${subView === 'gate_pass' ? 'active' : ''}`} onClick={() => setSubView('gate_pass')}><Shield size={18}/><span>Gate</span></button>
+                  <button className={`bottom-nav-item ${subView === 'profile' ? 'active' : ''}`} onClick={() => setSubView('profile')}><User size={18}/><span>Profile</span></button>
                 </>
               )}
-              {['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN'].includes(currentUser.role) && (
+              {['SUPER_ADMIN','HOSTEL_ADMIN','ASSISTANT_WARDEN','WARDEN'].includes(currentUser.role) && (
                 <>
-                  <button 
-                    className={`bottom-nav-item ${subView === 'dashboard' ? 'active' : ''}`}
-                    onClick={() => setSubView('dashboard')}
-                  >
-                    <Grid size={18} />
-                    <span>Dashboard</span>
-                  </button>
-                  <button 
-                    className={`bottom-nav-item ${subView === 'students' ? 'active' : ''}`}
-                    onClick={() => setSubView('students')}
-                  >
-                    <Users size={18} />
-                    <span>Students</span>
-                  </button>
-                  <button 
-                    className={`bottom-nav-item ${subView === 'attendance' ? 'active' : ''}`}
-                    onClick={() => setSubView('attendance')}
-                  >
-                    <QrCode size={18} />
-                    <span>Scan</span>
-                  </button>
-                  <button 
-                    className={`bottom-nav-item ${subView === 'emergencies' ? 'active' : ''}`}
-                    onClick={() => setSubView('emergencies')}
-                  >
-                    <ShieldAlert size={18} />
-                    <span>Alerts</span>
-                  </button>
-                  <button 
-                    className="bottom-nav-item"
-                    onClick={() => setMobileMenuOpen(true)}
-                  >
-                    <Menu size={18} />
-                    <span>More</span>
-                  </button>
+                  <button className={`bottom-nav-item ${subView === 'dashboard' ? 'active' : ''}`} onClick={() => setSubView('dashboard')}><Grid size={18}/><span>Home</span></button>
+                  <button className={`bottom-nav-item ${subView === 'students' ? 'active' : ''}`} onClick={() => setSubView('students')}><Users size={18}/><span>Students</span></button>
+                  <button className={`bottom-nav-item ${subView === 'live_tracking' ? 'active' : ''}`} onClick={() => setSubView('live_tracking')}><Activity size={18}/><span>Track</span></button>
+                  <button className={`bottom-nav-item ${subView === 'attendance' ? 'active' : ''}`} onClick={() => setSubView('attendance')}><QrCode size={18}/><span>Scan</span></button>
+                  <button className={`bottom-nav-item ${subView === 'emergencies' ? 'active' : ''}`} onClick={() => setSubView('emergencies')}><ShieldAlert size={18}/><span>Alert</span></button>
                 </>
               )}
               {currentUser.role === 'WORKER' && (
                 <>
-                  <button 
-                    className={`bottom-nav-item ${subView === 'worker_dashboard' ? 'active' : ''}`}
-                    onClick={() => setSubView('worker_dashboard')}
-                  >
-                    <Wrench size={18} />
-                    <span>Jobs</span>
-                  </button>
-                  <button 
-                    className={`bottom-nav-item ${subView === 'profile' ? 'active' : ''}`}
-                    onClick={() => setSubView('profile')}
-                  >
-                    <User size={18} />
-                    <span>Profile</span>
-                  </button>
-                  <button 
-                    className="bottom-nav-item"
-                    onClick={() => setMobileMenuOpen(true)}
-                  >
-                    <Menu size={18} />
-                    <span>More</span>
-                  </button>
+                  <button className={`bottom-nav-item ${subView === 'worker_dashboard' ? 'active' : ''}`} onClick={() => setSubView('worker_dashboard')}><Wrench size={18}/><span>Tasks</span></button>
+                  <button className={`bottom-nav-item ${subView === 'profile' ? 'active' : ''}`} onClick={() => setSubView('profile')}><User size={18}/><span>Profile</span></button>
                 </>
               )}
-              {!['STUDENT', 'SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'WORKER'].includes(currentUser.role) && (
+              {currentUser.role === 'SECURITY' && (
                 <>
-                  <button 
-                    className={`bottom-nav-item ${subView === 'dashboard' ? 'active' : ''}`}
-                    onClick={() => setSubView('dashboard')}
-                  >
-                    <Grid size={18} />
-                    <span>Dashboard</span>
-                  </button>
-                  <button 
-                    className={`bottom-nav-item ${subView === 'profile' ? 'active' : ''}`}
-                    onClick={() => setSubView('profile')}
-                  >
-                    <User size={18} />
-                    <span>Profile</span>
-                  </button>
-                  <button 
-                    className="bottom-nav-item"
-                    onClick={() => setMobileMenuOpen(true)}
-                  >
-                    <Menu size={18} />
-                    <span>More</span>
-                  </button>
+                  <button className={`bottom-nav-item ${subView === 'dashboard' ? 'active' : ''}`} onClick={() => setSubView('dashboard')}><Grid size={18}/><span>Home</span></button>
+                  <button className={`bottom-nav-item ${subView === 'live_tracking' ? 'active' : ''}`} onClick={() => setSubView('live_tracking')}><Activity size={18}/><span>Track</span></button>
+                  <button className={`bottom-nav-item ${subView === 'profile' ? 'active' : ''}`} onClick={() => setSubView('profile')}><User size={18}/><span>Profile</span></button>
                 </>
               )}
             </nav>
@@ -9676,13 +9759,89 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>New Test Password *</label>
-                <input className="form-input" type="text" value={newTestPasswordInput} onChange={e => setNewTestPasswordInput(e.target.value)} required />
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input className="form-input" type="text" value={newTestPasswordInput} onChange={e => setNewTestPasswordInput(e.target.value)} required style={{ flex: 1 }} />
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '0.5rem' }}
+                    title="Copy password"
+                    onClick={() => handleCopyToClipboard(newTestPasswordInput, 'Password')}
+                  >
+                    <Copy size={14} />
+                  </button>
+                </div>
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.2rem', display: 'block' }}>
                   🔒 Password will be securely hashed with argon2. Plaintext is never stored.
                 </span>
               </div>
 
               <button className="btn btn-primary" onClick={handleResetUserPassword}>Set New Password</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT USER */}
+      {showEditUserModal && selectedUserForEdit && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '480px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800 }}>Edit User</h3>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowEditUserModal(false)}><X size={16} /></button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Full Name</label>
+                <input className="form-input" type="text" value={editUserFullName} onChange={e => setEditUserFullName(e.target.value)} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Username (Email)</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input className="form-input" type="text" value={editUserEmail} onChange={e => setEditUserEmail(e.target.value)} style={{ flex: 1 }} />
+                  <button type="button" className="btn btn-secondary" style={{ padding: '0.5rem' }} title="Copy username" onClick={() => handleCopyToClipboard(editUserEmail, 'Username')}>
+                    <Copy size={14} />
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Mobile Number</label>
+                <input className="form-input" type="text" value={editUserMobile} onChange={e => setEditUserMobile(e.target.value)} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Department</label>
+                <input className="form-input" type="text" value={editUserDept} onChange={e => setEditUserDept(e.target.value)} />
+              </div>
+              <div className="responsive-grid">
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Role</label>
+                  <select className="form-input" value={editUserRole} onChange={e => setEditUserRole(e.target.value)}>
+                    <option value="SUPER_ADMIN">Super Admin</option>
+                    <option value="HOSTEL_ADMIN">Hostel Admin</option>
+                    <option value="WARDEN">Warden</option>
+                    <option value="ASSISTANT_WARDEN">Assistant Warden</option>
+                    <option value="MESS_MANAGER">Mess Manager</option>
+                    <option value="SECURITY">Security</option>
+                    <option value="MAINTENANCE">Maintenance</option>
+                    <option value="ACCOUNTANT">Accountant</option>
+                    <option value="WORKER">Worker</option>
+                    <option value="STAFF">Staff</option>
+                    <option value="STUDENT">Student</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Hostel</label>
+                  <select className="form-input" value={editUserHostelId} onChange={e => setEditUserHostelId(e.target.value)}>
+                    <option value="">-- Unassigned --</option>
+                    {hostels.map(h => (
+                      <option key={h.id} value={h.id}>{h.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <button className="btn btn-primary" onClick={handleSaveEditUser}>Save Changes</button>
             </div>
           </div>
         </div>
@@ -9775,31 +9934,6 @@ export default function App() {
       )}
 
 
-      {/* Mobile Bottom Navigation (Visible only on mobile screen widths) */}
-      {currentUser && (
-        <nav className="bottom-nav">
-          <button className={`bottom-nav-item ${subView === 'dashboard' ? 'active' : ''}`} onClick={() => setSubView('dashboard')}>
-            <Home size={20} />
-            <span>{t('nav.dashboard')}</span>
-          </button>
-          <button className={`bottom-nav-item ${subView === 'attendance' ? 'active' : ''}`} onClick={() => setSubView('attendance')}>
-            <QrCode size={20} />
-            <span>{t('nav.attendance')}</span>
-          </button>
-          <button className={`bottom-nav-item ${subView === 'ai_assistant' ? 'active' : ''}`} onClick={() => setSubView('ai_assistant')}>
-            <Bot size={20} />
-            <span>{t('nav.aiAssistant')}</span>
-          </button>
-          <button className={`bottom-nav-item ${subView === 'complaints' ? 'active' : ''}`} onClick={() => setSubView('complaints')}>
-            <AlertTriangle size={20} />
-            <span>{t('nav.complaints')}</span>
-          </button>
-          <button className="bottom-nav-item" onClick={() => setMobileMenuOpen(true)}>
-            <Menu size={20} />
-            <span>{t('common.all')}</span>
-          </button>
-        </nav>
-      )}
 
 
       {/* MODAL 1: ADD WORKER CATEGORY */}

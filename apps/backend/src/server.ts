@@ -22,6 +22,7 @@ app.use(cookieParser());
 
 // Mount ERP system routes
 app.use('/api', erpRouter);
+app.use('/api/erp', erpRouter);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -448,7 +449,7 @@ app.get('/api/complaints', authMiddleware, async (req: AuthRequest, res) => {
     }
     const complaints = await prisma.complaint.findMany({
       where,
-      include: { student: { select: { fullName: true } }, staff: { select: { fullName: true } } }
+      include: { student: { select: { fullName: true } }, staff: { select: { fullName: true } }, timeline: { orderBy: { timestamp: 'asc' } } }
     });
     res.json({ success: true, data: complaints });
   } catch (err: any) {
@@ -524,7 +525,7 @@ app.post('/api/complaints', authMiddleware, async (req: AuthRequest, res) => {
 });
 
 
-app.patch('/api/complaints/:id', authMiddleware, async (req: AuthRequest, res) => {
+app.patch('/api/complaints/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN']), async (req: AuthRequest, res) => {
   const { id } = req.params;
   const { status, staffId, resolutionImage, studentFeedback } = req.body;
   try {
@@ -1142,7 +1143,7 @@ app.post('/api/attendance/generate-qr', authMiddleware, async (req: AuthRequest,
   }
 });
 
-// 7b. Scan QR Token & Mark Attendance (with 5-meter GPS Location Validation)
+// 7b. Scan QR Token & Mark Attendance (with configurable GPS Location Validation)
 app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'SUPER_ADMIN', 'SECURITY', 'WARDEN', 'STAFF', 'WORKER']), async (req: AuthRequest, res) => {
   const { qrToken, device, latitude, longitude, accuracy } = req.body;
   if (!qrToken) {
@@ -1223,7 +1224,7 @@ app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['HOSTEL_ADMIN',
       return;
     }
 
-    // ── GPS 5-METER LOCATION VALIDATION ──
+    // ── GPS LOCATION VALIDATION (radius configured per-hostel via Hostel.allowedRadius) ──
     const hostel = student.hostel;
     const hostelLat = hostel?.latitude ?? 13.0827;
     const hostelLng = hostel?.longitude ?? 80.2707;
@@ -1250,7 +1251,7 @@ app.post('/api/attendance/scan-qr', authMiddleware, requireRole(['HOSTEL_ADMIN',
         res.status(400).json({
           success: false,
           status: 'OUTSIDE_RADIUS',
-          error: `You are outside the allowed attendance location (${distMeters}m away). Please move within 5 meters of the hostel.`,
+          error: `You are outside the allowed attendance location (${distMeters}m away). Please move within ${allowedRadius} meters of the hostel.`,
           distanceMeters: distMeters,
           allowedRadius
         });

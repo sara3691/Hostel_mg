@@ -108,7 +108,21 @@ export const en = {
     logout: "Logout",
     login: "Login",
     register: "Register",
-    qrPortal: "QR Portal"
+    qrPortal: "QR Portal",
+    admissions: "Admissions",
+    bedManagement: "Bed Management",
+    academicYears: "Academic Years",
+    assets: "Hostel Assets",
+    inspections: "Room Inspections",
+    incidents: "Incidents",
+    hostelConfig: "Hostel Config",
+    liveTracking: "Live Gate Tracking",
+    preventiveMaintenance: "Preventive Maintenance",
+    messWaste: "Mess Waste & Forecast",
+    inventoryLedger: "Stock Ledger",
+    feeStructures: "Fee Structures",
+    guardianPortal: "Guardian Portal",
+    hostelId: "Digital Hostel ID"
   },
   auth: {
     welcomeBack: "Welcome Back",

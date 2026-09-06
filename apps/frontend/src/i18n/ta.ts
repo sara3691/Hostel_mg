@@ -108,7 +108,21 @@ export const ta = {
     logout: "வெளியேறு",
     login: "உள்நுழை",
     register: "பதிவு செய்க",
-    qrPortal: "QR போர்ட்டல்"
+    qrPortal: "QR போர்ட்டல்",
+    admissions: "சேர்க்கை",
+    bedManagement: "படுக்கை மேலாண்மை",
+    academicYears: "கல்வி ஆண்டுகள்",
+    assets: "விடுதி சொத்துக்கள்",
+    inspections: "அறை ஆய்வுகள்",
+    incidents: "நிகழ்வுகள்",
+    hostelConfig: "விடுதி அமைப்புகள்",
+    liveTracking: "நேரலை கேட் கண்காணிப்பு",
+    preventiveMaintenance: "தடுப்பு பராமரிப்பு",
+    messWaste: "உணவுக் கழிவு & முன்னறிவிப்பு",
+    inventoryLedger: "சரக்கு இருப்புப் பதிவு",
+    feeStructures: "கட்டண அமைப்பு",
+    guardianPortal: "பெற்றோர் போர்ட்டல்",
+    hostelId: "டிஜிட்டல் விடுதி அடையாள அட்டை"
   },
   auth: {
     welcomeBack: "மீண்டும் வருக",

@@ -1,5 +1,5 @@
 // SmartHostel AI - Service Worker with Web Push & Offline Support
-const CACHE_VERSION = "v1.1.0";
+const CACHE_VERSION = "v1.2.0";
 const STATIC_CACHE = `smarthostel-static-${CACHE_VERSION}`;
 const OFFLINE_URL = "/";
 
@@ -52,7 +52,17 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // For static assets: cache-first with network fallback
+  // Only cache-first our own known shell files and content-hashed production
+  // build output (/assets/*.js, /assets/*.css — the hash changes on every build,
+  // so serving a cached one is always safe). Anything else (in particular Vite
+  // dev-server module requests like /src/*, /@vite/*, /@react-refresh, which are
+  // NOT content-hashed) must always go to the network, or a dev session would get
+  // permanently stuck on whatever version happened to be cached first.
+  const isCacheableStatic = STATIC_ASSETS.includes(url.pathname) || url.pathname.startsWith("/assets/");
+  if (!isCacheableStatic) {
+    return;
+  }
+
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
