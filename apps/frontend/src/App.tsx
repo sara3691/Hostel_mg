@@ -3636,14 +3636,16 @@ export default function App() {
       {/* Header / Navbar */}
       <header style={{
         height: '56px',
-        borderBottom: '1px solid var(--border-color)',
+        borderBottom: '1px solid var(--primary-hover)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 1.25rem',
-        background: 'var(--bg-surface)',
-        position: 'relative',
-        zIndex: 50
+        background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 50,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
       }}>
         {/* Logo and Collapsible Side Menu Icon on Mobile */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -3656,8 +3658,8 @@ export default function App() {
             <Menu size={18} />
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }} onClick={() => setView(currentUser ? 'dashboard' : 'home')}>
-            <div style={{ width: '30px', height: '30px', borderRadius: 'var(--radius-md)', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Building2 size={18} color="var(--primary-contrast)" />
+            <div style={{ width: '30px', height: '30px', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Building2 size={18} color="#FFFFFF" />
             </div>
             <span style={{ fontSize: '1.05rem', fontWeight: 700, letterSpacing: '-0.02em', color: '#FFFFFF' }}>
               SmartHostel <span style={{ color: '#FFFFFF', fontSize: '0.85rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.4)', padding: '0.1rem 0.35rem', borderRadius: 'var(--radius-sm)', background: 'rgba(255,255,255,0.15)' }}>ERP</span>
@@ -3702,11 +3704,11 @@ export default function App() {
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center',
-                  background: 'var(--bg-subtle)' 
+                  background: 'rgba(255,255,255,0.15)' 
                 }} 
                 onClick={() => setSubView('notifications')}
               >
-                <Bell size={16} color="var(--text-muted)" />
+                <Bell size={16} color="rgba(255,255,255,0.9)" />
                 {unreadCount > 0 && (
                   <span style={{ 
                     position: 'absolute', 
@@ -3728,13 +3730,13 @@ export default function App() {
                   </span>
                 )}
               </div>
-              <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0.6rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface)' }}>
-                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--primary-soft)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 700 }}>
+              <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0.6rem', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.12)' }}>
+                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,255,255,0.25)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 700 }}>
                   {currentUser.fullName.charAt(0).toUpperCase()}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.15 }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)' }}>{currentUser.fullName}</span>
-                  <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{currentUser.role.replace('_', ' ')}</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#FFFFFF' }}>{currentUser.fullName}</span>
+                  <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.7)' }}>{currentUser.role.replace('_', ' ')}</span>
                 </div>
               </div>
             </>
@@ -3744,12 +3746,12 @@ export default function App() {
           <div style={{ position: 'relative' }}>
             <button
               type="button"
-              className="btn btn-secondary"
-              style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+              className="btn btn-ghost"
+              style={{ padding: '0.35rem 0.65rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.25)' }}
               onClick={() => setLangDropdownOpen(!langDropdownOpen)}
               id="language-selector-btn"
             >
-              <Globe size={14} color="var(--primary)" />
+              <Globe size={14} color="rgba(255,255,255,0.85)" />
               <span>{languages.find(l => l.code === lang)?.nativeName || 'English'}</span>
             </button>
 
@@ -3804,7 +3806,7 @@ export default function App() {
             )}
           </div>
 
-          <button className="btn btn-secondary" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)' }} onClick={toggleTheme} title="Toggle Theme">
+          <button className="btn btn-ghost" style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', color: 'rgba(255,255,255,0.85)' }} onClick={toggleTheme} title="Toggle Theme">
             {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
           </button>
         </div>

@@ -1,0 +1,45 @@
+services:
+  # MongoDB Database Service
+  mongodb:
+    image: mongo:latest
+    container_name: hostel_mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: hostel_db
+    volumes:
+      - mongo_data:/data/db
+
+  # Node.js Express Backend Service
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: hostel_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      DATABASE_URL: "mongodb://mongodb:27017/hostel_db?directConnection=true"
+      JWT_SECRET: "your_docker_jwt_secret_key_change_in_production"
+      NODE_ENV: production
+    depends_on:
+      - mongodb
+
+  # React Frontend (Vite + Nginx) Service
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    container_name: hostel_frontend
+    restart: always
+    ports:
+      - "80:80"
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:

@@ -181,9 +181,13 @@ a {
 .app-layout {
   display: grid;
   grid-template-columns: 260px 1fr;
+  /* Use 100vh minus header height so sidebar never overflows */
   min-height: calc(100vh - 56px);
   background: var(--bg-main);
   width: 100%;
+  /* Prevent the grid itself from creating horizontal scroll */
+  overflow-x: hidden;
+  align-items: start;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -229,11 +233,14 @@ header .btn-ghost:hover,
   display: flex;
   flex-direction: column;
   padding: 1.25rem 0.85rem;
-  height: 100vh;
+  /* Clamp height so it never exceeds viewport and causes page scroll */
+  height: calc(100vh - 56px);
+  max-height: calc(100vh - 56px);
   position: sticky;
-  top: 0;
+  top: 56px; /* stick below the header */
   z-index: 40;
   overflow-y: auto;
+  overflow-x: hidden;
   color: #F8FAFC;
 }
 
@@ -341,6 +348,8 @@ header .btn-ghost:hover,
 .main-content {
   flex: 1;
   min-width: 0;
+  /* Prevent content from overflowing its grid cell */
+  overflow-x: hidden;
   background: var(--bg-main) !important;
   padding: 1.75rem 2.25rem;
   display: flex;
@@ -653,11 +662,15 @@ textarea::placeholder {
   background: rgba(15, 23, 42, 0.5) !important;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  z-index: 1000;
+  /* Must be above bottom-nav (999) and drawer (101) */
+  z-index: 1100;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1.25rem;
+  /* Prevent scroll bleed on mobile */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-content,
@@ -669,8 +682,13 @@ textarea::placeholder {
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  /* Prevent modal content from touching screen edges on small screens */
+  margin: 0.75rem;
   color: var(--text-main);
   animation: modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Needed so modal doesn't inherit stacking from overlay */
+  position: relative;
+  z-index: 1;
 }
 
 .modal-header {
@@ -721,10 +739,12 @@ textarea::placeholder {
   inset: 0;
   background: rgba(15, 23, 42, 0.5);
   backdrop-filter: blur(4px);
-  z-index: 100;
+  -webkit-backdrop-filter: blur(4px);
+  /* Below modals (1100) but above everything else */
+  z-index: 200;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.25s ease;
 }
 .drawer-overlay.active {
   opacity: 1;
@@ -737,14 +757,21 @@ textarea::placeholder {
   left: 0;
   bottom: 0;
   width: 280px;
+  max-width: 85vw;
   background: #0F172A;
   color: #FFFFFF;
   padding: 1.5rem 1rem;
   transform: translateX(-100%);
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 101;
+  /* Must be above overlay */
+  z-index: 201;
   overflow-y: auto;
+  overflow-x: hidden;
+  /* Ensure it stays on top even on Safari iOS */
+  will-change: transform;
 }
+/* The drawer-content gets its own 'active' class in JSX — support both patterns */
+.drawer-content.active,
 .drawer-overlay.active .drawer-content {
   transform: translateX(0);
 }
@@ -756,12 +783,13 @@ textarea::placeholder {
   position: fixed;
   top: 1.25rem;
   right: 1.25rem;
-  z-index: 1100;
+  /* Toasts must be above modals */
+  z-index: 1300;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
   max-width: 400px;
-  width: 100%;
+  width: calc(100% - 2.5rem);
   pointer-events: none;
 }
 
@@ -784,20 +812,72 @@ textarea::placeholder {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   RESPONSIVE BREAKPOINTS
+   GLOBAL OVERFLOW PREVENTION
+═══════════════════════════════════════════════════════════ */
+* {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE BREAKPOINTS — TABLET (≤1024px)
 ═══════════════════════════════════════════════════════════ */
 @media (max-width: 1024px) {
   .app-layout {
+    /* Single column — sidebar is hidden */
     grid-template-columns: 1fr;
+    min-height: calc(100vh - 56px);
   }
   .sidebar {
+    /* Completely remove sidebar from layout flow on tablet/mobile */
     display: none !important;
   }
   .main-content {
-    padding: 1.25rem 1rem 5rem 1rem !important;
+    /* Extra bottom padding so content isn't hidden under the fixed bottom-nav */
+    padding: 1.15rem 1rem calc(72px + env(safe-area-inset-bottom, 0px)) 1rem !important;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
+
+  /* Header adjustments for tablet */
+  header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 100 !important;
+  }
+
   #mobile-drawer-toggle {
     display: inline-flex !important;
+  }
+
+  /* Glass panels / card panels — reduce padding */
+  .glass-panel,
+  .card-panel {
+    border-radius: 12px !important;
+  }
+
+  /* Stat cards — allow smaller sizing */
+  .stat-card {
+    padding: 1rem !important;
+  }
+  .stat-card-value {
+    font-size: 1.5rem;
+  }
+
+  /* ─── FORCE INLINE GRIDS TO RESPONSIVE ─── 
+     This attribute selector catches ALL elements with inline
+     gridTemplateColumns (React camelCase → rendered as 
+     grid-template-columns in the DOM style attribute).
+     It forces them to wrap properly on tablet. */
+  [style*="grid-template-columns"] {
+    grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)) !important;
+  }
+
+  /* Preserve single column grids (they already work) */
+  [style*="grid-template-columns: 1fr;"],
+  [style*="grid-template-columns: 1fr "] {
+    grid-template-columns: 1fr !important;
   }
 
   /* MOBILE BOTTOM NAV: FIXED AT BOTTOM ONLY ON MOBILE */
@@ -807,21 +887,24 @@ textarea::placeholder {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 60px;
-    background: rgba(255, 255, 255, 0.95) !important;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-top: 1px solid #E2E8F0;
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
-    z-index: 999;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: calc(62px + env(safe-area-inset-bottom, 0px));
+    background: rgba(255, 255, 255, 0.97) !important;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-top: 1px solid rgba(5, 150, 105, 0.15);
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.06);
+    z-index: 150;
     align-items: center;
     justify-content: space-around;
-    padding: 0 0.5rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
   }
 
   [data-theme="dark"] .bottom-nav {
-    background: rgba(15, 23, 42, 0.95) !important;
-    border-top-color: #1E293B;
+    background: rgba(11, 15, 25, 0.97) !important;
+    border-top-color: rgba(16, 185, 129, 0.15);
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.3);
   }
 
   .bottom-nav-item {
@@ -829,43 +912,308 @@ textarea::placeholder {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.2rem;
+    gap: 0.15rem;
     background: transparent;
     border: none;
-    color: #64748B;
-    font-size: 0.68rem;
+    color: #94A3B8;
+    font-size: 0.65rem;
     font-weight: 600;
     cursor: pointer;
     flex: 1;
-    padding: 0.35rem 0;
-    transition: all 0.15s ease;
+    padding: 0.4rem 0;
+    min-height: 44px;
+    transition: all 0.2s ease;
     text-decoration: none;
+    border-radius: 8px;
+    position: relative;
   }
 
   .bottom-nav-item svg {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     stroke-width: 2;
+    transition: all 0.2s ease;
   }
 
   .bottom-nav-item:hover,
   .bottom-nav-item.active {
     color: #059669;
   }
+
+  .bottom-nav-item.active {
+    font-weight: 700;
+  }
+  .bottom-nav-item.active::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 3px;
+    background: #059669;
+    border-radius: 0 0 3px 3px;
+  }
+
+  [data-theme="dark"] .bottom-nav-item {
+    color: #64748B;
+  }
+  [data-theme="dark"] .bottom-nav-item:hover,
+  [data-theme="dark"] .bottom-nav-item.active {
+    color: #34D399;
+  }
+  [data-theme="dark"] .bottom-nav-item.active::after {
+    background: #34D399;
+  }
+
+  /* Tables: ensure horizontal scroll wrapper */
+  .table-container,
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  table,
+  .table,
+  .data-table {
+    min-width: 600px;
+  }
+
+  /* Filter bars — stack items vertically */
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Flex headers — wrap better */
+  .flex-responsive-header,
+  .flex-responsive-between {
+    gap: 0.75rem;
+  }
 }
 
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE BREAKPOINTS — PHONE (≤640px)
+═══════════════════════════════════════════════════════════ */
 @media (max-width: 640px) {
   .main-content {
-    padding: 1rem 0.75rem 5rem 0.75rem !important;
+    padding: 0.85rem 0.65rem calc(76px + env(safe-area-inset-bottom, 0px)) 0.65rem !important;
+    gap: 1rem;
   }
+
+  /* Force ALL inline grids to single column on small phones */
+  [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+  }
+
   .form-input,
   .form-select,
-  .form-textarea {
+  .form-textarea,
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="number"],
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="search"],
+  select,
+  textarea {
+    /* Prevent iOS auto-zoom on inputs */
     font-size: 16px !important;
+    padding: 0.7rem 0.85rem !important;
   }
+
   header {
-    padding: 0 1rem !important;
+    padding: 0 0.75rem !important;
     height: 52px !important;
+  }
+
+  /* Glass panels and cards — compact padding */
+  .glass-panel,
+  .card-panel {
+    padding: 1rem !important;
+    border-radius: 10px !important;
+  }
+
+  /* Stat cards — compact for phone */
+  .stat-card {
+    padding: 0.85rem !important;
+    border-radius: 10px !important;
+  }
+  .stat-card-value {
+    font-size: 1.35rem;
+  }
+  .stat-card-title {
+    font-size: 0.72rem;
+  }
+
+  /* KPI icon — smaller on phone */
+  .kpi-icon-container,
+  .stat-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+  }
+
+  /* Buttons — full-width on phone when in flex containers */
+  .hero-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+  .hero-buttons .btn {
+    width: 100%;
+  }
+  .hero-title {
+    font-size: 1.75rem;
+  }
+  .hero-subtitle {
+    font-size: 0.95rem;
+  }
+
+  /* Modals — nearly full-screen on very small devices */
+  .modal-overlay,
+  .modal-backdrop {
+    padding: 0.5rem;
+  }
+  .modal-content,
+  .modal-container {
+    max-width: 100% !important;
+    border-radius: 14px !important;
+    margin: 0.35rem !important;
+    padding: 1.25rem !important;
+    max-height: 92vh !important;
+  }
+  .modal-header {
+    padding: 1rem 1.15rem;
+  }
+
+  /* Toast on small screens: bottom above bottom-nav */
+  .toast-container {
+    top: auto;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    left: 0.65rem;
+    right: 0.65rem;
+    width: auto;
+    max-width: 100%;
+  }
+  .toast {
+    padding: 0.75rem 0.85rem;
+    font-size: 0.82rem;
+  }
+
+  /* Profile tabs — scroll horizontally */
+  .profile-tabs {
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .profile-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .profile-tab {
+    padding: 0.55rem 0.85rem;
+    font-size: 0.8rem;
+    min-width: max-content;
+  }
+
+  /* Badges — slightly larger text for readability */
+  .badge {
+    font-size: 0.68rem;
+    padding: 0.2rem 0.55rem;
+  }
+
+  /* Buttons — ensure minimum tap target */
+  .btn {
+    min-height: 40px;
+    padding: 0.5rem 1rem;
+  }
+
+  /* Drawer on phone — wider */
+  .drawer-content {
+    width: 85vw;
+    max-width: 320px;
+    padding: 1.25rem 0.85rem;
+  }
+
+  /* Bottom nav — slightly more compact */
+  .bottom-nav {
+    height: calc(58px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .bottom-nav-item {
+    font-size: 0.6rem;
+    gap: 0.1rem;
+  }
+  .bottom-nav-item svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Occupancy cards */
+  .occupancy-card {
+    padding: 0.85rem;
+  }
+
+  /* Search bar in header — hide on phone */
+  header .hide-mobile {
+    display: none !important;
+  }
+
+  /* Floating emergency button */
+  .floating-emergency-btn {
+    bottom: calc(66px + env(safe-area-inset-bottom, 0px)) !important;
+    right: 12px !important;
+  }
+
+  /* PWA Banner */
+  .pwa-banner {
+    bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+    left: 0.5rem;
+    right: 0.5rem;
+    max-width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 0.82rem;
+  }
+
+  /* Offline banner */
+  .offline-banner {
+    font-size: 0.78rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* QR viewfinder — slightly smaller */
+  .viewfinder-frame,
+  .qr-video-container {
+    max-width: 280px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE BREAKPOINTS — TINY PHONE (≤380px)
+═══════════════════════════════════════════════════════════ */
+@media (max-width: 380px) {
+  .main-content {
+    padding: 0.65rem 0.5rem calc(72px + env(safe-area-inset-bottom, 0px)) 0.5rem !important;
+  }
+
+  header {
+    padding: 0 0.5rem !important;
+    gap: 0.25rem;
+  }
+
+  /* Even smaller stat values */
+  .stat-card-value {
+    font-size: 1.2rem;
+  }
+
+  .glass-panel,
+  .card-panel {
+    padding: 0.85rem !important;
+  }
+
+  /* Language selector — icon only */
+  #language-selector-btn span {
+    display: none;
   }
 }
 
@@ -1182,7 +1530,8 @@ textarea::placeholder {
 }
 @media (max-width: 1024px) {
   .floating-emergency-btn {
-    bottom: 76px;
+    /* Above bottom-nav (60px) + safe area */
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
     right: 16px;
   }
 }
@@ -1221,8 +1570,9 @@ textarea::placeholder {
   border-bottom: 1px solid var(--warning-border);
   font-size: 0.85rem;
   font-weight: 600;
+  /* Sticky below header. Use position:sticky so it doesn't break layout. */
   position: sticky;
-  top: 56px;
+  top: 0; /* relative to scroll container (main-content), not viewport */
   z-index: 45;
 }
 .offline-banner.online-banner {
@@ -1250,7 +1600,11 @@ textarea::placeholder {
 }
 @media (max-width: 1024px) {
   .pwa-banner {
-    bottom: 76px;
+    /* Above bottom-nav */
+    bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+    left: 0.75rem;
+    right: 0.75rem;
+    max-width: 100%;
   }
 }
 
