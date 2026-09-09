@@ -820,6 +820,48 @@ textarea::placeholder {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   MOBILE: FIX INLINE FIXED-WIDTH INPUTS & SELECTS
+   Catches all inputs/selects with inline width: Npx
+═══════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  /* Force all form inputs inside flex-wrap containers to fill available space */
+  [style*="flex-wrap"] > div > input,
+  [style*="flex-wrap"] > div > select,
+  [style*="flexWrap"] > div > input,
+  [style*="flexWrap"] > div > select {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Ensure flex children with minWidth don't overflow */
+  [style*="flex-wrap"] > div,
+  [style*="flexWrap"] > div {
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+  }
+
+  /* Inline modal overlays (position:fixed, inset:0, zIndex:1000) */
+  [style*="position: fixed"][style*="inset: 0"] {
+    padding: 0.5rem !important;
+  }
+  [style*="position: fixed"][style*="inset: 0"] > .glass-panel,
+  [style*="position: fixed"][style*="inset: 0"] > .modal-container {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 1.25rem !important;
+  }
+
+  /* Prevent select text clipping */
+  select.form-input {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    padding-right: 2rem !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
    RESPONSIVE BREAKPOINTS — TABLET (≤1024px)
 ═══════════════════════════════════════════════════════════ */
 @media (max-width: 1024px) {

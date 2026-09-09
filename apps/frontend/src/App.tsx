@@ -4466,31 +4466,31 @@ export default function App() {
                   /* UPGRADED ADMIN DATA ANALYTICS DASHBOARD */
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                     {/* GLOBAL FILTERS */}
-                    <div className="glass-panel" style={{ padding: '1.25rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', background: 'var(--bg-subtle)' }}>
-                      <div>
+                    <div className="glass-panel" style={{ padding: '1.25rem', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-end', background: 'var(--bg-subtle)' }}>
+                      <div style={{ flex: '1 1 120px', minWidth: '120px' }}>
                         <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>Date</span>
-                        <input className="form-input" style={{ height: '36px', width: '140px', padding: '0.4rem' }} type="date" value={dashFilterDate} onChange={e => setDashFilterDate(e.target.value)} />
+                        <input className="form-input" style={{ height: '36px', padding: '0.4rem' }} type="date" value={dashFilterDate} onChange={e => setDashFilterDate(e.target.value)} />
                       </div>
                       
-                      <div>
+                      <div style={{ flex: '1 1 140px', minWidth: '120px' }}>
                         <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>Hostel Facility</span>
-                        <select className="form-input" style={{ height: '36px', width: '160px', padding: '0.4rem' }} value={dashFilterHostelId} onChange={e => setDashFilterHostelId(e.target.value)}>
+                        <select className="form-input" style={{ height: '36px', padding: '0.4rem' }} value={dashFilterHostelId} onChange={e => setDashFilterHostelId(e.target.value)}>
                           <option value="">All Hostels</option>
                           {hostels.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
                         </select>
                       </div>
 
-                      <div>
+                      <div style={{ flex: '0 1 90px', minWidth: '70px' }}>
                         <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>Block</span>
-                        <input className="form-input" style={{ height: '36px', width: '90px', padding: '0.4rem' }} type="text" placeholder="Block" value={dashFilterBlock} onChange={e => setDashFilterBlock(e.target.value)} />
+                        <input className="form-input" style={{ height: '36px', padding: '0.4rem' }} type="text" placeholder="Block" value={dashFilterBlock} onChange={e => setDashFilterBlock(e.target.value)} />
                       </div>
 
-                      <div>
+                      <div style={{ flex: '0 1 80px', minWidth: '70px' }}>
                         <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>Floor</span>
-                        <input className="form-input" style={{ height: '36px', width: '80px', padding: '0.4rem' }} type="number" placeholder="Floor" value={dashFilterFloor} onChange={e => setDashFilterFloor(e.target.value)} />
+                        <input className="form-input" style={{ height: '36px', padding: '0.4rem' }} type="number" placeholder="Floor" value={dashFilterFloor} onChange={e => setDashFilterFloor(e.target.value)} />
                       </div>
 
-                      <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem', marginTop: '12px' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
                         <button className="btn btn-secondary" style={{ height: '36px', padding: '0.4rem 0.75rem', fontSize: '0.75rem' }} onClick={() => {
                           setDashFilterDate(new Date().toISOString().split('T')[0]);
                           setDashFilterHostelId('');
@@ -6207,11 +6207,11 @@ export default function App() {
                         <Building2 size={18} color="var(--primary)" /> {t('rooms.title')} ({rooms.length})
                       </h4>
                       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <select className="form-input" value={roomHostelFilter} onChange={e => setRoomHostelFilter(e.target.value)} style={{ width: '130px', height: '34px', fontSize: '0.75rem' }}>
+                        <select className="form-input" value={roomHostelFilter} onChange={e => setRoomHostelFilter(e.target.value)} style={{ width: 'auto', minWidth: '100px', maxWidth: '160px', height: '34px', fontSize: '0.75rem' }}>
                           <option value="ALL">All Hostels</option>
                           {hostels.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
                         </select>
-                        <select className="form-input" value={roomCategoryFilter} onChange={e => setRoomCategoryFilter(e.target.value)} style={{ width: '140px', height: '34px', fontSize: '0.75rem' }}>
+                        <select className="form-input" value={roomCategoryFilter} onChange={e => setRoomCategoryFilter(e.target.value)} style={{ width: 'auto', minWidth: '100px', maxWidth: '160px', height: '34px', fontSize: '0.75rem' }}>
                           <option value="ALL">All Categories</option>
                           <option value="NON_AC_DOUBLE">Non-AC Double</option>
                           <option value="NON_AC_TRIPLE">Non-AC Triple</option>
