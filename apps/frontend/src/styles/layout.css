@@ -1,0 +1,322 @@
+/* ═══════════════════════════════════════════════════════════
+   LAYOUT GRID & NAVIGATION ARCHITECTURE
+═══════════════════════════════════════════════════════════ */
+.app-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  /* Use 100vh minus header height so sidebar never overflows */
+  min-height: calc(100vh - 56px);
+  background: var(--bg-main);
+  width: 100%;
+  /* Prevent the grid itself from creating horizontal scroll */
+  overflow-x: hidden;
+  align-items: start;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TOP NAVBAR (CLEAN, BORDERED, HIGH-Z-INDEX)
+═══════════════════════════════════════════════════════════ */
+header,
+.top-navbar {
+  height: 56px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%) !important;
+  border-bottom: 1px solid var(--primary-hover) !important;
+  box-shadow: var(--shadow-xs) !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  position: relative;
+  z-index: 50;
+  backdrop-filter: blur(8px);
+}
+
+header span,
+.top-navbar span {
+  color: var(--text-main);
+}
+
+header .btn-ghost,
+.top-navbar .btn-ghost {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+header .btn-ghost:hover,
+.top-navbar .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #FFFFFF !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SIDEBAR (SLEEK EXECUTIVE SLATE #0F172A)
+═══════════════════════════════════════════════════════════ */
+.sidebar {
+  width: 260px;
+  background: var(--bg-sidebar) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem 0.85rem;
+  /* Clamp height so it never exceeds viewport and causes page scroll */
+  height: calc(100vh - 56px);
+  max-height: calc(100vh - 56px);
+  position: sticky;
+  top: 56px; /* stick below the header */
+  z-index: 40;
+  overflow-y: auto;
+  overflow-x: hidden;
+  color: #F8FAFC;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.sidebar-group-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748B;
+  letter-spacing: 0.08em;
+  padding: 0.75rem 0.75rem 0.35rem 0.75rem;
+  margin-top: 0.35rem;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.825rem;
+  font-weight: 500;
+  color: #94A3B8 !important;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  text-decoration: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.sidebar-item svg {
+  flex-shrink: 0;
+  color: #64748B;
+  transition: color 0.15s ease;
+}
+
+.sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #F8FAFC !important;
+}
+.sidebar-item:hover svg {
+  color: #F8FAFC !important;
+}
+
+.sidebar-item.active {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: #34D399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.22) !important;
+  font-weight: 600;
+}
+.sidebar-item.active svg {
+  color: #34D399 !important;
+}
+.sidebar-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 3px;
+  background: #10B981;
+  border-radius: 0 3px 3px 0;
+}
+
+/* Logout / Account bottom items */
+.sidebar .sidebar-item[style*="danger"],
+.sidebar .sidebar-item:last-child,
+.drawer-content .sidebar-item:last-child {
+  margin-top: auto;
+  color: #F87171 !important;
+}
+.sidebar .sidebar-item[style*="danger"]:hover,
+.sidebar .sidebar-item:last-child:hover,
+.drawer-content .sidebar-item:last-child:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #FFFFFF !important;
+}
+.sidebar .sidebar-item[style*="danger"] svg,
+.sidebar .sidebar-item:last-child svg,
+.drawer-content .sidebar-item:last-child svg {
+  color: #F87171 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MAIN CONTENT AREA
+═══════════════════════════════════════════════════════════ */
+.main-content {
+  flex: 1;
+  min-width: 0;
+  /* Prevent content from overflowing its grid cell */
+  overflow-x: hidden;
+  background: var(--bg-main) !important;
+  padding: 1.75rem 2.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE DRAWER & BOTTOM NAV (CRUCIAL FIX: HIDE ON DESKTOP)
+═══════════════════════════════════════════════════════════ */
+.bottom-nav {
+  display: none !important;
+}
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  /* Below modals (1100) but above everything else */
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.drawer-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer-content {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  max-width: 85vw;
+  background: #0F172A;
+  color: #FFFFFF;
+  padding: 1.5rem 1rem;
+  transform: translateX(-100%);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Must be above overlay */
+  z-index: 201;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Ensure it stays on top even on Safari iOS */
+  will-change: transform;
+}
+/* The drawer-content gets its own 'active' class in JSX — support both patterns */
+.drawer-content.active,
+.drawer-overlay.active .drawer-content {
+  transform: translateX(0);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LAYOUT GRIDS & RESPONSIVE FLEX HELPERS
+═══════════════════════════════════════════════════════════ */
+.responsive-grid,
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+
+.responsive-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+.responsive-grid-1-2 {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 1.5rem;
+}
+
+.dashboard-layout-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.occupancy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.mess-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.flex-responsive-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.flex-responsive-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+}
+
+.hide-mobile {
+  display: flex;
+}
+
+@media (max-width: 1024px) {
+  .responsive-grid-3,
+  .responsive-grid-1-2,
+  .dashboard-layout-grid {
+    grid-template-columns: 1fr;
+  }
+  .mess-menu-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .responsive-grid,
+  .dashboard-grid,
+  .occupancy-grid {
+    grid-template-columns: 1fr;
+  }
+  .mess-menu-grid {
+    grid-template-columns: 1fr;
+  }
+}

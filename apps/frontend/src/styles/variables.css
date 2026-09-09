@@ -1,0 +1,126 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap');
+
+/* ═══════════════════════════════════════════════════════════
+   SMARTHOSTEL PREMIUM EXECUTIVE SLATE & EMERALD DESIGN SYSTEM
+   • Primary Emerald:    #059669 (Hover: #047857)
+   • Sidebar Slate:      #0F172A (Border: #1E293B)
+   • Canvas Background:  #F8FAFC (Clean Slate-50)
+   • Card Background:    #FFFFFF (Border: #E2E8F0)
+   • Navbar Background:  #FFFFFF (Border: #E2E8F0)
+   • Typography:         #0F172A (Primary), #475569 (Secondary), #64748B (Muted)
+═══════════════════════════════════════════════════════════ */
+
+:root,
+[data-theme="light"],
+.light {
+  --font-sans: 'Plus Jakarta Sans', 'Inter', 'Noto Sans Tamil', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Primary Accent: Refined Emerald */
+  --primary:          #059669;
+  --primary-hover:    #047857;
+  --primary-dark:     #047857;
+  --primary-light:    #10B981;
+  --primary-soft:     #ECFDF5;
+  --primary-soft-bg:  #F0FDF4;
+  --primary-border:   #A7F3D0;
+  --primary-contrast: #FFFFFF;
+  --primary-glow:     rgba(5, 150, 105, 0.15);
+
+  /* Surface & Background */
+  --bg-main:          #F8FAFC;
+  --bg-secondary:     #F1F5F9;
+  --bg-surface:       #FFFFFF;
+  --bg-card:          #FFFFFF;
+  --bg-subtle:        #F8FAFC;
+  --bg-sidebar:       #0F172A;
+  --bg-header:        #FFFFFF;
+  --bg-soft-green:    #ECFDF5;
+
+  /* Structural Borders */
+  --border-color:     #E2E8F0;
+  --border-subtle:    #F1F5F9;
+  --border-hover:     #CBD5E1;
+
+  /* Typography */
+  --text-main:        #0F172A;
+  --text-secondary:   #334155;
+  --text-muted:       #64748B;
+  --text-subtle:      #94A3B8;
+
+  /* Inputs & Forms */
+  --input-bg:         #FFFFFF;
+  --input-border:     #E2E8F0;
+  --input-focus:      #059669;
+  --input-label:      #1E293B;
+  --input-placeholder:#94A3B8;
+
+  /* Status Colors */
+  --success:          #10B981;
+  --success-soft:     #ECFDF5;
+  --success-border:   #A7F3D0;
+  --success-text:     #065F46;
+
+  --warning:          #F59E0B;
+  --warning-soft:     #FFFBEB;
+  --warning-border:   #FDE68A;
+  --warning-text:     #92400E;
+
+  --danger:           #EF4444;
+  --danger-soft:      #FEF2F2;
+  --danger-border:    #FECACA;
+  --danger-text:      #991B1B;
+
+  --info:             #3B82F6;
+  --info-soft:        #EFF6FF;
+  --info-border:      #BFDBFE;
+  --info-text:        #1E40AF;
+
+  /* Radii & Shadows */
+  --radius-xs:  4px;
+  --radius-sm:  6px;
+  --radius:     8px;
+  --radius-md:  10px;
+  --radius-lg:  12px;
+  --radius-xl:  14px;
+  --radius-2xl: 16px;
+
+  --shadow-xs:      0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  --shadow-sm:      0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
+  --shadow-md:      0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+  --shadow-lg:      0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.03);
+  --shadow-xl:      0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+  --shadow-primary: 0 4px 14px rgba(5, 150, 105, 0.25);
+
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Dark Theme Mode */
+[data-theme="dark"] {
+  --bg-main:          #0B0F19;
+  --bg-secondary:     #111827;
+  --bg-surface:       #111827;
+  --bg-card:          #131D31;
+  --bg-subtle:        #18233C;
+  --bg-sidebar:       #080D1A;
+  --bg-header:        #0E1424;
+  --bg-soft-green:    rgba(5, 150, 105, 0.12);
+
+  --border-color:     #1E293B;
+  --border-subtle:    #151F32;
+  --border-hover:     #334155;
+
+  --text-main:        #F8FAFC;
+  --text-secondary:   #CBD5E1;
+  --text-muted:       #94A3B8;
+  --text-subtle:      #64748B;
+
+  --input-bg:         #131D31;
+  --input-border:     #24324D;
+  --input-focus:      #10B981;
+  --input-label:      #E2E8F0;
+  --input-placeholder:#64748B;
+
+  --shadow-md:        0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg:        0 10px 25px rgba(0, 0, 0, 0.45);
+}

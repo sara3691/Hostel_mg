@@ -1,0 +1,260 @@
+/* ═══════════════════════════════════════════════════════════
+   LANDING PAGE HERO
+═══════════════════════════════════════════════════════════ */
+.hero-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.hero-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-main);
+  line-height: 1.15;
+}
+.hero-subtitle {
+  font-size: 1.05rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.hero-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+@media (max-width: 640px) {
+  .hero-title { font-size: 1.9rem; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ROOM OCCUPANCY VISUALS
+═══════════════════════════════════════════════════════════ */
+.occupancy-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.occupancy-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+.occupancy-card.available { border-top: 3px solid var(--success); }
+.occupancy-card.partial { border-top: 3px solid var(--warning); }
+.occupancy-card.full { border-top: 3px solid var(--danger); }
+
+.bed-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.bed-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border-color);
+}
+.bed-dot.occupied { background: var(--primary); }
+.bed-dot.empty { background: var(--border-color); }
+
+.occupancy-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--border-subtle);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.occupancy-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--success);
+  transition: width 0.3s ease;
+}
+.occupancy-bar-fill.partial { background: var(--warning); }
+.occupancy-bar-fill.full { background: var(--danger); }
+
+/* ═══════════════════════════════════════════════════════════
+   PROFILE TABS
+═══════════════════════════════════════════════════════════ */
+.profile-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  overflow-x: auto;
+}
+.profile-tab {
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.profile-tab:hover {
+  color: var(--text-main);
+}
+.profile-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MISC: FAB, TYPING INDICATOR
+═══════════════════════════════════════════════════════════ */
+.floating-emergency-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 900;
+}
+@media (max-width: 1024px) {
+  .floating-emergency-btn {
+    /* Above bottom-nav (60px) + safe area */
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+    right: 16px;
+  }
+}
+
+.ai-typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0;
+}
+.ai-typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: aiTypingBounce 1.2s infinite ease-in-out;
+}
+.ai-typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.ai-typing-dot:nth-child(3) { animation-delay: 0.3s; }
+@keyframes aiTypingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   OFFLINE / ONLINE / PWA INSTALL BANNERS
+═══════════════════════════════════════════════════════════ */
+.offline-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: var(--warning-soft);
+  color: var(--warning-text);
+  border-bottom: 1px solid var(--warning-border);
+  font-size: 0.85rem;
+  font-weight: 600;
+  /* Sticky below header. Use position:sticky so it doesn't break layout. */
+  position: sticky;
+  top: 0; /* relative to scroll container (main-content), not viewport */
+  z-index: 45;
+}
+.offline-banner.online-banner {
+  background: var(--success-soft);
+  color: var(--success-text);
+  border-bottom-color: var(--success-border);
+}
+
+.pwa-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  position: fixed;
+  bottom: 1.25rem;
+  left: 1.25rem;
+  right: 1.25rem;
+  max-width: 420px;
+  margin: 0 auto;
+  z-index: 950;
+}
+@media (max-width: 1024px) {
+  .pwa-banner {
+    /* Above bottom-nav */
+    bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+    left: 0.75rem;
+    right: 0.75rem;
+    max-width: 100%;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   QR / CAMERA VIEWFINDER
+═══════════════════════════════════════════════════════════ */
+.viewfinder-frame,
+.qr-video-container {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1 / 1;
+  background: #000;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--border-color);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.viewfinder-frame.active {
+  border-color: var(--primary);
+}
+
+.qr-scanner-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.viewfinder-guide-corners,
+.qr-scanner-corners {
+  position: absolute;
+  top: 15%;
+  left: 15%;
+  right: 15%;
+  bottom: 15%;
+  border: 2px solid rgba(16, 185, 129, 0.9);
+  border-radius: var(--radius-md);
+  pointer-events: none;
+}
+
+.qr-scan-line {
+  position: absolute;
+  top: 15%;
+  left: 15%;
+  right: 15%;
+  height: 2px;
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--primary);
+  animation: qrScanMove 2s ease-in-out infinite;
+}
+@keyframes qrScanMove {
+  0%, 100% { top: 15%; }
+  50% { top: 80%; }
+}
