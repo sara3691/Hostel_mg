@@ -36,10 +36,20 @@ async function main() {
   console.log(`• Fee Statements:         ${report.counts.feeRecords} (Rs. ${report.counts.totalFeeAmount.toLocaleString()})`);
   console.log(`• Collections Recorded:   ${report.counts.paymentRecords} (Rs. ${report.counts.totalPaidAmount.toLocaleString()})`);
   console.log(`• Outstanding Dues:       Rs. ${report.counts.totalPendingAmount.toLocaleString()}`);
-  console.log(`• Daily Meals Generated:  ${report.counts.meals} (${report.counts.mealConfirmations} Confirmations)`);
+  console.log(`• Daily Meals Generated:  ${report.counts.meals} (${report.counts.mealConfirmations} Confirmations, ${report.counts.messWasteLogs} Waste Logs)`);
+  console.log(`• Laundry Operations:     ${report.counts.laundrySlots} slots (${report.counts.laundryWaitlists} waitlists)`);
+  console.log(`• Gate Passes & Outpasses:${report.counts.gatePasses}`);
   console.log(`• Gate Pass Visitors:     ${report.counts.visitors}`);
-  console.log(`• Inventory Assets:       ${report.counts.inventoryItems} (${report.counts.inventoryUsages} usages, ${report.counts.inventoryPurchases} purchases)`);
-  console.log(`• Activity Logs:          ${report.counts.activityLogs}`);
+  console.log(`• Notices & Announcements:${report.counts.notices}`);
+  console.log(`• Emergency Alerts:       ${report.counts.emergencies}`);
+  console.log(`• Inventory & Ledgers:    ${report.counts.inventoryItems} items (${report.counts.inventoryUsages} usages, ${report.counts.inventoryPurchases} purchases, ${report.counts.inventoryLedgers} ledger txns)`);
+  console.log(`• Financial Operations:   ${report.counts.expenses} expenses, ${report.counts.payrolls} payroll slips`);
+  console.log(`• Assets & Assignments:   ${report.counts.assets} assets (${report.counts.assetAssignments} assignments)`);
+  console.log(`• Room Inspections:       ${report.counts.roomInspections}`);
+  console.log(`• Preventive Maint.:      ${report.counts.preventiveMaintenances} equipment`);
+  console.log(`• Incident Reports:       ${report.counts.incidentReports} records`);
+  console.log(`• Student Documents:      ${report.counts.documents} files`);
+  console.log(`• Activity Logs & Notifs: ${report.counts.activityLogs} logs, ${report.counts.notifications} notifications`);
   console.log("=======================================================");
   console.log("Validation Result: " + (report.validationPassed ? "✅ PASSED" : "❌ FAILED"));
   for (const detail of report.validationDetails) {
