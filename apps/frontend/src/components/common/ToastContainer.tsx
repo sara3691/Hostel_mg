@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckCircle, AlertTriangle, Info, X } from 'lucide-react';
-import type { Toast } from '../types';
+import type { Toast } from '../../types';
 
 interface ToastContainerProps {
   toasts: Toast[];
@@ -8,7 +8,7 @@ interface ToastContainerProps {
 }
 
 const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, removeToast }) => {
-  const icons = {
+  const icons: Record<Toast['type'], React.ReactNode> = {
     success: <CheckCircle size={18} />,
     error: <AlertTriangle size={18} />,
     warning: <AlertTriangle size={18} />,

@@ -63,6 +63,7 @@ import {
   Copy
 } from 'lucide-react';
 import { useTranslation, languages } from './i18n';
+import { DonutChart, BarChart, HorizontalBarChart, ProgressRing } from './components/charts/DashboardCharts';
 import {
   AdmissionsPanel, AcademicYearPanel, BedManagementPanel,
   AssetManagementPanel, InspectionsPanel, IncidentPanel,
@@ -4573,289 +4574,310 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* SECTION 2: ATTENDANCE TREND & BREAKDOWN */}
+                        {/* SECTION 2: ATTENDANCE TREND & BREAKDOWN (CHARTS) */}
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
                           <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>{t('attendance.title')} Trend (Last 7 Days)</h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                              {adminStats.attendance.trend.map((t: any, idx: number) => {
-                                const total = t.present + t.absent;
-                                const rate = total > 0 ? Math.round((t.present / total) * 100) : 0;
-                                return (
-                                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <div className="flex-responsive-between" style={{ fontSize: '0.75rem' }}>
-                                      <span>{new Date(t.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}</span>
-                                      <strong>{t.present} Present ({rate}%)</strong>
-                                    </div>
-                                    <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                                      <div style={{ height: '100%', background: 'var(--primary)', width: `${rate}%` }} />
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                            <div>
-                              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>Attendance Summary</h3>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.85rem' }}>
-                                <div className="flex-responsive-between">
-                                  <span style={{ color: 'var(--text-muted)' }}>Present Today</span>
-                                  <strong style={{ color: 'var(--success)' }}>{adminStats.attendance.summary.present}</strong>
-                                </div>
-                                <div className="flex-responsive-between">
-                                  <span style={{ color: 'var(--text-muted)' }}>Absent Today</span>
-                                  <strong style={{ color: 'var(--danger)' }}>{adminStats.attendance.summary.absent}</strong>
-                                </div>
-                                <div className="flex-responsive-between">
-                                  <span style={{ color: 'var(--text-muted)' }}>Attendance rate</span>
-                                  <strong>{adminStats.attendance.summary.rate}%</strong>
-                                </div>
-                              </div>
-                            </div>
-                            <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden', marginTop: '1.5rem' }}>
-                              <div style={{ height: '100%', background: 'var(--primary)', width: `${adminStats.attendance.summary.rate}%` }} />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* SECTION 3: OCCUPANCY ANALYTICS */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
-                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.occupancyStats')}</h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                              {adminStats.occupancy.hostelWise.map((h: any, idx: number) => (
-                                <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                  <div className="flex-responsive-between" style={{ fontSize: '0.78rem' }}>
-                                    <span>{h.hostelName}</span>
-                                    <strong>{h.occupied} / {h.total} Beds ({h.percentage}%)</strong>
-                                  </div>
-                                  <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
-                                    <div style={{ height: '100%', background: 'var(--primary)', width: `${h.percentage}%` }} />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>Room Distribution</h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', textAlign: 'center' }}>
-                              <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('dashboard.vacantRooms')}</span>
-                                <h4 style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.25rem', color: 'var(--primary)' }}>
-                                  {adminStats.occupancy.roomDistribution.vacant}
-                                </h4>
-                              </div>
-                              <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('dashboard.partiallyOccupied')}</span>
-                                <h4 style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.25rem', color: '#f59e0b' }}>
-                                  {adminStats.occupancy.roomDistribution.partially}
-                                </h4>
-                              </div>
-                              <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('dashboard.fullyOccupied')}</span>
-                                <h4 style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.25rem', color: 'var(--text-main)' }}>
-                                  {adminStats.occupancy.roomDistribution.fully}
-                                </h4>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* SECTION 4: COMPLAINTS & WORKER WORKLOADS */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
-                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                            <div className="flex-responsive-between" style={{ marginBottom: '1rem', alignItems: 'center' }}>
-                              <h3 style={{ fontSize: '1.05rem', fontWeight: 700 }}>{t('dashboard.complaintStats')}</h3>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                {t('dashboard.avgResolution')}: <strong>{adminStats.complaints.avgResolutionTime} hrs</strong>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <Activity size={18} color="var(--primary)" /> {t('attendance.title')} Trend (Last 7 Days)
+                            </h3>
+                            <BarChart
+                              data={adminStats.attendance.trend.map((tr: any) => ({
+                                label: new Date(tr.date).toLocaleDateString(undefined, { weekday: 'short' }),
+                                value: tr.present,
+                                secondaryValue: tr.absent,
+                                color: '#4CAF50',
+                                secondaryColor: '#E35336',
+                              }))}
+                              height={170}
+                              barWidth={28}
+                              stacked={true}
+                              showValues={true}
+                            />
+                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '0.75rem', fontSize: '0.7rem' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                <span style={{ width: 10, height: 10, borderRadius: 3, background: '#4CAF50' }} /> Present
+                              </span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                <span style={{ width: 10, height: 10, borderRadius: 3, background: '#E35336' }} /> Absent
                               </span>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-                              <div>
-                                <h4 style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Status Breakdown</h4>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.78rem' }}>
-                                  <div className="flex-responsive-between">
-                                    <span>Pending</span>
-                                    <strong>{adminStats.complaints.statusCounts.PENDING}</strong>
-                                  </div>
-                                  <div className="flex-responsive-between">
-                                    <span>Assigned</span>
-                                    <strong>{adminStats.complaints.statusCounts.ASSIGNED}</strong>
-                                  </div>
-                                  <div className="flex-responsive-between">
-                                    <span>In Progress</span>
-                                    <strong>{adminStats.complaints.statusCounts.IN_PROGRESS}</strong>
-                                  </div>
-                                  <div className="flex-responsive-between">
-                                    <span>Resolved</span>
-                                    <strong>{adminStats.complaints.statusCounts.RESOLVED}</strong>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div>
-                                <h4 style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>By Category</h4>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.78rem' }}>
-                                  {adminStats.complaints.categoryCounts.slice(0, 4).map((c: any, idx: number) => (
-                                    <div key={idx} className="flex-responsive-between">
-                                      <span>{c.name}</span>
-                                      <strong>{c.value}</strong>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
                           </div>
 
-                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.workerStats')}</h3>
-                            <div className="table-wrapper" style={{ maxHeight: '170px', overflowY: 'auto' }}>
-                              <table className="table" style={{ fontSize: '0.78rem' }}>
-                                <thead>
-                                  <tr>
-                                    <th>Worker</th>
-                                    <th>{t('dashboard.assigned')}</th>
-                                    <th>{t('dashboard.inProgress')}</th>
-                                    <th>{t('dashboard.completed')}</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {adminStats.workers.workloads.length === 0 ? (
-                                    <tr>
-                                      <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No workers loaded.</td>
-                                    </tr>
-                                  ) : (
-                                    adminStats.workers.workloads.map((w: any, idx: number) => (
-                                      <tr key={idx}>
-                                        <td><strong>{w.workerName}</strong></td>
-                                        <td>{w.assigned}</td>
-                                        <td>{w.inProgress}</td>
-                                        <td style={{ color: 'var(--success)' }}>{w.completed}</td>
-                                      </tr>
-                                    ))
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
+                          <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem', alignSelf: 'flex-start' }}>Attendance Summary</h3>
+                            <DonutChart
+                              data={[
+                                { label: 'Present', value: adminStats.attendance.summary.present, color: '#4CAF50' },
+                                { label: 'Absent', value: adminStats.attendance.summary.absent, color: '#E35336' },
+                              ]}
+                              size={170}
+                              strokeWidth={26}
+                              centerValue={`${adminStats.attendance.summary.rate}%`}
+                              centerLabel="Rate"
+                            />
                           </div>
                         </div>
 
-                        {/* SECTION 5: MESS, LAUNDRY, LEAVE & EMERGENCIES */}
+                        {/* SECTION 3: OCCUPANCY ANALYTICS (CHARTS) */}
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
-                          {/* Mess Analytics */}
                           <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.messStats')} (Today)</h3>
-                            {adminStats.mess.mealWise.length === 0 ? (
-                              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem 0' }}>No active meal demand logs.</p>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <Building2 size={18} color="var(--primary)" /> {t('dashboard.occupancyStats')}
+                            </h3>
+                            <HorizontalBarChart
+                              data={adminStats.occupancy.hostelWise.map((h: any) => ({
+                                label: h.hostelName,
+                                value: h.occupied,
+                                total: h.total,
+                              }))}
+                              height={22}
+                              showPercentage={true}
+                            />
+                          </div>
+
+                          <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem', alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <Home size={18} color="var(--primary)" /> Room Distribution
+                            </h3>
+                            <DonutChart
+                              data={[
+                                { label: 'Vacant', value: adminStats.occupancy.roomDistribution.vacant, color: '#4CAF50' },
+                                { label: 'Partial', value: adminStats.occupancy.roomDistribution.partially, color: '#F4A460' },
+                                { label: 'Full', value: adminStats.occupancy.roomDistribution.fully, color: '#E35336' },
+                              ]}
+                              size={170}
+                              strokeWidth={26}
+                              centerValue={adminStats.occupancy.roomDistribution.vacant + adminStats.occupancy.roomDistribution.partially + adminStats.occupancy.roomDistribution.fully}
+                              centerLabel="Rooms"
+                            />
+                          </div>
+                        </div>
+
+                        {/* SECTION 4: COMPLAINTS & WORKER WORKLOADS (CHARTS) */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                            <div className="flex-responsive-between" style={{ marginBottom: '1.25rem', alignItems: 'center' }}>
+                              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <AlertTriangle size={18} color="var(--primary)" /> {t('dashboard.complaintStats')}
+                              </h3>
+                              <span className="badge badge-neutral" style={{ fontSize: '0.7rem' }}>
+                                Avg: {adminStats.complaints.avgResolutionTime} hrs
+                              </span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'center' }}>
+                              {/* Status Donut */}
+                              <DonutChart
+                                data={[
+                                  { label: 'Pending', value: adminStats.complaints.statusCounts.PENDING, color: '#F4A460' },
+                                  { label: 'Assigned', value: adminStats.complaints.statusCounts.ASSIGNED, color: '#5C6BC0' },
+                                  { label: 'In Progress', value: adminStats.complaints.statusCounts.IN_PROGRESS, color: '#E35336' },
+                                  { label: 'Resolved', value: adminStats.complaints.statusCounts.RESOLVED, color: '#4CAF50' },
+                                ]}
+                                size={140}
+                                strokeWidth={22}
+                                centerValue={adminStats.complaints.statusCounts.PENDING + adminStats.complaints.statusCounts.ASSIGNED + adminStats.complaints.statusCounts.IN_PROGRESS + adminStats.complaints.statusCounts.RESOLVED}
+                                centerLabel="Total"
+                              />
+
+                              {/* Category Bars */}
+                              <div>
+                                <h4 style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem', fontWeight: 600 }}>By Category</h4>
+                                {adminStats.complaints.categoryCounts.slice(0, 5).map((c: any, idx: number) => {
+                                  const maxCat = Math.max(...adminStats.complaints.categoryCounts.map((x: any) => x.value), 1);
+                                  const pct = Math.round((c.value / maxCat) * 100);
+                                  const colors = ['#E35336', '#F4A460', '#A0522D', '#5C6BC0', '#4CAF50'];
+                                  return (
+                                    <div key={idx} style={{ marginBottom: '0.5rem' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginBottom: '3px' }}>
+                                        <span style={{ color: 'var(--text-secondary)' }}>{c.name}</span>
+                                        <strong>{c.value}</strong>
+                                      </div>
+                                      <div style={{ height: '6px', background: 'var(--bg-subtle)', borderRadius: '3px', overflow: 'hidden' }}>
+                                        <div style={{ height: '100%', width: `${pct}%`, background: colors[idx % colors.length], borderRadius: '3px', transition: 'width 0.6s ease' }} />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <Wrench size={18} color="var(--primary)" /> {t('dashboard.workerStats')}
+                            </h3>
+                            {adminStats.workers.workloads.length === 0 ? (
+                              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>No workers loaded.</p>
                             ) : (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.8rem' }}>
-                                {adminStats.mess.mealWise.map((meal: any, idx: number) => (
-                                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                                    <div>
-                                      <strong>{t(`mess.${meal.type.toLowerCase()}`)}</strong>
-                                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>Menu: {meal.menu}</span>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                                {adminStats.workers.workloads.map((w: any, idx: number) => {
+                                  const total = w.assigned + w.inProgress + w.completed;
+                                  const completedPct = total > 0 ? Math.round((w.completed / total) * 100) : 0;
+                                  const inProgPct = total > 0 ? Math.round((w.inProgress / total) * 100) : 0;
+                                  const assignedPct = total > 0 ? Math.round((w.assigned / total) * 100) : 0;
+                                  return (
+                                    <div key={idx}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '4px' }}>
+                                        <strong style={{ color: 'var(--text-secondary)' }}>{w.workerName}</strong>
+                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
+                                          {w.completed}/{total} done
+                                        </span>
+                                      </div>
+                                      <div style={{ height: '10px', background: 'var(--bg-subtle)', borderRadius: '5px', overflow: 'hidden', display: 'flex' }}>
+                                        <div style={{ height: '100%', width: `${completedPct}%`, background: '#4CAF50', transition: 'width 0.6s ease' }} />
+                                        <div style={{ height: '100%', width: `${inProgPct}%`, background: '#F4A460', transition: 'width 0.6s ease' }} />
+                                        <div style={{ height: '100%', width: `${assignedPct}%`, background: '#E35336', transition: 'width 0.6s ease' }} />
+                                      </div>
                                     </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                      <span style={{ fontWeight: 700, color: 'var(--primary)' }}>{meal.taking} expected</span>
-                                      <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)' }}>{meal.skipped} skipped ({meal.skipRate}%)</span>
-                                    </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
+                                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', fontSize: '0.65rem', marginTop: '0.5rem' }}>
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                    <span style={{ width: 8, height: 8, borderRadius: 2, background: '#4CAF50' }} /> Done
+                                  </span>
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                    <span style={{ width: 8, height: 8, borderRadius: 2, background: '#F4A460' }} /> In Progress
+                                  </span>
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                    <span style={{ width: 8, height: 8, borderRadius: 2, background: '#E35336' }} /> Assigned
+                                  </span>
+                                </div>
                               </div>
                             )}
                           </div>
+                        </div>
 
-                          {/* Laundry Stats */}
-                          <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                            <div>
-                              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.laundryStats')} (Today)</h3>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.85rem' }}>
-                                <div className="flex-responsive-between">
-                                  <span style={{ color: 'var(--text-muted)' }}>Booked Slots</span>
-                                  <strong>{adminStats.laundry.booked}</strong>
+                        {/* SECTION 5: MESS, LAUNDRY, LEAVE & EMERGENCIES (CHARTS) */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                          {/* Mess Analytics with Bar Chart */}
+                          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <BookOpen size={18} color="var(--primary)" /> {t('dashboard.messStats')} (Today)
+                            </h3>
+                            {adminStats.mess.mealWise.length === 0 ? (
+                              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem 0' }}>No active meal demand logs.</p>
+                            ) : (
+                              <>
+                                <BarChart
+                                  data={adminStats.mess.mealWise.map((meal: any) => ({
+                                    label: meal.type.charAt(0) + meal.type.slice(1).toLowerCase(),
+                                    value: meal.taking,
+                                    secondaryValue: meal.skipped,
+                                    color: '#4CAF50',
+                                    secondaryColor: '#E35336',
+                                  }))}
+                                  height={150}
+                                  barWidth={40}
+                                  stacked={true}
+                                />
+                                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '0.75rem', fontSize: '0.7rem' }}>
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    <span style={{ width: 10, height: 10, borderRadius: 3, background: '#4CAF50' }} /> Taking
+                                  </span>
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    <span style={{ width: 10, height: 10, borderRadius: 3, background: '#E35336' }} /> Skipped
+                                  </span>
                                 </div>
-                                <div className="flex-responsive-between">
-                                  <span style={{ color: 'var(--text-muted)' }}>Completed Slots</span>
-                                  <strong>{adminStats.laundry.completed}</strong>
-                                </div>
-                                <div className="flex-responsive-between">
-                                  <span style={{ color: 'var(--text-muted)' }}>Utilization Rate</span>
-                                  <strong>{adminStats.laundry.utilization}%</strong>
-                                </div>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Laundry with Progress Ring */}
+                          <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1.25rem', alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <Layers size={18} color="var(--primary)" /> {t('dashboard.laundryStats')} (Today)
+                            </h3>
+                            <ProgressRing
+                              value={adminStats.laundry.utilization}
+                              max={100}
+                              size={150}
+                              strokeWidth={16}
+                              color="#F4A460"
+                              sublabel="Utilization"
+                            />
+                            <div style={{ display: 'flex', gap: '2rem', marginTop: '1rem', fontSize: '0.8rem' }}>
+                              <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main)' }}>{adminStats.laundry.booked}</div>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Booked</span>
                               </div>
-                            </div>
-                            <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden', marginTop: '1rem' }}>
-                              <div style={{ height: '100%', background: 'var(--primary)', width: `${adminStats.laundry.utilization}%` }} />
+                              <div style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#4CAF50' }}>{adminStats.laundry.completed}</div>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Completed</span>
+                              </div>
                             </div>
                           </div>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
-                          {/* Leave & Visitors */}
+                          {/* Leave & Visitors with Donut */}
                           <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.leaveStats')}</h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', fontSize: '0.8rem' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <Calendar size={18} color="var(--primary)" /> {t('dashboard.leaveStats')}
+                            </h3>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'center' }}>
+                              <DonutChart
+                                data={[
+                                  { label: 'Pending', value: adminStats.leave.pending, color: '#F4A460' },
+                                  { label: 'Approved', value: adminStats.leave.approved, color: '#4CAF50' },
+                                ]}
+                                size={120}
+                                strokeWidth={20}
+                                centerValue={adminStats.leave.pending + adminStats.leave.approved}
+                                centerLabel="Leaves"
+                                showLegend={true}
+                              />
                               <div>
-                                <h4 style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Leaves Today</h4>
-                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
-                                  <span>Pending</span>
-                                  <strong>{adminStats.leave.pending}</strong>
-                                </div>
-                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
-                                  <span>Approved</span>
-                                  <strong style={{ color: 'var(--success)' }}>{adminStats.leave.approved}</strong>
-                                </div>
-                              </div>
-                              <div>
-                                <h4 style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Visitors Today</h4>
-                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
-                                  <span>Total Logged</span>
-                                  <strong>{adminStats.visitors.today}</strong>
-                                </div>
-                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
-                                  <span>Inside Facility</span>
-                                  <strong style={{ color: 'var(--warning)' }}>{adminStats.visitors.inside}</strong>
+                                <h4 style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.75rem', fontSize: '0.8rem' }}>Visitors Today</h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.8rem' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: 'var(--bg-subtle)', borderRadius: '8px' }}>
+                                    <span style={{ color: 'var(--text-muted)' }}>Total Logged</span>
+                                    <strong style={{ fontSize: '1.1rem' }}>{adminStats.visitors.today}</strong>
+                                  </div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: 'var(--bg-subtle)', borderRadius: '8px' }}>
+                                    <span style={{ color: 'var(--text-muted)' }}>Inside Facility</span>
+                                    <strong style={{ fontSize: '1.1rem', color: 'var(--warning)' }}>{adminStats.visitors.inside}</strong>
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           </div>
 
-                          {/* Emergencies & Payments */}
+                          {/* Emergencies & Payments with Donut */}
                           <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>{t('dashboard.emergencyStats')} & {t('dashboard.paymentStats')}</h3>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', fontSize: '0.8rem' }}>
+                            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <ShieldAlert size={18} color="var(--primary)" /> {t('dashboard.emergencyStats')} & {t('dashboard.paymentStats')}
+                            </h3>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'center' }}>
+                              <DonutChart
+                                data={[
+                                  { label: 'Active', value: adminStats.emergency.active, color: '#E35336' },
+                                  { label: 'Resolved', value: adminStats.emergency.resolved, color: '#4CAF50' },
+                                ]}
+                                size={120}
+                                strokeWidth={20}
+                                centerValue={adminStats.emergency.active + adminStats.emergency.resolved}
+                                centerLabel="Alerts"
+                              />
                               <div>
-                                <h4 style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Alert Status</h4>
-                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
-                                  <span>Active Warnings</span>
-                                  <strong style={{ color: 'var(--danger)' }}>{adminStats.emergency.active}</strong>
-                                </div>
-                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
-                                  <span>Resolved Alerts</span>
-                                  <strong style={{ color: 'var(--success)' }}>{adminStats.emergency.resolved}</strong>
-                                </div>
-                              </div>
-                              <div>
-                                <h4 style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Fee Collection</h4>
-                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
-                                  <span>Paid amount</span>
-                                  <strong style={{ color: 'var(--success)' }}>${adminStats.payments.paid.toLocaleString()}</strong>
-                                </div>
-                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
-                                  <span>Pending amount</span>
-                                  <strong style={{ color: 'var(--warning)' }}>${adminStats.payments.pending.toLocaleString()}</strong>
-                                </div>
-                                <div className="flex-responsive-between" style={{ paddingBottom: '0.35rem' }}>
-                                  <span>Collection rate</span>
-                                  <strong>{adminStats.payments.rate}%</strong>
+                                <h4 style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.75rem', fontSize: '0.8rem' }}>Fee Collection</h4>
+                                <ProgressRing
+                                  value={adminStats.payments.rate}
+                                  max={100}
+                                  size={100}
+                                  strokeWidth={12}
+                                  color="#4CAF50"
+                                  sublabel="Collected"
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginTop: '0.5rem' }}>
+                                  <span style={{ color: 'var(--success)' }}>₹{adminStats.payments.paid.toLocaleString()}</span>
+                                  <span style={{ color: 'var(--warning)' }}>₹{adminStats.payments.pending.toLocaleString()}</span>
                                 </div>
                               </div>
                             </div>
                           </div>
                         </div>
+
+
 
                         {/* SECTION 6: RECENT ACTIVITY TIMELINE */}
                         <div className="glass-panel" style={{ padding: '1.5rem' }}>
