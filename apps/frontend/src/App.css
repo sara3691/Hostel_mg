@@ -25,7 +25,7 @@
 .metric-box {
   background: var(--bg-card) !important;
   border: 1px solid var(--border-color) !important;
-  border-top: 3px solid #059669 !important; /* Small Emerald Accent */
+  border-top: 3px solid #E35336 !important; /* Coral Accent */
   border-radius: 12px;
   padding: 1.15rem;
   display: flex;
@@ -36,15 +36,15 @@
 
 .metric-box:hover {
   transform: translateY(-2px);
-  border-color: #9CA3AF !important;
-  border-top-color: #047857 !important;
+  border-color: #C4B89A !important;
+  border-top-color: #C9442B !important;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 }
 
 .metric-label {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #6B7280;
+  color: #8D6E63;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -52,7 +52,7 @@
 .metric-num {
   font-size: 1.6rem;
   font-weight: 800;
-  color: #111827;
+  color: #3E2723;
   margin-top: 0.35rem;
   letter-spacing: -0.02em;
 }

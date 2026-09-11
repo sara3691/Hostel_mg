@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   DASHBOARD CARDS & PANELS (CLEAN WHITE ON #F8FAFC)
+   DASHBOARD CARDS & PANELS (WARM WHITE ON BEIGE)
 ═══════════════════════════════════════════════════════════ */
 .glass-panel,
 .card-panel {
@@ -18,7 +18,7 @@
   box-shadow: var(--shadow-md) !important;
 }
 
-/* KPI / Stat Cards with emerald accent */
+/* KPI / Stat Cards with coral accent */
 .stat-card {
   padding: 1.35rem !important;
   background: var(--bg-card) !important;
@@ -80,7 +80,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
-   TABLES (SLATE HEADERS, CRISP DIVIDERS)
+   TABLES (WARM HEADERS, CRISP DIVIDERS)
 ═══════════════════════════════════════════════════════════ */
 .table-container {
   width: 100%;
@@ -189,7 +189,7 @@ textarea::placeholder {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   BUTTONS (GRADIENT PRIMARY & CLEAN SECONDARY)
+   BUTTONS (GRADIENT CORAL PRIMARY & CLEAN SECONDARY)
 ═══════════════════════════════════════════════════════════ */
 .btn {
   display: inline-flex;
@@ -212,14 +212,14 @@ textarea::placeholder {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  background: linear-gradient(135deg, #E35336 0%, #C9442B 100%) !important;
   color: #FFFFFF !important;
-  border-color: #047857 !important;
-  box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2);
+  border-color: #C9442B !important;
+  box-shadow: 0 2px 4px rgba(227, 83, 54, 0.2);
 }
 .btn-primary:hover {
-  background: linear-gradient(135deg, #047857 0%, #065F46 100%) !important;
-  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+  background: linear-gradient(135deg, #C9442B 0%, #B33A24 100%) !important;
+  box-shadow: 0 4px 12px rgba(227, 83, 54, 0.3);
   transform: translateY(-1px);
 }
 
@@ -270,9 +270,9 @@ textarea::placeholder {
 }
 
 .badge-success {
-  background: #DEF7EC !important;
-  color: #03543F !important;
-  border: 1px solid #BCF0DA !important;
+  background: #E8F5E9 !important;
+  color: #1B5E20 !important;
+  border: 1px solid #A5D6A7 !important;
 }
 
 .badge-warning {

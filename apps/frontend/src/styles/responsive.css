@@ -158,7 +158,7 @@
 
   .bottom-nav-item:hover,
   .bottom-nav-item.active {
-    color: #059669;
+    color: #E35336;
   }
 
   .bottom-nav-item.active {
@@ -172,7 +172,7 @@
     transform: translateX(-50%);
     width: 20px;
     height: 3px;
-    background: #059669;
+    background: #E35336;
     border-radius: 0 0 3px 3px;
   }
 
@@ -181,10 +181,10 @@
   }
   [data-theme="dark"] .bottom-nav-item:hover,
   [data-theme="dark"] .bottom-nav-item.active {
-    color: #34D399;
+    color: #F4A460;
   }
   [data-theme="dark"] .bottom-nav-item.active::after {
-    background: #34D399;
+    background: #F4A460;
   }
 
   /* Tables: ensure horizontal scroll wrapper */

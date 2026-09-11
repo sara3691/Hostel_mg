@@ -3641,7 +3641,7 @@ export default function App() {
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 1.25rem',
-        background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+        background: 'linear-gradient(135deg, #E35336 0%, #C9442B 100%)',
         position: 'sticky',
         top: 0,
         zIndex: 50,
@@ -5198,7 +5198,7 @@ export default function App() {
                               <>
                                 <div>
                                   <strong style={{ fontSize: '0.85rem' }}>{s.name}</strong>
-                                  <span style={{ fontSize: '0.7rem', color: s.isActive ? '#10b981' : '#ef4444', marginLeft: '0.5rem' }}>
+                                  <span style={{ fontSize: '0.7rem', color: s.isActive ? '#F4A460' : '#ef4444', marginLeft: '0.5rem' }}>
                                     {s.isActive ? t('common.active') : t('common.inactive')}
                                   </span>
                                 </div>
@@ -5474,8 +5474,8 @@ export default function App() {
 
                           {/* Worker Completion Banner */}
                           {c.status === 'COMPLETED' && (
-                            <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid #10b981', padding: '0.75rem 1rem', borderRadius: '8px', fontSize: '0.85rem' }}>
-                              <div style={{ fontWeight: 700, color: '#10b981' }}>✓ {t('worker.completeWork')}</div>
+                            <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid #F4A460', padding: '0.75rem 1rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                              <div style={{ fontWeight: 700, color: '#F4A460' }}>✓ {t('worker.completeWork')}</div>
                               <div style={{ marginTop: '0.2rem', color: 'var(--text-main)' }}>{t('worker.workDone')}: {c.completionNotes || t('common.completed')}</div>
                               {c.materialsUsed && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t('worker.materialsUsed')}: {c.materialsUsed}</div>}
                             </div>
@@ -5926,7 +5926,7 @@ export default function App() {
                                       });
                                     }}>{t('common.view')}</button>
                                     <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }} onClick={() => handleStudentStatusUpdate(u.id, 'VERIFIED')}>{t('onboarding.verified')}</button>
-                                    <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', background: '#10b981' }} onClick={() => handleApprove(u.id)}>{t('common.approved')}</button>
+                                    <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', background: '#F4A460' }} onClick={() => handleApprove(u.id)}>{t('common.approved')}</button>
                                     <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', color: '#ef4444' }} onClick={() => handleReject(u.id)}>{t('common.reject')}</button>
                                   </>
                                 ) : (
@@ -6698,7 +6698,7 @@ export default function App() {
                             <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{m.name}</span>
                             <span className="badge badge-info">{m.students?.length || 0} {t('hostel.students')}</span>
                             {isEnrolled ? (
-                              <button className="btn btn-secondary" style={{ pointerEvents: 'none', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>{t('common.active')}</button>
+                              <button className="btn btn-secondary" style={{ pointerEvents: 'none', background: 'rgba(16, 185, 129, 0.15)', color: '#F4A460' }}>{t('common.active')}</button>
                             ) : (
                               <button className="btn btn-primary" onClick={() => handleEnrollMess(m.id)}>{t('mess.enrollPlan')}</button>
                             )}
@@ -6917,7 +6917,7 @@ export default function App() {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
                       <span style={{ color: 'var(--text-muted)' }}>{t('common.status')}</span>
-                      <strong style={{ color: currentUser.status === 'APPROVED' ? '#10b981' : '#f59e0b' }}>{currentUser.status}</strong>
+                      <strong style={{ color: currentUser.status === 'APPROVED' ? '#F4A460' : '#f59e0b' }}>{currentUser.status}</strong>
                     </div>
                     {currentUser.mobileNumber && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
@@ -7375,7 +7375,7 @@ export default function App() {
                     <button className="btn btn-secondary" onClick={() => fetchAdminUsers()}>
                       <RefreshCw size={14} /> Refresh Roster
                     </button>
-                    <button className="btn btn-primary" onClick={() => setShowSeedModal(true)} style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderColor: '#059669' }}>
+                    <button className="btn btn-primary" onClick={() => setShowSeedModal(true)} style={{ background: 'linear-gradient(135deg, #F4A460 0%, #E35336 100%)', borderColor: '#E35336' }}>
                       <Database size={16} /> Seed Test Data (30-Day Logs)
                     </button>
                   </div>
@@ -8026,7 +8026,7 @@ export default function App() {
                             )}
 
                             {c.status === 'IN_PROGRESS' && (
-                              <button className="btn btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', background: '#10b981' }} onClick={() => { setSelectedComplaintForComplete(c); setShowCompleteWorkModal(true); }}>
+                              <button className="btn btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', background: '#F4A460' }} onClick={() => { setSelectedComplaintForComplete(c); setShowCompleteWorkModal(true); }}>
                                 <Check size={14} /> {t('worker.completeWork')}
                               </button>
                             )}
@@ -8849,7 +8849,7 @@ export default function App() {
                           <td style={{ padding: '0.6rem 0.75rem', color: 'var(--text-muted)' }}>{f.student?.registerNumber || '-'}</td>
                           <td style={{ padding: '0.6rem 0.75rem' }}>{f.title}</td>
                           <td style={{ padding: '0.6rem 0.75rem' }}>₹{f.amount.toLocaleString()}</td>
-                          <td style={{ padding: '0.6rem 0.75rem', color: '#10b981' }}>₹{f.paidAmount.toLocaleString()}</td>
+                          <td style={{ padding: '0.6rem 0.75rem', color: '#F4A460' }}>₹{f.paidAmount.toLocaleString()}</td>
                           <td style={{ padding: '0.6rem 0.75rem' }}><span className={`badge ${f.status === 'PAID' ? 'badge-success' : f.status === 'PARTIAL' ? 'badge-warning' : 'badge-danger'}`}>{f.status}</span></td>
                           <td style={{ padding: '0.6rem 0.75rem', color: 'var(--text-muted)' }}>{new Date(f.dueDate).toLocaleDateString()}</td>
                         </tr>
@@ -9136,7 +9136,7 @@ export default function App() {
             </div>
 
             {/* GPS Location Status Indicator Pill */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontSize: '0.75rem', background: scannerGps ? 'rgba(16,185,129,0.1)' : gpsError ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', color: scannerGps ? '#10b981' : gpsError ? '#ef4444' : '#f59e0b', padding: '0.35rem 0.75rem', borderRadius: '999px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontSize: '0.75rem', background: scannerGps ? 'rgba(16,185,129,0.1)' : gpsError ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', color: scannerGps ? '#F4A460' : gpsError ? '#ef4444' : '#f59e0b', padding: '0.35rem 0.75rem', borderRadius: '999px', border: '1px solid var(--border-color)' }}>
               <Compass size={14} />
               <span>{gpsError || gpsStatus}</span>
               {!scannerGps && (
@@ -9374,7 +9374,7 @@ export default function App() {
                   </div>
                   <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.875rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600 }}>QR Token</div>
-                    <div style={{ fontWeight: 600, marginTop: '0.2rem', color: selectedStudentProfile.qrToken ? '#10b981' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <div style={{ fontWeight: 600, marginTop: '0.2rem', color: selectedStudentProfile.qrToken ? '#F4A460' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                       <CheckCheck size={14} /> {selectedStudentProfile.qrToken ? t('common.active') : t('common.pending')}
                     </div>
                   </div>
@@ -9669,7 +9669,7 @@ export default function App() {
       {/* MODAL: PRINTABLE RECEIPT */}
       {showReceiptModal && selectedPaymentForReceipt && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div className="glass-panel" style={{ maxWidth: '480px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', background: '#ffffff', color: '#0f172a' }}>
+          <div className="glass-panel" style={{ maxWidth: '480px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', background: '#ffffff', color: '#3E2723' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #e2e8f0', paddingBottom: '1rem' }}>
               <div>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#1e293b' }}>HOSTEL FEE PAYMENT RECEIPT</h3>
@@ -9710,7 +9710,7 @@ export default function App() {
               <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => window.print()}>
                 <Printer size={16} /> Print Receipt
               </button>
-              <button className="btn btn-secondary" style={{ flex: 1, color: '#0f172a' }} onClick={() => setShowReceiptModal(false)}>Close</button>
+              <button className="btn btn-secondary" style={{ flex: 1, color: '#3E2723' }} onClick={() => setShowReceiptModal(false)}>Close</button>
             </div>
           </div>
         </div>
@@ -10077,7 +10077,7 @@ export default function App() {
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{t('worker.materialsUsed')}</label>
               <input className="form-input" type="text" placeholder={t('worker.materialsUsed')} value={materialsUsedInput} onChange={e => setMaterialsUsedInput(e.target.value)} />
             </div>
-            <button className="btn btn-primary" style={{ background: '#10b981' }} onClick={handleCompleteWorkerJob}>{t('worker.completeWork')}</button>
+            <button className="btn btn-primary" style={{ background: '#F4A460' }} onClick={handleCompleteWorkerJob}>{t('worker.completeWork')}</button>
           </div>
         </div>
       )}
@@ -10097,7 +10097,7 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative', paddingLeft: '1.5rem', borderLeft: '2px solid var(--border-color)', margin: '0.5rem 0' }}>
               {!selectedComplaintTimeline.timeline || selectedComplaintTimeline.timeline.length === 0 ? (
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  <div style={{ fontWeight: 700, color: '#10b981' }}>✓ {t('common.create')}</div>
+                  <div style={{ fontWeight: 700, color: '#F4A460' }}>✓ {t('common.create')}</div>
                   <div style={{ fontSize: '0.75rem' }}>{new Date(selectedComplaintTimeline.createdAt).toLocaleString()}</div>
                 </div>
               ) : (
