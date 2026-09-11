@@ -4020,7 +4020,7 @@ export default function App() {
                   }}
                   onClick={() => {
                     setLoginTab('WARDEN');
-                    setLoginEmail('admin@user');
+                    setLoginEmail('warden@user');
                     setLoginPassword('password123');
                   }}
                 >
@@ -4078,8 +4078,8 @@ export default function App() {
                   }}
                   onClick={() => {
                     setLoginTab('SUPER_ADMIN');
-                    setLoginEmail('superadmin@user');
-                    setLoginPassword('password123');
+                    setLoginEmail('admin@user');
+                    setLoginPassword('admin@123');
                   }}
                 >
                   <Key size={16} />

@@ -168,6 +168,7 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<SeedRepor
   }
 
   const defaultPasswordHash = await argon2.hash('Password123!');
+  const adminPasswordHash = await argon2.hash('admin@123');
   const now = new Date();
   const dayMs = 86400000;
 
@@ -459,7 +460,11 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<SeedRepor
   // 8. TEST ACCOUNTS FOR ALL 11 ROLES
   // ==========================================
   console.log("👥 8. Creating Role Accounts...");
-  const testAccountsData = [
+  const testAccountsData: Array<{ email: string; name: string; role: Role; status: string; passwordHash?: string }> = [
+    { email: 'admin@user', name: 'System Super Admin', role: Role.SUPER_ADMIN, status: 'APPROVED', passwordHash: adminPasswordHash },
+    { email: 'warden@user', name: 'Senior Hostel Warden', role: Role.WARDEN, status: 'APPROVED' },
+    { email: 'worker@user', name: 'Ravi Kumar (Hostel Worker)', role: Role.WORKER, status: 'APPROVED' },
+    { email: 'student@user', name: 'Alex Johnson (Student)', role: Role.STUDENT, status: 'APPROVED' },
     { email: 'admin@test.com', name: 'System Super Admin', role: Role.SUPER_ADMIN, status: 'APPROVED' },
     { email: 'hosteladmin@test.com', name: 'Chief Hostel Administrator', role: Role.HOSTEL_ADMIN, status: 'APPROVED' },
     { email: 'warden@test.com', name: 'Senior Hostel Warden', role: Role.WARDEN, status: 'APPROVED' },
@@ -485,7 +490,7 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<SeedRepor
     const uObj = {
       id: uId,
       email: ta.email,
-      passwordHash: defaultPasswordHash,
+      passwordHash: ta.passwordHash || defaultPasswordHash,
       fullName: ta.name,
       mobileNumber: `987654321${idx % 10}`,
       role: ta.role,
