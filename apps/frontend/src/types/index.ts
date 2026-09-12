@@ -61,6 +61,8 @@ export interface UserProfile {
     block: string;
   } | null;
   roomId?: string | null;
+  bedNumber?: string | null;
+  hostelStatus?: string | null;
   messId?: string | null;
 }
 

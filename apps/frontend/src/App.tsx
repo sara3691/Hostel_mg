@@ -267,6 +267,8 @@ interface UserProfile {
     block: string;
   } | null;
   roomId?: string | null;
+  bedNumber?: string | null;
+  hostelStatus?: string | null;
   messId?: string | null;
 }
 
@@ -3122,7 +3124,7 @@ export default function App() {
         { id: 'settings', label: t('nav.settings'), icon: Settings, section: 'System' },
         { id: 'profile', label: t('nav.profile'), icon: User, section: 'Account' }
       );
-    } else if (currentUser.role === 'HOSTEL_ADMIN') {
+    } else if (currentUser.role === 'HOSTEL_ADMIN' || currentUser.role === 'WARDEN') {
       items.push(
         { id: 'dashboard', label: t('nav.dashboard'), icon: Grid, section: 'Overview' },
         { id: 'users', label: 'User Management', icon: Users, section: 'Management' },
@@ -3179,6 +3181,9 @@ export default function App() {
       items.push(
         { id: 'dashboard', label: t('nav.dashboard'), icon: Grid, section: 'Overview' },
         { id: 'mess', label: t('nav.mess'), icon: BookOpen, section: 'Mess Operations' },
+        { id: 'mess_waste', label: t('nav.messWaste') || 'Mess Waste & Forecast', icon: BookOpen, section: 'Mess Operations' },
+        { id: 'inventory_ledger', label: t('nav.inventoryLedger') || 'Inventory Ledger', icon: Database, section: 'Mess Operations' },
+        { id: 'notifications', label: t('nav.notifications'), icon: Bell, section: 'Mess Operations' },
         { id: 'profile', label: t('nav.profile'), icon: User, section: 'Account' }
       );
     } else if (currentUser.role === 'SECURITY') {
@@ -3991,8 +3996,8 @@ export default function App() {
                   }}
                   onClick={() => {
                     setLoginTab('STUDENT');
-                    setLoginEmail('student@user');
-                    setLoginPassword('password123');
+                    setLoginEmail('student01@test.com');
+                    setLoginPassword('Password123!');
                   }}
                 >
                   <GraduationCap size={16} />
@@ -4020,8 +4025,8 @@ export default function App() {
                   }}
                   onClick={() => {
                     setLoginTab('WARDEN');
-                    setLoginEmail('warden@user');
-                    setLoginPassword('password123');
+                    setLoginEmail('warden@test.com');
+                    setLoginPassword('Password123!');
                   }}
                 >
                   <Shield size={16} />
@@ -4049,8 +4054,8 @@ export default function App() {
                   }}
                   onClick={() => {
                     setLoginTab('WORKER');
-                    setLoginEmail('worker@user');
-                    setLoginPassword('password123');
+                    setLoginEmail('worker@test.com');
+                    setLoginPassword('Password123!');
                   }}
                 >
                   <Wrench size={16} />
@@ -4355,6 +4360,52 @@ export default function App() {
                 {currentUser.role === 'STUDENT' ? (
                   /* STUDENT DASHBOARD (PRESERVED) */
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    {/* Student Room & Hostel Profile Bar */}
+                    <div className="glass-panel" style={{
+                      padding: '1rem 1.5rem',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '1rem',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '12px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Reg No:</span>
+                          <strong>{currentUser.registerNumber || 'REG-PENDING'}</strong>
+                        </div>
+                        <span style={{ color: 'var(--border-color)' }}>|</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Room:</span>
+                          <strong style={{ color: 'var(--primary)' }}>
+                            {currentUser.room ? `${currentUser.room.roomNumber} (${currentUser.room.block})` : 'Room Assigned'}
+                          </strong>
+                        </div>
+                        <span style={{ color: 'var(--border-color)' }}>|</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>Bed:</span>
+                          <strong>{currentUser.bedNumber || 'Bed-1'}</strong>
+                        </div>
+                        {currentUser.department && (
+                          <>
+                            <span style={{ color: 'var(--border-color)' }}>|</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>Dept:</span>
+                              <strong>{currentUser.department} {currentUser.year ? `(Year ${currentUser.year})` : ''}</strong>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span className="badge badge-primary" style={{ fontSize: '0.75rem' }}>
+                          {currentUser.hostel?.name || 'Main Campus Hostel'}
+                        </span>
+                      </div>
+                    </div>
+
                     <div className="dashboard-grid">
                       <div className="glass-panel stat-card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>

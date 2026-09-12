@@ -33,7 +33,7 @@ header,
 
 header span,
 .top-navbar span {
-  color: var(--text-main);
+  color: #FFFFFF !important;
 }
 
 header .btn-ghost,

@@ -1,4 +1,4 @@
-﻿import { Router, Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import * as argon2 from 'argon2';
 import { prisma } from './prisma';
 import { authMiddleware, requirePermission, requireRole, AuthRequest } from './auth.middleware';
@@ -396,7 +396,10 @@ router.post('/mess-menus', authMiddleware, requirePermission('manage_mess'), asy
 router.get('/meals', authMiddleware, async (req: AuthRequest, res: Response) => {
   const { date, hostelId, block, floor } = req.query;
   const targetDate = date ? new Date(date as string) : new Date();
-  const cleanDate = new Date(targetDate.setUTCHours(0, 0, 0, 0));
+  const startOfDay = new Date(targetDate);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(targetDate);
+  endOfDay.setHours(23, 59, 59, 999);
 
   try {
     if (req.user?.role === 'STUDENT') {
@@ -411,13 +414,20 @@ router.get('/meals', authMiddleware, async (req: AuthRequest, res: Response) => 
       const studentHostelId = student.hostelId;
       const studentMessId = student.messId;
 
-      // Fetch active meals for student's hostel/mess
+      // Fetch active meals for student's hostel/mess using date range
+      const mealWhere: any = {
+        date: { gte: startOfDay, lte: endOfDay },
+        hostelId: studentHostelId
+      };
+      if (studentMessId) {
+        mealWhere.OR = [
+          { messId: studentMessId },
+          { messId: null }
+        ];
+      }
+
       const meals = await prisma.meal.findMany({
-        where: {
-          date: cleanDate,
-          hostelId: studentHostelId,
-          messId: studentMessId || null
-        },
+        where: mealWhere,
         orderBy: { mealTime: 'asc' }
       });
 
@@ -426,8 +436,8 @@ router.get('/meals', authMiddleware, async (req: AuthRequest, res: Response) => 
         where: {
           userId: req.user.id,
           status: 'APPROVED',
-          startDate: { lte: cleanDate },
-          endDate: { gte: cleanDate }
+          startDate: { lte: endOfDay },
+          endDate: { gte: startOfDay }
         }
       });
 
@@ -467,7 +477,7 @@ router.get('/meals', authMiddleware, async (req: AuthRequest, res: Response) => 
       const filterHostelId = (hostelId as string) || req.user?.hostelId;
       
       const whereClause: any = {
-        date: cleanDate
+        date: { gte: startOfDay, lte: endOfDay }
       };
       if (filterHostelId) {
         whereClause.hostelId = filterHostelId;
@@ -802,8 +812,11 @@ router.get('/meals/history', authMiddleware, async (req: AuthRequest, res: Respo
 router.get('/fees', authMiddleware, async (req: AuthRequest, res: Response) => {
   const { studentId, hostelId, status } = req.query;
   const filter: any = {};
-  if (studentId) filter.studentId = studentId as string;
-  else if (req.user?.role === 'STUDENT') filter.studentId = req.user.id;
+  if (req.user?.role === 'STUDENT') {
+    filter.studentId = req.user.id;
+  } else if (studentId) {
+    filter.studentId = studentId as string;
+  }
   if (hostelId) filter.hostelId = hostelId as string;
   else if (req.user?.hostelId) filter.hostelId = req.user.hostelId;
   if (status) filter.status = status as string;
@@ -1193,7 +1206,7 @@ router.get('/notices', authMiddleware, async (req: AuthRequest, res: Response) =
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-router.post('/notices', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN']), async (req: AuthRequest, res: Response) => {
+router.post('/notices', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'WARDEN']), async (req: AuthRequest, res: Response) => {
   const { title, content, audience, isEmergency, isPinned, hostelId, department, expiresAt } = req.body;
   if (!title || !content) { res.status(400).json({ success: false, error: 'Title and content required' }); return; }
   try {
@@ -1203,7 +1216,7 @@ router.post('/notices', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMI
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-router.patch('/notices/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN']), async (req: AuthRequest, res: Response) => {
+router.patch('/notices/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'WARDEN']), async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   const { title, content, isPinned, isEmergency } = req.body;
   try {
@@ -1212,7 +1225,7 @@ router.patch('/notices/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-router.delete('/notices/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN']), async (req: AuthRequest, res: Response) => {
+router.delete('/notices/:id', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'WARDEN']), async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   try { await prisma.notice.delete({ where: { id } }); res.json({ success: true, message: 'Notice deleted' }); }
   catch (err: any) { res.status(500).json({ success: false, error: err.message }); }
@@ -2340,10 +2353,12 @@ router.patch('/profile', authMiddleware, async (req: AuthRequest, res: Response)
       },
       select: {
         id: true, email: true, fullName: true, role: true, status: true, mobileNumber: true,
-        hostelId: true, roomId: true, bedNumber: true, department: true, year: true, registerNumber: true,
+        hostelId: true, hostel: true, roomId: true,
+        room: { select: { id: true, roomNumber: true, block: true, floor: true } },
+        bedNumber: true, department: true, year: true, registerNumber: true,
         gender: true, address: true, emergencyContact: true, bloodGroup: true, medicalDetails: true,
         guardianName: true, guardianMobile: true, guardianRelation: true, photo: true, qrToken: true,
-        collegeName: true, staffType: true
+        collegeName: true, staffType: true, hostelStatus: true, messId: true
       }
     });
     res.json({ success: true, data: updated });
@@ -3347,11 +3362,14 @@ router.get('/guardian/student/:studentId', authMiddleware, async (req: AuthReque
   const requestingUserId = req.user?.id;
   const adminRoles = ['SUPER_ADMIN', 'HOSTEL_ADMIN', 'ASSISTANT_WARDEN', 'WARDEN'];
   const isAdmin = adminRoles.includes(req.user?.role || '');
-  const isOwner = requestingUserId === studentId;
-  if (!isAdmin && !isOwner) { res.status(403).json({ success: false, error: 'Access denied' }); return; }
   try {
-    const student = await prisma.user.findUnique({
-      where: { id: studentId },
+    const student = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: studentId },
+          { registerNumber: studentId }
+        ]
+      },
       select: {
         id: true, fullName: true, registerNumber: true, department: true, year: true,
         photo: true, gender: true, mobileNumber: true, bloodGroup: true, hostelStatus: true,
@@ -3361,11 +3379,13 @@ router.get('/guardian/student/:studentId', authMiddleware, async (req: AuthReque
       }
     });
     if (!student) { res.status(404).json({ success: false, error: 'Student not found' }); return; }
+    const isOwner = requestingUserId === student.id;
+    if (!isAdmin && !isOwner) { res.status(403).json({ success: false, error: 'Access denied' }); return; }
     const [recentLeaves, recentGatePasses, recentAttendance, fees] = await Promise.all([
-      prisma.leave.findMany({ where: { userId: studentId }, orderBy: { createdAt: 'desc' }, take: 5, select: { startDate: true, endDate: true, reason: true, status: true, createdAt: true } }),
-      prisma.gatePass.findMany({ where: { studentId }, orderBy: { createdAt: 'desc' }, take: 5, select: { destination: true, expectedReturn: true, actualReturn: true, status: true, exitTime: true, createdAt: true } }),
-      prisma.attendance.findMany({ where: { userId: studentId }, orderBy: { date: 'desc' }, take: 10, select: { date: true, isPresent: true, session: true } }),
-      prisma.fee.findMany({ where: { studentId }, select: { title: true, amount: true, paidAmount: true, status: true, dueDate: true } })
+      prisma.leave.findMany({ where: { userId: student.id }, orderBy: { createdAt: 'desc' }, take: 5, select: { startDate: true, endDate: true, reason: true, status: true, createdAt: true } }),
+      prisma.gatePass.findMany({ where: { studentId: student.id }, orderBy: { createdAt: 'desc' }, take: 5, select: { destination: true, expectedReturn: true, actualReturn: true, status: true, exitTime: true, createdAt: true } }),
+      prisma.attendance.findMany({ where: { userId: student.id }, orderBy: { date: 'desc' }, take: 10, select: { date: true, isPresent: true, session: true } }),
+      prisma.fee.findMany({ where: { studentId: student.id }, select: { title: true, amount: true, paidAmount: true, status: true, dueDate: true } })
     ]);
     res.json({ success: true, data: { student, recentLeaves, recentGatePasses, recentAttendance, fees, generatedAt: new Date() } });
   } catch (err: any) { res.status(500).json({ success: false, error: err.message }); }

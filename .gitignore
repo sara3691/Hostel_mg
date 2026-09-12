@@ -24,3 +24,6 @@ yarn-debug.log*
 yarn-error.log*
 logs/
 *.log
+
+# AI Knowledge graph cache
+graphify-out/
