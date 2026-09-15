@@ -47,7 +47,7 @@
   .app-layout {
     /* Single column — sidebar is hidden */
     grid-template-columns: 1fr;
-    min-height: calc(100vh - 56px);
+    min-height: calc(100vh - 62px);
   }
   .sidebar {
     /* Completely remove sidebar from layout flow on tablet/mobile */

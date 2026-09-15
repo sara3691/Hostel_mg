@@ -5,7 +5,7 @@
   display: grid;
   grid-template-columns: 260px 1fr;
   /* Use 100vh minus header height so sidebar never overflows */
-  min-height: calc(100vh - 56px);
+  min-height: calc(100vh - 62px);
   background: var(--bg-main);
   width: 100%;
   /* Prevent the grid itself from creating horizontal scroll */
@@ -18,7 +18,7 @@
 ═══════════════════════════════════════════════════════════ */
 header,
 .top-navbar {
-  height: 56px;
+  height: 62px;
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%) !important;
   border-bottom: 1px solid var(--primary-hover) !important;
   box-shadow: var(--shadow-xs) !important;
@@ -57,10 +57,10 @@ header .btn-ghost:hover,
   flex-direction: column;
   padding: 1.25rem 0.85rem;
   /* Clamp height so it never exceeds viewport and causes page scroll */
-  height: calc(100vh - 56px);
-  max-height: calc(100vh - 56px);
+  height: calc(100vh - 62px);
+  max-height: calc(100vh - 62px);
   position: sticky;
-  top: 56px; /* stick below the header */
+  top: 62px; /* stick below the header */
   z-index: 40;
   overflow-y: auto;
   overflow-x: hidden;
@@ -173,6 +173,12 @@ header .btn-ghost:hover,
   min-width: 0;
   /* Prevent content from overflowing its grid cell */
   overflow-x: hidden;
+  /* Match sidebar height so body scrolls independently, not the page */
+  height: calc(100vh - 62px);
+  max-height: calc(100vh - 62px);
+  overflow-y: auto;
+  position: sticky;
+  top: 62px;
   background: var(--bg-main) !important;
   padding: 1.75rem 2.25rem;
   display: flex;

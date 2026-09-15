@@ -3639,22 +3639,21 @@ export default function App() {
       )}
 
       {/* Header / Navbar */}
-      {/* Header / Navbar */}
       <header style={{
-        height: '56px',
-        borderBottom: '1px solid var(--primary-hover)',
+        height: '62px',
+        borderBottom: '1px solid rgba(0,0,0,0.12)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0 1.25rem',
-        background: 'linear-gradient(135deg, #E35336 0%, #C9442B 100%)',
+        padding: '0 1.5rem',
+        background: 'linear-gradient(135deg, #D94F2B 0%, #B83A1E 50%, #C94020 100%)',
         position: 'sticky',
         top: 0,
         zIndex: 50,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
+        boxShadow: '0 2px 12px rgba(180,50,20,0.35), 0 1px 0 rgba(255,255,255,0.06)'
       }}>
         {/* Logo and Collapsible Side Menu Icon on Mobile */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
           <button
             className="btn btn-ghost"
             style={{ display: 'none', padding: '0.4rem' }}
@@ -3663,30 +3662,26 @@ export default function App() {
           >
             <Menu size={18} />
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }} onClick={() => setView(currentUser ? 'dashboard' : 'home')}>
-            <div style={{ width: '30px', height: '30px', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Building2 size={18} color="#FFFFFF" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer' }} onClick={() => setView(currentUser ? 'dashboard' : 'home')}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.12) 100%)',
+              border: '1px solid rgba(255,255,255,0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+            }}>
+              <Building2 size={19} color="#FFFFFF" />
             </div>
-            <span style={{ fontSize: '1.05rem', fontWeight: 700, letterSpacing: '-0.02em', color: '#FFFFFF' }}>
-              SmartHostel <span style={{ color: '#FFFFFF', fontSize: '0.85rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.4)', padding: '0.1rem 0.35rem', borderRadius: 'var(--radius-sm)', background: 'rgba(255,255,255,0.15)' }}>ERP</span>
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+              <span style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: '-0.025em', color: '#FFFFFF' }}>SmartHostel</span>
+              <span style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase' }}>Enterprise Resource Planning</span>
+            </div>
           </div>
         </div>
-
-        {/* Global Search Bar (Only shown when logged in) */}
-        {currentUser && (
-          <div style={{ position: 'relative', width: '280px', display: 'flex', alignItems: 'center' }} className="hide-mobile">
-            <Search size={15} color="var(--text-subtle)" style={{ position: 'absolute', left: '10px' }} />
-            <input
-              type="text"
-              className="form-input"
-              style={{ paddingLeft: '2.1rem', height: '34px', fontSize: '0.82rem' }}
-              placeholder={t('common.search')}
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
-        )}
 
         {/* Header Right Widgets */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -3705,24 +3700,26 @@ export default function App() {
                 style={{ 
                   position: 'relative', 
                   cursor: 'pointer', 
-                  padding: '0.45rem', 
-                  borderRadius: 'var(--radius-md)', 
+                  padding: '0.5rem', 
+                  borderRadius: '10px', 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center',
-                  background: 'rgba(255,255,255,0.15)' 
+                  background: 'rgba(255,255,255,0.15)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  transition: 'background 0.15s ease'
                 }} 
                 onClick={() => setSubView('notifications')}
               >
-                <Bell size={16} color="rgba(255,255,255,0.9)" />
+                <Bell size={17} color="rgba(255,255,255,0.95)" />
                 {unreadCount > 0 && (
                   <span style={{ 
                     position: 'absolute', 
-                    top: '-2px', 
-                    right: '-2px', 
-                    minWidth: '15px', 
-                    height: '15px', 
-                    background: 'var(--danger)', 
+                    top: '-3px', 
+                    right: '-3px', 
+                    minWidth: '16px', 
+                    height: '16px', 
+                    background: '#FF4444', 
                     borderRadius: '50%', 
                     fontSize: '0.62rem', 
                     display: 'flex', 
@@ -3730,19 +3727,20 @@ export default function App() {
                     justifyContent: 'center', 
                     color: '#fff', 
                     fontWeight: 700, 
-                    padding: '0 2px' 
+                    padding: '0 2px',
+                    border: '1.5px solid rgba(185,58,30,1)'
                   }}>
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </div>
-              <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0.6rem', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.12)' }}>
-                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,255,255,0.25)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 700 }}>
+              <div className="hide-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', padding: '0.35rem 0.7rem 0.35rem 0.45rem', border: '1px solid rgba(255,255,255,0.22)', borderRadius: '12px', background: 'rgba(255,255,255,0.13)', backdropFilter: 'blur(8px)' }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.18) 100%)', color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem', fontWeight: 700, border: '1.5px solid rgba(255,255,255,0.3)', flexShrink: 0 }}>
                   {currentUser.fullName.charAt(0).toUpperCase()}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.15 }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#FFFFFF' }}>{currentUser.fullName}</span>
-                  <span style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.7)' }}>{currentUser.role.replace('_', ' ')}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.2 }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#FFFFFF' }}>{currentUser.fullName}</span>
+                  <span style={{ fontSize: '0.62rem', color: 'rgba(255,255,255,0.65)', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{currentUser.role.replace(/_/g, ' ')}</span>
                 </div>
               </div>
             </>
