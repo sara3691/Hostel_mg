@@ -10386,21 +10386,7 @@ export default function App() {
         />
       )}
 
-      {/* Footer */}
-
-      <footer style={{
-        height: '48px',
-        borderTop: '1px solid var(--border-color)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '0.8125rem',
-        color: 'var(--text-muted)',
-        background: 'var(--bg-card)',
-        paddingBottom: currentUser ? '0' : '0' // Adjusted layout spacing
-      }}>
-        © 2026 SmartHostel AI · Secure Enterprise Edition
-      </footer>
     </div>
+
   );
 }
