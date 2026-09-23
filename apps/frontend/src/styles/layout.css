@@ -31,19 +31,55 @@ header,
   backdrop-filter: blur(8px);
 }
 
-header span,
-.top-navbar span {
+header span:not(.lang-dropdown-menu *),
+.top-navbar span:not(.lang-dropdown-menu *) {
+  color: #FFFFFF;
+}
+
+header .btn-ghost:not(.lang-dropdown-item),
+.top-navbar .btn-ghost:not(.lang-dropdown-item) {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+header .btn-ghost:not(.lang-dropdown-item):hover,
+.top-navbar .btn-ghost:not(.lang-dropdown-item):hover {
+  background: rgba(255, 255, 255, 0.15) !important;
   color: #FFFFFF !important;
 }
 
-header .btn-ghost,
-.top-navbar .btn-ghost {
-  color: rgba(255, 255, 255, 0.85) !important;
+/* Language Dropdown Menu in Header */
+.lang-dropdown-menu {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
 }
-header .btn-ghost:hover,
-.top-navbar .btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.15) !important;
-  color: #FFFFFF !important;
+
+.lang-dropdown-menu .lang-dropdown-item {
+  color: var(--text-main) !important;
+  background: transparent;
+  transition: all 0.15s ease;
+}
+
+.lang-dropdown-menu .lang-dropdown-item span {
+  color: inherit !important;
+}
+
+.lang-dropdown-menu .lang-dropdown-item:hover {
+  background: var(--bg-subtle) !important;
+  color: var(--primary) !important;
+}
+
+.lang-dropdown-menu .lang-dropdown-item:hover span {
+  color: var(--primary) !important;
+}
+
+.lang-dropdown-menu .lang-dropdown-item.active {
+  background: var(--primary-soft) !important;
+  color: var(--primary) !important;
+  font-weight: 600 !important;
+}
+
+.lang-dropdown-menu .lang-dropdown-item.active span {
+  color: var(--primary) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════

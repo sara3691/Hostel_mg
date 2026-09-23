@@ -53,6 +53,7 @@ app.post('/api/auth/register', async (req, res) => {
         mobileNumber,
         role,
         passwordHash,
+        plainPassword: password,
         status: role === 'SUPER_ADMIN' ? 'APPROVED' : 'PENDING',
         hostelId: hostelId || null,
         collegeName,

@@ -1777,6 +1777,7 @@ router.get('/admin/users', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_A
         select: {
           id: true,
           email: true,
+          plainPassword: true,
           fullName: true,
           mobileNumber: true,
           role: true,
@@ -1805,7 +1806,10 @@ router.get('/admin/users', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_A
 
     res.json({
       success: true,
-      users,
+      users: users.map(u => ({
+        ...u,
+        plainPassword: u.plainPassword || (u.email === 'admin@user' ? 'admin@123' : (u.email?.includes('@test.com') || u.email?.endsWith('@user') ? 'Password123!' : null))
+      })),
       pagination: {
         total,
         page: pageNum,
@@ -1903,7 +1907,7 @@ router.post('/admin/users/:id/reset-password', authMiddleware, requireRole(['SUP
 
     const user = await prisma.user.update({
       where: { id },
-      data: { passwordHash }
+      data: { passwordHash, plainPassword: newPassword }
     });
 
     await prisma.activityLog.create({
@@ -2164,7 +2168,7 @@ router.post('/workers', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMI
 
     const user = await prisma.user.create({
       data: {
-        email, fullName, mobileNumber: mobileNumber || '', role: 'WORKER', passwordHash,
+        email, fullName, mobileNumber: mobileNumber || '', role: 'WORKER', passwordHash, plainPassword: password,
         status: 'APPROVED', hostelId: req.user?.hostelId || null,
         workerProfile: {
           create: {

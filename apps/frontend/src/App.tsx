@@ -60,7 +60,9 @@ import {
   Printer,
   Edit,
   Trash2,
-  Copy
+  Copy,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useTranslation, languages } from './i18n';
 import { DonutChart, BarChart, HorizontalBarChart, ProgressRing } from './components/charts/DashboardCharts';
@@ -590,6 +592,14 @@ export default function App() {
   const [showResetPassModal, setShowResetPassModal] = useState(false);
   const [selectedUserForResetPass, setSelectedUserForResetPass] = useState<any | null>(null);
   const [newTestPasswordInput, setNewTestPasswordInput] = useState('Password123!');
+  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
+
+  const togglePasswordVisibility = (userId: string) => {
+    setRevealedPasswords(prev => ({
+      ...prev,
+      [userId]: !prev[userId]
+    }));
+  };
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<any | null>(null);
   const [editUserFullName, setEditUserFullName] = useState('');
@@ -3760,53 +3770,61 @@ export default function App() {
             </button>
 
             {langDropdownOpen && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 6px)',
-                  right: 0,
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-md)',
-                  boxShadow: 'var(--shadow-md)',
-                  padding: '0.35rem',
-                  zIndex: 200,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.2rem',
-                  minWidth: '140px'
-                }}
-              >
-                {languages.map(l => (
-                  <button
-                    key={l.code}
-                    type="button"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.45rem 0.65rem',
-                      borderRadius: 'var(--radius-sm)',
-                      border: 'none',
-                      background: lang === l.code ? 'var(--primary-soft)' : 'transparent',
-                      color: lang === l.code ? 'var(--primary)' : 'var(--text-main)',
-                      fontWeight: lang === l.code ? 600 : 400,
-                      cursor: 'pointer',
-                      fontSize: '0.82rem',
-                      textAlign: 'left',
-                      fontFamily: 'inherit'
-                    }}
-                    onClick={() => {
-                      changeLanguage(l.code);
-                      setLangDropdownOpen(false);
-                    }}
-                  >
-                    <span>{l.flag}</span>
-                    <span style={{ flex: 1 }}>{l.nativeName}</span>
-                    {lang === l.code && <Check size={14} color="var(--primary)" />}
-                  </button>
-                ))}
-              </div>
+              <>
+                <div
+                  style={{ position: 'fixed', inset: 0, zIndex: 199 }}
+                  onClick={() => setLangDropdownOpen(false)}
+                />
+                <div
+                  className="lang-dropdown-menu"
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 6px)',
+                    right: 0,
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: 'var(--shadow-lg, 0 10px 25px rgba(0,0,0,0.18))',
+                    padding: '0.4rem',
+                    zIndex: 200,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.25rem',
+                    minWidth: '150px'
+                  }}
+                >
+                  {languages.map(l => (
+                    <button
+                      key={l.code}
+                      type="button"
+                      className={`lang-dropdown-item ${lang === l.code ? 'active' : ''}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        padding: '0.5rem 0.75rem',
+                        borderRadius: 'var(--radius-sm)',
+                        border: 'none',
+                        background: lang === l.code ? 'var(--primary-soft)' : 'transparent',
+                        color: lang === l.code ? 'var(--primary)' : 'var(--text-main)',
+                        fontWeight: lang === l.code ? 600 : 500,
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        textAlign: 'left',
+                        fontFamily: 'inherit'
+                      }}
+                      onClick={() => {
+                        changeLanguage(l.code);
+                        setLangDropdownOpen(false);
+                      }}
+                    >
+                      <span style={{ fontSize: '1rem', lineHeight: 1 }}>{l.flag}</span>
+                      <span style={{ flex: 1, color: lang === l.code ? 'var(--primary)' : 'var(--text-main)' }}>{l.nativeName}</span>
+                      {lang === l.code && <Check size={14} color="var(--primary)" />}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
@@ -7521,6 +7539,7 @@ export default function App() {
                         <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>
                           <th style={{ padding: '0.75rem' }}>User Profile</th>
                           <th>Role</th>
+                          <th>Password</th>
                           <th>Department / Reg No</th>
                           <th>Assigned Room / Bed</th>
                           <th>Account Status</th>
@@ -7531,7 +7550,7 @@ export default function App() {
                       <tbody>
                         {adminUsers.length === 0 ? (
                           <tr>
-                            <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                            <td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                               No users match the selected filters.
                             </td>
                           </tr>
@@ -7564,6 +7583,39 @@ export default function App() {
                                 <span className={`badge ${u.role === 'SUPER_ADMIN' || u.role === 'HOSTEL_ADMIN' ? 'badge-primary' : u.role === 'STUDENT' ? 'badge-info' : 'badge-warning'}`} style={{ fontSize: '0.7rem' }}>
                                   {u.role}
                                 </span>
+                              </td>
+                              <td>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', background: 'var(--bg-subtle, rgba(0,0,0,0.03))', padding: '0.3rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '0.78rem' }}>
+                                  <Key size={12} color="var(--primary)" style={{ flexShrink: 0 }} />
+                                  <span style={{ 
+                                    fontFamily: revealedPasswords[u.id] ? 'inherit' : 'monospace', 
+                                    letterSpacing: revealedPasswords[u.id] ? 'normal' : '2px', 
+                                    fontWeight: revealedPasswords[u.id] ? 700 : 500, 
+                                    color: revealedPasswords[u.id] ? 'var(--primary)' : 'var(--text-main)',
+                                    minWidth: '65px',
+                                    userSelect: 'all'
+                                  }}>
+                                    {revealedPasswords[u.id] ? (u.plainPassword || 'Password123!') : '••••••••'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost"
+                                    style={{ padding: '0.15rem', minWidth: 'auto', color: 'var(--text-muted)' }}
+                                    title={revealedPasswords[u.id] ? "Hide password" : "View password"}
+                                    onClick={() => togglePasswordVisibility(u.id)}
+                                  >
+                                    {revealedPasswords[u.id] ? <EyeOff size={13} /> : <Eye size={13} />}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost"
+                                    style={{ padding: '0.15rem', minWidth: 'auto', color: 'var(--text-muted)' }}
+                                    title="Copy password"
+                                    onClick={() => handleCopyToClipboard(u.plainPassword || 'Password123!', 'Password')}
+                                  >
+                                    <Copy size={13} />
+                                  </button>
+                                </div>
                               </td>
                               <td>
                                 <div>{u.department || 'N/A'}</div>
