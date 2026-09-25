@@ -62,7 +62,9 @@ import {
   Trash2,
   Copy,
   Eye,
-  EyeOff
+  EyeOff,
+  Mail,
+  Send
 } from 'lucide-react';
 import { useTranslation, languages } from './i18n';
 import { DonutChart, BarChart, HorizontalBarChart, ProgressRing } from './components/charts/DashboardCharts';
@@ -358,6 +360,65 @@ const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast:
   );
 };
 
+export interface IdentifierValidationResult {
+  valid: boolean;
+  error: string;
+  type: 'none' | 'phone' | 'email' | 'regNo' | 'unknown';
+  label: string;
+}
+
+export function validateLoginIdentifier(val: string, role: string): IdentifierValidationResult {
+  const trimmed = (val || '').trim();
+  if (!trimmed) {
+    return { valid: false, error: 'Email address or 10-digit mobile number is required', type: 'none', label: '' };
+  }
+
+  const digitsOnly = trimmed.replace(/\D/g, '');
+  const isNumericOrPhone = /^[+]?[\d\s-]+$/.test(trimmed);
+
+  // If numbers or phone number format
+  if (isNumericOrPhone && digitsOnly.length > 0) {
+    // 10-digit mobile number check (valid Indian format or 10 digits)
+    if (digitsOnly.length === 10) {
+      if (/^[6-9]\d{9}$/.test(digitsOnly)) {
+        return { valid: true, error: '', type: 'phone', label: '10-Digit Mobile' };
+      } else {
+        return { valid: false, error: 'Mobile number must start with 6, 7, 8, or 9', type: 'phone', label: '' };
+      }
+    }
+    if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) {
+      const last10 = digitsOnly.slice(2);
+      if (/^[6-9]\d{9}$/.test(last10)) {
+        return { valid: true, error: '', type: 'phone', label: '+91 Mobile' };
+      }
+    }
+    if (digitsOnly.length < 10) {
+      return { valid: false, error: `Mobile number incomplete: ${digitsOnly.length}/10 digits`, type: 'phone', label: '' };
+    }
+    if (digitsOnly.length > 10) {
+      return { valid: false, error: 'Mobile number cannot exceed 10 digits', type: 'phone', label: '' };
+    }
+    return { valid: false, error: 'Please enter a valid 10-digit mobile number', type: 'phone', label: '' };
+  }
+
+  // Email format check
+  if (trimmed.includes('@')) {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const adminInternalRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+$/;
+    if (emailRegex.test(trimmed) || (role === 'SUPER_ADMIN' && adminInternalRegex.test(trimmed)) || trimmed === 'admin@user') {
+      return { valid: true, error: '', type: 'email', label: 'Email Address' };
+    }
+    return { valid: false, error: 'Invalid email address format (e.g. name@example.com)', type: 'email', label: '' };
+  }
+
+  // Student register number support
+  if (role === 'STUDENT' && /^[a-zA-Z0-9_-]{3,20}$/.test(trimmed)) {
+    return { valid: true, error: '', type: 'regNo', label: 'Register Number' };
+  }
+
+  return { valid: false, error: 'Please enter a valid email address or 10-digit mobile number', type: 'unknown', label: '' };
+}
+
 export default function App() {
   const { t, lang, changeLanguage } = useTranslation();
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
@@ -481,6 +542,9 @@ export default function App() {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginTab, setLoginTab] = useState<'STUDENT' | 'WARDEN' | 'WORKER' | 'SUPER_ADMIN'>('STUDENT');
+  const [loginEmailTouched, setLoginEmailTouched] = useState(false);
+  const [loginPasswordTouched, setLoginPasswordTouched] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   // Register Form states
   const [regRole, setRegRole] = useState<UserRole>('STUDENT');
@@ -600,6 +664,23 @@ export default function App() {
       [userId]: !prev[userId]
     }));
   };
+
+  // Forgot Password (OTP via Brevo) States
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotOtp, setForgotOtp] = useState('');
+  const [forgotNewPass, setForgotNewPass] = useState('');
+  const [forgotStep, setForgotStep] = useState<'email' | 'otp'>('email');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotResendTimer, setForgotResendTimer] = useState(0);
+
+  // Admin Send Email (Brevo) States
+  const [showSendEmailModal, setShowSendEmailModal] = useState(false);
+  const [emailTargetUser, setEmailTargetUser] = useState<any | null>(null);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
+  const [emailBroadcastAll, setEmailBroadcastAll] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<any | null>(null);
   const [editUserFullName, setEditUserFullName] = useState('');
@@ -1703,10 +1784,26 @@ export default function App() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setLoginEmailTouched(true);
+    setLoginPasswordTouched(true);
+
+    const validation = validateLoginIdentifier(loginEmail, loginTab);
+    if (!validation.valid) {
+      setError(validation.error);
+      showToast('error', 'Validation Error', validation.error);
+      return;
+    }
+
+    if (!loginPassword || loginPassword.trim().length === 0) {
+      setError('Password is required');
+      showToast('error', 'Validation Error', 'Password is required');
+      return;
+    }
+
     setIsQrScannerPortal(false);
     try {
       const res = await axios.post('/api/auth/login', {
-        email: loginEmail,
+        email: loginEmail.trim(),
         password: loginPassword
       });
       if (res.data?.success) {
@@ -2547,6 +2644,100 @@ export default function App() {
       showToast('success', 'Copied', `${label} copied to clipboard`);
     } catch {
       showToast('error', 'Copy Failed', `Could not copy ${label.toLowerCase()}`);
+    }
+  };
+
+  // Resend Countdown Timer for OTP
+  useEffect(() => {
+    let interval: any;
+    if (forgotResendTimer > 0) {
+      interval = setInterval(() => {
+        setForgotResendTimer(prev => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [forgotResendTimer]);
+
+  const handleSendForgotOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!forgotEmail) {
+      showToast('error', 'Missing Email', 'Please enter your registered email address');
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const res = await axios.post('/api/auth/forgot-password', { email: forgotEmail });
+      if (res.data?.success) {
+        showToast('success', 'OTP Sent via Brevo', res.data.message || 'Verification code sent to your email');
+        setForgotStep('otp');
+        setForgotResendTimer(60);
+      }
+    } catch (err: any) {
+      showToast('error', 'Request Failed', err.response?.data?.error || 'Failed to send OTP code');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleResetWithOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotOtp || !forgotNewPass) {
+      showToast('error', 'Missing Information', 'Please provide both the 6-digit OTP and your new password');
+      return;
+    }
+    if (forgotNewPass.length < 6) {
+      showToast('error', 'Weak Password', 'New password must be at least 6 characters long');
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const res = await axios.post('/api/auth/reset-password-otp', {
+        email: forgotEmail,
+        otp: forgotOtp,
+        newPassword: forgotNewPass
+      });
+      if (res.data?.success) {
+        showToast('success', 'Password Reset Successful', res.data.message || 'You can now log in with your new password');
+        setLoginEmail(forgotEmail);
+        setLoginPassword(forgotNewPass);
+        setShowForgotPasswordModal(false);
+        setForgotStep('email');
+        setForgotOtp('');
+        setForgotNewPass('');
+      }
+    } catch (err: any) {
+      showToast('error', 'Reset Failed', err.response?.data?.error || 'Invalid or expired OTP code');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleSendStudentEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailSubject || !emailMessage) {
+      showToast('error', 'Incomplete Form', 'Please provide both a subject and message content');
+      return;
+    }
+    setEmailSending(true);
+    try {
+      const res = await axios.post('/api/admin/send-email', {
+        studentId: emailTargetUser?.id,
+        toEmail: emailTargetUser?.email,
+        subject: emailSubject,
+        message: emailMessage,
+        broadcastToAllStudents: emailBroadcastAll
+      });
+      if (res.data?.success) {
+        showToast('success', 'Email Dispatched', res.data.message || 'Email successfully sent via Brevo!');
+        setShowSendEmailModal(false);
+        setEmailSubject('');
+        setEmailMessage('');
+        setEmailTargetUser(null);
+      }
+    } catch (err: any) {
+      showToast('error', 'Delivery Failed', err.response?.data?.error || 'Failed to send email via Brevo');
+    } finally {
+      setEmailSending(false);
     }
   };
 
@@ -4014,6 +4205,8 @@ export default function App() {
                     setLoginTab('STUDENT');
                     setLoginEmail('student01@test.com');
                     setLoginPassword('Password123!');
+                    setLoginEmailTouched(false);
+                    setLoginPasswordTouched(false);
                   }}
                 >
                   <GraduationCap size={16} />
@@ -4043,6 +4236,8 @@ export default function App() {
                     setLoginTab('WARDEN');
                     setLoginEmail('warden@test.com');
                     setLoginPassword('Password123!');
+                    setLoginEmailTouched(false);
+                    setLoginPasswordTouched(false);
                   }}
                 >
                   <Shield size={16} />
@@ -4072,6 +4267,8 @@ export default function App() {
                     setLoginTab('WORKER');
                     setLoginEmail('worker@test.com');
                     setLoginPassword('Password123!');
+                    setLoginEmailTouched(false);
+                    setLoginPasswordTouched(false);
                   }}
                 >
                   <Wrench size={16} />
@@ -4101,6 +4298,8 @@ export default function App() {
                     setLoginTab('SUPER_ADMIN');
                     setLoginEmail('admin@user');
                     setLoginPassword('admin@123');
+                    setLoginEmailTouched(false);
+                    setLoginPasswordTouched(false);
                   }}
                 >
                   <Key size={16} />
@@ -4132,21 +4331,163 @@ export default function App() {
                 </div>
               </div>
 
-              <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
-                    {loginTab === 'STUDENT' ? t('loginPortal.studentEmailLabel') : loginTab === 'WARDEN' ? t('loginPortal.wardenEmailLabel') : loginTab === 'WORKER' ? t('loginPortal.staffEmailLabel') : t('loginPortal.adminEmailLabel')}
-                  </label>
-                  <input className="form-input" type="text" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>{t('auth.password')}</label>
-                  <input className="form-input" type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
-                </div>
-                <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.65rem', fontSize: '0.88rem', fontWeight: 600, marginTop: '0.25rem' }}>
-                  {t('auth.signIn')} ({loginTab === 'STUDENT' ? t('loginPortal.studentRole') : loginTab === 'WARDEN' ? t('loginPortal.wardenRole') : loginTab === 'WORKER' ? t('loginPortal.staffRole') : t('loginPortal.adminRole')})
-                </button>
-              </form>
+              {(() => {
+                const loginValidation = validateLoginIdentifier(loginEmail, loginTab);
+                const hasLoginInput = loginEmail.trim().length > 0;
+                const isIdentifierValid = loginValidation.valid;
+                const showIdentifierError = loginEmailTouched && (!isIdentifierValid || !hasLoginInput);
+
+                return (
+                  <form onSubmit={handleLogin} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                        <label style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                          {loginTab === 'STUDENT' ? t('loginPortal.studentEmailLabel') : loginTab === 'WARDEN' ? t('loginPortal.wardenEmailLabel') : loginTab === 'WORKER' ? t('loginPortal.staffEmailLabel') : t('loginPortal.adminEmailLabel')}
+                        </label>
+
+                        {/* Format detection pill badge */}
+                        {hasLoginInput && (
+                          <span style={{
+                            fontSize: '0.67rem',
+                            fontWeight: 600,
+                            padding: '0.12rem 0.45rem',
+                            borderRadius: '999px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            background: isIdentifierValid ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                            color: isIdentifierValid ? '#10b981' : '#ef4444',
+                            border: `1px solid ${isIdentifierValid ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`
+                          }}>
+                            {loginValidation.type === 'phone' && <Phone size={10} />}
+                            {loginValidation.type === 'email' && <Mail size={10} />}
+                            {loginValidation.type === 'regNo' && <GraduationCap size={10} />}
+                            {isIdentifierValid ? loginValidation.label : 'Invalid Format'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          className="form-input"
+                          type="text"
+                          value={loginEmail}
+                          onChange={e => {
+                            setLoginEmail(e.target.value);
+                            if (!loginEmailTouched) setLoginEmailTouched(true);
+                          }}
+                          onBlur={() => setLoginEmailTouched(true)}
+                          placeholder={
+                            loginTab === 'STUDENT'
+                              ? "student@test.com or 10-digit mobile number"
+                              : loginTab === 'SUPER_ADMIN'
+                              ? "admin@user or admin@example.com"
+                              : "user@test.com or 10-digit mobile number"
+                          }
+                          style={{
+                            paddingRight: '2.5rem',
+                            borderColor: showIdentifierError ? '#ef4444' : (hasLoginInput && isIdentifierValid ? '#10b981' : undefined)
+                          }}
+                          required
+                        />
+                        <div style={{
+                          position: 'absolute',
+                          right: '0.75rem',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          pointerEvents: 'none'
+                        }}>
+                          {hasLoginInput && isIdentifierValid && (
+                            <CheckCircle2 size={16} color="#10b981" />
+                          )}
+                          {showIdentifierError && (
+                            <AlertTriangle size={16} color="#ef4444" />
+                          )}
+                        </div>
+                      </div>
+
+                      {showIdentifierError && (
+                        <div style={{ fontSize: '0.74rem', color: '#ef4444', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+                          <span>{loginValidation.error}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                        <label style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{t('auth.password')}</label>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{ padding: '0.1rem 0.3rem', fontSize: '0.72rem', color: 'var(--primary)', height: 'auto', textDecoration: 'underline' }}
+                          onClick={() => {
+                            setForgotEmail(loginEmail);
+                            setForgotStep('email');
+                            setForgotOtp('');
+                            setForgotNewPass('');
+                            setShowForgotPasswordModal(true);
+                          }}
+                        >
+                          Forgot Password?
+                        </button>
+                      </div>
+
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          className="form-input"
+                          type={showLoginPassword ? "text" : "password"}
+                          value={loginPassword}
+                          onChange={e => {
+                            setLoginPassword(e.target.value);
+                            if (!loginPasswordTouched) setLoginPasswordTouched(true);
+                          }}
+                          onBlur={() => setLoginPasswordTouched(true)}
+                          placeholder="••••••••"
+                          style={{
+                            paddingRight: '2.5rem',
+                            borderColor: loginPasswordTouched && !loginPassword.trim() ? '#ef4444' : undefined
+                          }}
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginPassword(!showLoginPassword)}
+                          aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                          style={{
+                            position: 'absolute',
+                            right: '0.75rem',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: 'var(--text-muted)',
+                            padding: 0,
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                        >
+                          {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+
+                      {loginPasswordTouched && !loginPassword.trim() && (
+                        <div style={{ fontSize: '0.74rem', color: '#ef4444', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+                          <span>Password is required</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <button className="btn btn-primary" type="submit" style={{ width: '100%', padding: '0.65rem', fontSize: '0.88rem', fontWeight: 600, marginTop: '0.25rem' }}>
+                      {t('auth.signIn')} ({loginTab === 'STUDENT' ? t('loginPortal.studentRole') : loginTab === 'WARDEN' ? t('loginPortal.wardenRole') : loginTab === 'WORKER' ? t('loginPortal.staffRole') : t('loginPortal.adminRole')})
+                    </button>
+                  </form>
+                );
+              })()}
             </div>
           )}
 
@@ -7464,6 +7805,19 @@ export default function App() {
                     <button className="btn btn-secondary" onClick={() => fetchAdminUsers()}>
                       <RefreshCw size={14} /> Refresh Roster
                     </button>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                      onClick={() => {
+                        setEmailTargetUser(null);
+                        setEmailSubject('');
+                        setEmailMessage('');
+                        setEmailBroadcastAll(true);
+                        setShowSendEmailModal(true);
+                      }}
+                    >
+                      <Mail size={14} /> Broadcast Email
+                    </button>
                     <button className="btn btn-primary" onClick={() => setShowSeedModal(true)} style={{ background: 'linear-gradient(135deg, #F4A460 0%, #E35336 100%)', borderColor: '#E35336' }}>
                       <Database size={16} /> Seed Test Data (30-Day Logs)
                     </button>
@@ -7674,6 +8028,20 @@ export default function App() {
                                     }}
                                   >
                                     Reset Pass
+                                  </button>
+                                  <button
+                                    className="btn btn-secondary"
+                                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.72rem', color: 'var(--primary)' }}
+                                    title={`Send email to ${u.fullName}`}
+                                    onClick={() => {
+                                      setEmailTargetUser(u);
+                                      setEmailSubject('');
+                                      setEmailMessage('');
+                                      setEmailBroadcastAll(false);
+                                      setShowSendEmailModal(true);
+                                    }}
+                                  >
+                                    <Mail size={12} /> Mail
                                   </button>
                                 </div>
                               </td>
@@ -9903,6 +10271,171 @@ export default function App() {
 
               <button className="btn btn-primary" onClick={handleResetUserPassword}>Set New Password</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: FORGOT PASSWORD (OTP VIA BREVO) */}
+      {showForgotPasswordModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '440px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Key size={18} color="var(--primary)" />
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Reset Password via OTP</h3>
+              </div>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowForgotPasswordModal(false)}><X size={16} /></button>
+            </div>
+
+            {forgotStep === 'email' ? (
+              <form onSubmit={handleSendForgotOtp} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                  Enter your registered account email. A 6-digit verification code (OTP) will be sent to your inbox via <strong>Brevo Email</strong>.
+                </p>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Email Address *</label>
+                  <input
+                    className="form-input"
+                    type="email"
+                    placeholder="e.g. student01@test.com"
+                    value={forgotEmail}
+                    onChange={e => setForgotEmail(e.target.value)}
+                    required
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <button className="btn btn-primary" type="submit" disabled={forgotLoading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                  <Send size={15} /> {forgotLoading ? 'Sending OTP via Brevo...' : 'Send Verification OTP'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleResetWithOtp} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', padding: '0.75rem', borderRadius: '8px', fontSize: '0.8rem', color: 'var(--primary)' }}>
+                  ✉️ OTP has been sent to <strong>{forgotEmail}</strong>. (Valid for 10 minutes)
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Enter 6-Digit OTP *</label>
+                  <input
+                    className="form-input"
+                    type="text"
+                    maxLength={6}
+                    placeholder="123456"
+                    value={forgotOtp}
+                    onChange={e => setForgotOtp(e.target.value.replace(/\D/g, ''))}
+                    required
+                    style={{ width: '100%', fontSize: '1.25rem', letterSpacing: '4px', textAlign: 'center', fontWeight: 700 }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>New Password (min 6 chars) *</label>
+                  <input
+                    className="form-input"
+                    type="password"
+                    placeholder="••••••••"
+                    value={forgotNewPass}
+                    onChange={e => setForgotNewPass(e.target.value)}
+                    required
+                    style={{ width: '100%' }}
+                  />
+                </div>
+
+                <button className="btn btn-primary" type="submit" disabled={forgotLoading} style={{ width: '100%' }}>
+                  {forgotLoading ? 'Verifying & Resetting...' : 'Verify OTP & Set New Password'}
+                </button>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}
+                    onClick={() => setForgotStep('email')}
+                  >
+                    Change Email
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ fontSize: '0.75rem', color: forgotResendTimer > 0 ? 'var(--text-muted)' : 'var(--primary)' }}
+                    disabled={forgotResendTimer > 0 || forgotLoading}
+                    onClick={() => handleSendForgotOtp()}
+                  >
+                    {forgotResendTimer > 0 ? `Resend in ${forgotResendTimer}s` : 'Resend OTP'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: SEND STUDENT EMAIL VIA BREVO */}
+      {showSendEmailModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="glass-panel" style={{ maxWidth: '520px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Mail size={18} color="var(--primary)" />
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>
+                  {emailBroadcastAll ? 'Broadcast Email to Students' : `Email: ${emailTargetUser?.fullName || 'Student'}`}
+                </h3>
+              </div>
+              <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowSendEmailModal(false)}><X size={16} /></button>
+            </div>
+
+            <form onSubmit={handleSendStudentEmail} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ background: 'var(--bg-subtle, rgba(0,0,0,0.03))', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', fontSize: '0.8rem' }}>
+                {emailBroadcastAll ? (
+                  <div>
+                    <strong>Recipients:</strong> All active registered hostel students<br/>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Each student will receive an individual personalized copy via Brevo.</span>
+                  </div>
+                ) : (
+                  <div>
+                    <strong>Recipient:</strong> {emailTargetUser?.fullName} &lt;{emailTargetUser?.email}&gt;<br/>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Role: {emailTargetUser?.role} &bull; Room: {emailTargetUser?.room?.roomNumber || 'Unassigned'}</span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Email Subject / Notice Title *</label>
+                <input
+                  className="form-input"
+                  type="text"
+                  placeholder="e.g. Important Hostel Meeting / Fee Clearance Reminder"
+                  value={emailSubject}
+                  onChange={e => setEmailSubject(e.target.value)}
+                  required
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Message Content *</label>
+                <textarea
+                  className="form-input"
+                  rows={5}
+                  placeholder="Write the notification message to be emailed to the student..."
+                  value={emailMessage}
+                  onChange={e => setEmailMessage(e.target.value)}
+                  required
+                  style={{ width: '100%', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span>⚡ Powered by Brevo (Sendinblue). If no API key is in .env, sends in simulated mode.</span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowSendEmailModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={emailSending} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Send size={14} /> {emailSending ? 'Dispatching via Brevo...' : 'Send Email Now'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

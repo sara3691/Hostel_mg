@@ -132,6 +132,8 @@ model User {
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
   qrToken          String?    @unique
+  resetOtp         String?
+  resetOtpExpiresAt DateTime?
   isDeleted        Boolean    @default(false)
 
   collegeName      String?

@@ -7,6 +7,7 @@ import { prisma } from './core/prisma';
 import { authMiddleware, requireRole, AuthRequest, signUserToken } from './core/auth.middleware';
 import { sessionStore } from './core/sessionStore';
 import erpRouter from './core/erp.routes';
+import { sendOtpEmail } from './core/email.service';
 
 const app = express();
 
@@ -121,15 +122,23 @@ app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const rawIdentifier = (email || '').trim();
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: rawIdentifier },
+          { email: rawIdentifier.toLowerCase() },
+          { mobileNumber: rawIdentifier },
+          { registerNumber: rawIdentifier }
+        ]
+      },
       include: {
         hostel: true,
         room: { select: { id: true, roomNumber: true, block: true, floor: true } }
       }
     });
     if (!user) {
-      res.status(401).json({ success: false, error: 'Invalid email or password' });
+      res.status(401).json({ success: false, error: 'Invalid email, mobile number, or password' });
       return;
     }
 
@@ -190,6 +199,127 @@ app.post('/api/auth/logout', (req, res) => {
     sameSite: isProd ? 'none' : 'lax'
   });
   res.json({ success: true, message: 'Logged out successfully' });
+});
+
+// Forgot Password - Send OTP via Brevo
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    res.status(400).json({ success: false, error: 'Email is required' });
+    return;
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() }
+    });
+
+    if (!user) {
+      res.status(404).json({ success: false, error: 'No account found with this email address' });
+      return;
+    }
+
+    // Generate 6-digit numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetOtp: otp,
+        resetOtpExpiresAt: expiresAt
+      }
+    });
+
+    // Send email via Brevo
+    await sendOtpEmail(user.email, user.fullName, otp);
+
+    res.json({
+      success: true,
+      message: `Password reset OTP has been sent to ${user.email}. Please check your inbox.`
+    });
+  } catch (err: any) {
+    console.error('[Forgot Password Error]', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Verify OTP
+app.post('/api/auth/verify-otp', async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) {
+    res.status(400).json({ success: false, error: 'Email and OTP code are required' });
+    return;
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() }
+    });
+
+    if (!user || !user.resetOtp || user.resetOtp !== String(otp).trim()) {
+      res.status(400).json({ success: false, error: 'Invalid verification code (OTP)' });
+      return;
+    }
+
+    if (!user.resetOtpExpiresAt || new Date() > user.resetOtpExpiresAt) {
+      res.status(400).json({ success: false, error: 'Verification code has expired. Please request a new one.' });
+      return;
+    }
+
+    res.json({ success: true, message: 'OTP verified successfully' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Reset Password with OTP
+app.post('/api/auth/reset-password-otp', async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+  if (!email || !otp || !newPassword) {
+    res.status(400).json({ success: false, error: 'Email, OTP, and new password are required' });
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    res.status(400).json({ success: false, error: 'Password must be at least 6 characters long' });
+    return;
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() }
+    });
+
+    if (!user || !user.resetOtp || user.resetOtp !== String(otp).trim()) {
+      res.status(400).json({ success: false, error: 'Invalid verification code (OTP)' });
+      return;
+    }
+
+    if (!user.resetOtpExpiresAt || new Date() > user.resetOtpExpiresAt) {
+      res.status(400).json({ success: false, error: 'Verification code has expired. Please request a new one.' });
+      return;
+    }
+
+    const passwordHash = await argon2.hash(newPassword);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        plainPassword: newPassword,
+        resetOtp: null,
+        resetOtpExpiresAt: null
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Password has been reset successfully! You can now sign in with your new password.'
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.get('/api/auth/me', authMiddleware, async (req: AuthRequest, res) => {

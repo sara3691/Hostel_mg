@@ -5,6 +5,7 @@ import { authMiddleware, requirePermission, requireRole, AuthRequest } from './a
 import { Role, GatePassStatus, NoticeAudience } from '@prisma/client';
 import { seedDatabase, clearAllTestData } from './seed.service';
 import { pushService } from './push.service';
+import { sendStudentNoticeEmail } from './email.service';
 
 const router = Router();
 
@@ -1921,6 +1922,115 @@ router.post('/admin/users/:id/reset-password', authMiddleware, requireRole(['SUP
     });
 
     res.json({ success: true, message: `Password reset successfully for ${user.email}` });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/admin/send-email - Send direct email or broadcast notice via Brevo
+router.post('/admin/send-email', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'WARDEN']), async (req: Request, res: Response) => {
+  try {
+    const { toEmail, studentId, subject, message, broadcastToAllStudents, hostelId } = req.body;
+
+    if (!subject || !message) {
+      res.status(400).json({ success: false, error: 'Subject and message are required' });
+      return;
+    }
+
+    const senderName = (req as any).user?.email || 'Hostel Administration';
+
+    if (broadcastToAllStudents) {
+      const where: any = { role: 'STUDENT', status: 'APPROVED', isDeleted: false };
+      if (hostelId && hostelId !== 'ALL') where.hostelId = hostelId;
+
+      const students = await prisma.user.findMany({
+        where,
+        select: { id: true, email: true, fullName: true }
+      });
+
+      if (students.length === 0) {
+        res.status(404).json({ success: false, error: 'No approved students found to receive email' });
+        return;
+      }
+
+      let sentCount = 0;
+      for (const s of students) {
+        if (s.email) {
+          await sendStudentNoticeEmail({
+            toEmail: s.email,
+            studentName: s.fullName,
+            subject,
+            message,
+            senderName
+          });
+          sentCount++;
+        }
+      }
+
+      await prisma.activityLog.create({
+        data: {
+          userId: (req as any).user?.id,
+          userEmail: (req as any).user?.email,
+          action: 'BROADCAST_EMAIL',
+          module: 'ADMIN_COMMUNICATIONS',
+          details: `Broadcast email sent to ${sentCount} students: "${subject}"`
+        }
+      });
+
+      res.json({
+        success: true,
+        message: `Broadcast successfully dispatched to ${sentCount} students via Brevo!`
+      });
+      return;
+    }
+
+    let targetEmail = toEmail;
+    let targetName = 'Student';
+
+    if (studentId) {
+      const student = await prisma.user.findUnique({
+        where: { id: studentId },
+        select: { email: true, fullName: true }
+      });
+      if (student) {
+        targetEmail = student.email;
+        targetName = student.fullName;
+      }
+    }
+
+    if (!targetEmail) {
+      res.status(400).json({ success: false, error: 'Recipient email or student ID is required' });
+      return;
+    }
+
+    const emailResult = await sendStudentNoticeEmail({
+      toEmail: targetEmail,
+      studentName: targetName,
+      subject,
+      message,
+      senderName
+    });
+
+    if (!emailResult.success) {
+      res.status(500).json({ success: false, error: emailResult.error || 'Failed to send email' });
+      return;
+    }
+
+    await prisma.activityLog.create({
+      data: {
+        userId: (req as any).user?.id,
+        userEmail: (req as any).user?.email,
+        action: 'SEND_STUDENT_EMAIL',
+        module: 'ADMIN_COMMUNICATIONS',
+        details: `Email sent to ${targetEmail}: "${subject}"`
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Email successfully sent to ${targetEmail} via Brevo!`,
+      simulated: emailResult.simulated
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
