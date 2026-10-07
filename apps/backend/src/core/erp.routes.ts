@@ -1927,38 +1927,67 @@ router.post('/admin/users/:id/reset-password', authMiddleware, requireRole(['SUP
   }
 });
 
-// POST /api/admin/send-email - Send direct email or broadcast notice via Brevo
+// POST /api/admin/send-email - Enhanced: filter by hostel, gender, role with template support
 router.post('/admin/send-email', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'WARDEN']), async (req: Request, res: Response) => {
   try {
-    const { toEmail, studentId, subject, message, broadcastToAllStudents, hostelId } = req.body;
+    const {
+      toEmail, studentId, subject, message,
+      // Filter-based broadcast
+      filterHostelId, filterGender, filterRole,
+      // Legacy broadcast flag
+      broadcastToAllStudents
+    } = req.body;
 
     if (!subject || !message) {
       res.status(400).json({ success: false, error: 'Subject and message are required' });
       return;
     }
 
-    const senderName = (req as any).user?.email || 'Hostel Administration';
+    const authUser = (req as any).user;
+    const senderName = authUser?.email || 'Hostel Administration';
 
-    if (broadcastToAllStudents) {
-      const where: any = { role: 'STUDENT', status: 'APPROVED', isDeleted: false };
-      if (hostelId && hostelId !== 'ALL') where.hostelId = hostelId;
+    // ── BROADCAST MODE (filter-based OR legacy broadcastAll) ──────────────────
+    const isBroadcast = broadcastToAllStudents ||
+      (filterHostelId !== undefined || filterGender !== undefined || filterRole !== undefined);
 
-      const students = await prisma.user.findMany({
+    if (isBroadcast) {
+      const where: any = { status: 'APPROVED', isDeleted: false };
+
+      // Role filter (default STUDENT if not specified)
+      if (filterRole && filterRole !== 'ALL') {
+        where.role = filterRole;
+      } else {
+        where.role = 'STUDENT';
+      }
+
+      // Hostel filter — HOSTEL_ADMIN/WARDEN scoped to their hostel
+      if (authUser?.role !== 'SUPER_ADMIN' && authUser?.hostelId) {
+        where.hostelId = authUser.hostelId;
+      } else if (filterHostelId && filterHostelId !== 'ALL') {
+        where.hostelId = filterHostelId;
+      }
+
+      // Gender filter
+      if (filterGender && filterGender !== 'ALL') {
+        where.gender = filterGender;
+      }
+
+      const recipients = await prisma.user.findMany({
         where,
-        select: { id: true, email: true, fullName: true }
+        select: { id: true, email: true, fullName: true, role: true }
       });
 
-      if (students.length === 0) {
-        res.status(404).json({ success: false, error: 'No approved students found to receive email' });
+      if (recipients.length === 0) {
+        res.status(404).json({ success: false, error: 'No users found matching the selected filters' });
         return;
       }
 
       let sentCount = 0;
-      for (const s of students) {
-        if (s.email) {
+      for (const r of recipients) {
+        if (r.email) {
           await sendStudentNoticeEmail({
-            toEmail: s.email,
-            studentName: s.fullName,
+            toEmail: r.email,
+            studentName: r.fullName,
             subject,
             message,
             senderName
@@ -1969,23 +1998,25 @@ router.post('/admin/send-email', authMiddleware, requireRole(['SUPER_ADMIN', 'HO
 
       await prisma.activityLog.create({
         data: {
-          userId: (req as any).user?.id,
-          userEmail: (req as any).user?.email,
+          userId: authUser?.id,
+          userEmail: authUser?.email,
           action: 'BROADCAST_EMAIL',
           module: 'ADMIN_COMMUNICATIONS',
-          details: `Broadcast email sent to ${sentCount} students: "${subject}"`
+          details: `Filtered broadcast sent to ${sentCount} users: "${subject}" [hostel:${filterHostelId || 'ALL'}, gender:${filterGender || 'ALL'}, role:${filterRole || 'STUDENT'}]`
         }
       });
 
       res.json({
         success: true,
-        message: `Broadcast successfully dispatched to ${sentCount} students via Brevo!`
+        message: `Email dispatched to ${sentCount} recipient${sentCount > 1 ? 's' : ''} via Gmail SMTP!`,
+        sentCount
       });
       return;
     }
 
+    // ── SINGLE RECIPIENT MODE ─────────────────────────────────────────────────
     let targetEmail = toEmail;
-    let targetName = 'Student';
+    let targetName = 'User';
 
     if (studentId) {
       const student = await prisma.user.findUnique({
@@ -1999,7 +2030,7 @@ router.post('/admin/send-email', authMiddleware, requireRole(['SUPER_ADMIN', 'HO
     }
 
     if (!targetEmail) {
-      res.status(400).json({ success: false, error: 'Recipient email or student ID is required' });
+      res.status(400).json({ success: false, error: 'Recipient email or user ID is required' });
       return;
     }
 
@@ -2018,19 +2049,56 @@ router.post('/admin/send-email', authMiddleware, requireRole(['SUPER_ADMIN', 'HO
 
     await prisma.activityLog.create({
       data: {
-        userId: (req as any).user?.id,
-        userEmail: (req as any).user?.email,
+        userId: authUser?.id,
+        userEmail: authUser?.email,
         action: 'SEND_STUDENT_EMAIL',
         module: 'ADMIN_COMMUNICATIONS',
-        details: `Email sent to ${targetEmail}: "${subject}"`
+        details: `Direct email sent to ${targetEmail}: "${subject}"`
       }
     });
 
     res.json({
       success: true,
-      message: `Email successfully sent to ${targetEmail} via Brevo!`,
+      message: `Email sent to ${targetEmail} via Gmail SMTP!`,
       simulated: emailResult.simulated
     });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/admin/send-email/preview - Preview recipient count before sending
+router.get('/admin/send-email/preview', authMiddleware, requireRole(['SUPER_ADMIN', 'HOSTEL_ADMIN', 'WARDEN']), async (req: Request, res: Response) => {
+  try {
+    const { filterHostelId, filterGender, filterRole } = req.query;
+    const authUser = (req as any).user;
+
+    const where: any = { status: 'APPROVED', isDeleted: false };
+
+    if (filterRole && filterRole !== 'ALL') {
+      where.role = filterRole as string;
+    } else {
+      where.role = 'STUDENT';
+    }
+
+    if (authUser?.role !== 'SUPER_ADMIN' && authUser?.hostelId) {
+      where.hostelId = authUser.hostelId;
+    } else if (filterHostelId && filterHostelId !== 'ALL') {
+      where.hostelId = filterHostelId as string;
+    }
+
+    if (filterGender && filterGender !== 'ALL') {
+      where.gender = filterGender as string;
+    }
+
+    const count = await prisma.user.count({ where });
+    const sample = await prisma.user.findMany({
+      where,
+      select: { id: true, fullName: true, email: true, role: true, gender: true },
+      take: 5
+    });
+
+    res.json({ success: true, count, sample });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }

@@ -674,13 +674,21 @@ export default function App() {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotResendTimer, setForgotResendTimer] = useState(0);
 
-  // Admin Send Email (Brevo) States
+  // Admin Send Email (Gmail SMTP) States
   const [showSendEmailModal, setShowSendEmailModal] = useState(false);
   const [emailTargetUser, setEmailTargetUser] = useState<any | null>(null);
   const [emailSubject, setEmailSubject] = useState('');
   const [emailMessage, setEmailMessage] = useState('');
   const [emailBroadcastAll, setEmailBroadcastAll] = useState(false);
   const [emailSending, setEmailSending] = useState(false);
+  // Enhanced filters
+  const [emailFilterHostel, setEmailFilterHostel] = useState('ALL');
+  const [emailFilterGender, setEmailFilterGender] = useState('ALL');
+  const [emailFilterRole, setEmailFilterRole] = useState('STUDENT');
+  const [emailPreviewCount, setEmailPreviewCount] = useState<number | null>(null);
+  const [emailPreviewSample, setEmailPreviewSample] = useState<any[]>([]);
+  const [emailPreviewLoading, setEmailPreviewLoading] = useState(false);
+  const [emailSelectedTemplate, setEmailSelectedTemplate] = useState('');
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<any | null>(null);
   const [editUserFullName, setEditUserFullName] = useState('');
@@ -2712,6 +2720,28 @@ export default function App() {
     }
   };
 
+  const handlePreviewEmailRecipients = async () => {
+    if (!emailBroadcastAll) return;
+    setEmailPreviewLoading(true);
+    try {
+      const res = await axios.get('/api/admin/send-email/preview', {
+        params: {
+          filterHostelId: emailFilterHostel,
+          filterGender: emailFilterGender,
+          filterRole: emailFilterRole
+        }
+      });
+      if (res.data?.success) {
+        setEmailPreviewCount(res.data.count);
+        setEmailPreviewSample(res.data.sample || []);
+      }
+    } catch (err: any) {
+      showToast('error', 'Preview Failed', err.response?.data?.error || 'Could not fetch recipient count');
+    } finally {
+      setEmailPreviewLoading(false);
+    }
+  };
+
   const handleSendStudentEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailSubject || !emailMessage) {
@@ -2720,22 +2750,41 @@ export default function App() {
     }
     setEmailSending(true);
     try {
-      const res = await axios.post('/api/admin/send-email', {
-        studentId: emailTargetUser?.id,
-        toEmail: emailTargetUser?.email,
+      const payload: any = {
         subject: emailSubject,
-        message: emailMessage,
-        broadcastToAllStudents: emailBroadcastAll
-      });
+        message: emailMessage
+      };
+
+      if (emailBroadcastAll) {
+        // Broadcast with filters
+        payload.filterHostelId = emailFilterHostel;
+        payload.filterGender = emailFilterGender;
+        payload.filterRole = emailFilterRole;
+      } else {
+        // Single recipient
+        payload.studentId = emailTargetUser?.id;
+        payload.toEmail = emailTargetUser?.email;
+      }
+
+      const res = await axios.post('/api/admin/send-email', payload);
       if (res.data?.success) {
-        showToast('success', 'Email Dispatched', res.data.message || 'Email successfully sent via Brevo!');
+        const sentMsg = res.data.sentCount
+          ? `${res.data.message} (${res.data.sentCount} recipients)`
+          : res.data.message || 'Email sent via Gmail SMTP!';
+        showToast('success', 'Email Dispatched ✅', sentMsg);
         setShowSendEmailModal(false);
         setEmailSubject('');
         setEmailMessage('');
         setEmailTargetUser(null);
+        setEmailPreviewCount(null);
+        setEmailPreviewSample([]);
+        setEmailSelectedTemplate('');
+        setEmailFilterHostel('ALL');
+        setEmailFilterGender('ALL');
+        setEmailFilterRole('STUDENT');
       }
     } catch (err: any) {
-      showToast('error', 'Delivery Failed', err.response?.data?.error || 'Failed to send email via Brevo');
+      showToast('error', 'Delivery Failed', err.response?.data?.error || 'Failed to send email via Gmail SMTP');
     } finally {
       setEmailSending(false);
     }
@@ -10370,37 +10419,159 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: SEND STUDENT EMAIL VIA BREVO */}
+      {/* MODAL: SEND EMAIL — Enhanced with Templates + Filters */}
       {showSendEmailModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div className="glass-panel" style={{ maxWidth: '520px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', overflowY: 'auto' }}>
+          <div className="glass-panel" style={{ maxWidth: '600px', width: '100%', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxHeight: '95vh', overflowY: 'auto' }}>
+
+            {/* ── Header ── */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Mail size={18} color="var(--primary)" />
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>
-                  {emailBroadcastAll ? 'Broadcast Email to Students' : `Email: ${emailTargetUser?.fullName || 'Student'}`}
-                </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <Mail size={20} color="var(--primary)" />
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>
+                    {emailBroadcastAll ? '📢 Broadcast Email' : `📧 Email: ${emailTargetUser?.fullName || 'User'}`}
+                  </h3>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0 }}>Gmail SMTP · SmartHostel AI</p>
+                </div>
               </div>
               <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setShowSendEmailModal(false)}><X size={16} /></button>
             </div>
 
-            <form onSubmit={handleSendStudentEmail} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ background: 'var(--bg-subtle, rgba(0,0,0,0.03))', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', fontSize: '0.8rem' }}>
-                {emailBroadcastAll ? (
-                  <div>
-                    <strong>Recipients:</strong> All active registered hostel students<br/>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Each student will receive an individual personalized copy via Brevo.</span>
+            <form onSubmit={handleSendStudentEmail} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+
+              {/* ── Mode: Single vs Broadcast ── */}
+              {emailBroadcastAll && (
+                <div style={{ background: 'var(--primary-soft, rgba(227,83,54,0.07))', border: '1px solid var(--primary-border, rgba(227,83,54,0.2))', borderRadius: '10px', padding: '1rem' }}>
+                  <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary)', margin: '0 0 0.75rem' }}>🎯 Recipient Filters</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.6rem' }}>
+                    {/* Hostel Filter */}
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.3rem' }}>Hostel</label>
+                      <select
+                        className="form-input"
+                        value={emailFilterHostel}
+                        onChange={e => { setEmailFilterHostel(e.target.value); setEmailPreviewCount(null); }}
+                        style={{ width: '100%', fontSize: '0.8rem' }}
+                      >
+                        <option value="ALL">All Hostels</option>
+                        {hostels.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                      </select>
+                    </div>
+                    {/* Gender Filter */}
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.3rem' }}>Gender</label>
+                      <select
+                        className="form-input"
+                        value={emailFilterGender}
+                        onChange={e => { setEmailFilterGender(e.target.value); setEmailPreviewCount(null); }}
+                        style={{ width: '100%', fontSize: '0.8rem' }}
+                      >
+                        <option value="ALL">All Genders</option>
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </div>
+                    {/* Role Filter */}
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.3rem' }}>Role</label>
+                      <select
+                        className="form-input"
+                        value={emailFilterRole}
+                        onChange={e => { setEmailFilterRole(e.target.value); setEmailPreviewCount(null); }}
+                        style={{ width: '100%', fontSize: '0.8rem' }}
+                      >
+                        <option value="STUDENT">Students</option>
+                        <option value="WARDEN">Wardens</option>
+                        <option value="HOSTEL_ADMIN">Hostel Admins</option>
+                        <option value="ASSISTANT_WARDEN">Asst. Wardens</option>
+                        <option value="STAFF">Staff</option>
+                      </select>
+                    </div>
                   </div>
-                ) : (
-                  <div>
-                    <strong>Recipient:</strong> {emailTargetUser?.fullName} &lt;{emailTargetUser?.email}&gt;<br/>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Role: {emailTargetUser?.role} &bull; Room: {emailTargetUser?.room?.roomNumber || 'Unassigned'}</span>
+
+                  {/* Preview Button + Count */}
+                  <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.75rem', padding: '0.3rem 0.8rem' }}
+                      disabled={emailPreviewLoading}
+                      onClick={handlePreviewEmailRecipients}
+                    >
+                      {emailPreviewLoading ? '⏳ Loading...' : '👁 Preview Recipients'}
+                    </button>
+                    {emailPreviewCount !== null && (
+                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: emailPreviewCount > 0 ? 'var(--success, #22c55e)' : 'var(--danger, #ef4444)' }}>
+                        {emailPreviewCount > 0 ? `✅ ${emailPreviewCount} recipient${emailPreviewCount > 1 ? 's' : ''} matched` : '⚠️ No recipients found'}
+                      </span>
+                    )}
                   </div>
-                )}
+
+                  {/* Sample Recipients */}
+                  {emailPreviewSample.length > 0 && (
+                    <div style={{ marginTop: '0.6rem', background: 'rgba(0,0,0,0.04)', borderRadius: '6px', padding: '0.5rem 0.75rem' }}>
+                      <p style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 0.35rem' }}>Sample recipients:</p>
+                      {emailPreviewSample.map((u, i) => (
+                        <div key={i} style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', gap: '0.4rem' }}>
+                          <span>• {u.fullName}</span>
+                          <span style={{ opacity: 0.6 }}>&lt;{u.email}&gt;</span>
+                          {u.gender && <span style={{ opacity: 0.5 }}>· {u.gender}</span>}
+                        </div>
+                      ))}
+                      {emailPreviewCount! > 5 && (
+                        <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', margin: '0.3rem 0 0', opacity: 0.7 }}>...and {emailPreviewCount! - 5} more</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Single recipient info */}
+              {!emailBroadcastAll && emailTargetUser && (
+                <div style={{ background: 'var(--bg-subtle, rgba(0,0,0,0.03))', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', fontSize: '0.8rem' }}>
+                  <strong>To:</strong> {emailTargetUser.fullName} &lt;{emailTargetUser.email}&gt;<br/>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Role: {emailTargetUser.role} · Room: {emailTargetUser.room?.roomNumber || 'Unassigned'}</span>
+                </div>
+              )}
+
+              {/* ── Email Templates ── */}
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block' }}>📋 Quick Templates</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                  {[
+                    { label: '📅 Meeting Notice', subject: 'Important Hostel Meeting', message: 'Dear Student,\n\nYou are cordially invited to attend an important hostel meeting.\n\nDate: [Date]\nTime: [Time]\nVenue: [Location]\n\nAttendance is mandatory. Please be punctual.\n\nRegards,\nHostel Administration' },
+                    { label: '💰 Fee Reminder', subject: 'Hostel Fee Payment Reminder', message: 'Dear Student,\n\nThis is a reminder that your hostel fee payment is due.\n\nDue Date: [Date]\nAmount: ₹[Amount]\n\nKindly clear your dues at the earliest to avoid late fees.\n\nRegards,\nHostel Administration' },
+                    { label: '🚫 Rule Violation', subject: 'Hostel Rule Violation Notice', message: 'Dear Student,\n\nThis is to inform you that a rule violation was observed in your conduct.\n\nViolation: [Details]\n\nYou are advised to strictly adhere to hostel rules going forward. Repeated violations may lead to disciplinary action.\n\nRegards,\nHostel Administration' },
+                    { label: '🏠 Room Inspection', subject: 'Upcoming Room Inspection Notice', message: 'Dear Student,\n\nKindly be informed that a room inspection will be conducted.\n\nDate: [Date]\nTime: [Time]\n\nPlease ensure your room is clean and tidy.\n\nRegards,\nHostel Administration' },
+                    { label: '🎉 Announcement', subject: 'General Hostel Announcement', message: 'Dear Student,\n\nWe have an important announcement to share with you.\n\n[Write your announcement here]\n\nThank you for your attention.\n\nRegards,\nHostel Administration' },
+                  ].map(tpl => (
+                    <button
+                      key={tpl.label}
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{
+                        fontSize: '0.72rem',
+                        padding: '0.25rem 0.6rem',
+                        border: emailSelectedTemplate === tpl.label ? '1.5px solid var(--primary)' : undefined,
+                        color: emailSelectedTemplate === tpl.label ? 'var(--primary)' : undefined
+                      }}
+                      onClick={() => {
+                        setEmailSelectedTemplate(tpl.label);
+                        setEmailSubject(tpl.subject);
+                        setEmailMessage(tpl.message);
+                      }}
+                    >
+                      {tpl.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
+              {/* ── Subject ── */}
               <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Email Subject / Notice Title *</label>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Subject / Notice Title *</label>
                 <input
                   className="form-input"
                   type="text"
@@ -10412,27 +10583,43 @@ export default function App() {
                 />
               </div>
 
+              {/* ── Message ── */}
               <div>
                 <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'block' }}>Message Content *</label>
                 <textarea
                   className="form-input"
-                  rows={5}
-                  placeholder="Write the notification message to be emailed to the student..."
+                  rows={6}
+                  placeholder="Write your message here... (use templates above to start quickly)"
                   value={emailMessage}
                   onChange={e => setEmailMessage(e.target.value)}
                   required
-                  style={{ width: '100%', resize: 'vertical' }}
+                  style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6 }}
                 />
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                  {emailMessage.length} characters · Replace [bracketed placeholders] before sending
+                </div>
               </div>
 
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                <span>⚡ Powered by Brevo (Sendinblue). If no API key is in .env, sends in simulated mode.</span>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span>⚡ Powered by Gmail SMTP. Each recipient gets a personalized copy.</span>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+              {/* ── Actions ── */}
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowSendEmailModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={emailSending} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Send size={14} /> {emailSending ? 'Dispatching via Brevo...' : 'Send Email Now'}
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={emailSending || (emailBroadcastAll && emailPreviewCount === 0)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  <Send size={14} />
+                  {emailSending
+                    ? `Sending${emailBroadcastAll && emailPreviewCount ? ` to ${emailPreviewCount}...` : '...'}`
+                    : emailBroadcastAll
+                      ? `Send to ${emailPreviewCount !== null ? emailPreviewCount : '?'} Recipients`
+                      : 'Send Email Now'
+                  }
                 </button>
               </div>
             </form>

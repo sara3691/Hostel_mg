@@ -85,7 +85,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
         text: textContent || subject
       });
 
-      console.log(`[Brevo SMTP] Email sent to ${to} (MessageId: ${info.messageId})`);
+      console.log(`[Gmail SMTP] Email sent to ${to} (MessageId: ${info.messageId})`);
       return { success: true, messageId: info.messageId };
     } catch (err: any) {
       console.error('[Brevo SMTP Error]', err);
@@ -95,7 +95,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
 
   // 3. Fallback: Dev Simulation Mode
   console.log('═══════════════════════════════════════════════════════════════════');
-  console.log(`📧 [EMAIL SIMULATION] (Set BREVO_API_KEY in .env for live delivery)`);
+  console.log(`📧 [EMAIL SIMULATION] (Set SMTP_USER & SMTP_PASS in .env for live delivery via Gmail)`);
   console.log(`To:      ${toName ? `${toName} <${to}>` : to}`);
   console.log(`From:    ${senderName} <${senderEmail}>`);
   console.log(`Subject: ${subject}`);
